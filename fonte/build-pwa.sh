@@ -17,3 +17,18 @@ Leitor de HQs e livros (CBZ, PDF, EPUB, TXT) que funciona no celular e no tablet
 Os livros ficam guardados só no aparelho de quem usa.
 R
 grep -c 'rel="manifest"' site/index.html; ls -la site site/lib
+# livros grátis que o app adiciona sozinho
+mkdir -p site/livros && cp /home/claude/obras/out/*.epub /home/claude/obras/out/*.cbz site/livros/
+python3 - <<'PY'
+import zipfile, re, os, json, html
+d='/home/claude/estante/site/livros'; out=[]
+for f in os.listdir(d):
+    p=os.path.join(d,f); sz=os.path.getsize(p); t=f.rsplit('.',1)[0].replace('-',' ')
+    if f.endswith('.epub'):
+        z=zipfile.ZipFile(p); opf=[n for n in z.namelist() if n.endswith('.opf')][0]; m=re.search(r'<dc:title[^>]*>(.*?)</dc:title>', z.read(opf).decode('utf-8','ignore'), re.S)
+        if m: t=html.unescape(m.group(1).strip())
+    out.append({'file':f,'title':t,'size':sz,'big':sz>5_000_000})
+out.sort(key=lambda x:x['size'])
+json.dump(out, open(os.path.join(d,'catalogo.json'),'w'), ensure_ascii=False, indent=1)
+print(len(out),'livros no catálogo')
+PY

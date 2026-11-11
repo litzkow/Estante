@@ -1,6 +1,6 @@
 /* ================= strings (pt / en) ================= */
 const STR = {
-  autoTheme: ['Auto', 'Auto'],
+  autoTheme: ['Auto', 'Auto'], dlBooks: ['Adicionando livros grátis {n} de {t}', 'Adding free books {n} of {t}'],
   gMorning: ['Bom dia', 'Good morning'], gAfternoon: ['Boa tarde', 'Good afternoon'], gNight: ['Boa noite', 'Good evening'], nItems: ['{n} na estante', '{n} on your shelf'],
   today: ['Hoje', 'Today'], goalOf: ['{n} de {g} min de leitura', '{n} of {g} min read'], goalMet: ['Meta do dia cumprida', 'Daily goal reached'], goalDone: ['Meta do dia cumprida! 🎉', 'Daily goal reached! 🎉'],
   goalTitle: ['Sua leitura', 'Your reading'], streakDays: ['dias seguidos', 'day streak'], weekMin: ['min nos últimos 7 dias', 'min in the last 7 days'], dailyGoal: ['Meta diária', 'Daily goal'],

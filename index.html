@@ -402,6 +402,11 @@ body.no-ai #b-ai,body.no-ai #p-ai{display:none!important}
 @keyframes knob{0%,100%{transform:translateX(0)}50%{transform:translateX(-60px)}}
 
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-delay:0s!important;transition-duration:.01ms!important}}
+.banner.dl{align-items:center}
+.banner.dl .dlt{flex:1;min-width:0}
+.banner.dl .dlm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.banner.dl .hbar{height:4px;border-radius:2px;background:var(--card);margin-top:6px;overflow:hidden}
+.banner.dl .hbar i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
@@ -576,6 +581,7 @@ const ICONS = {
   sliders: '<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',
   sort: '<path d="M7 4v16M3.5 16.5L7 20l3.5-3.5M13 6h8M13 11h6M13 16h4"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
+  download: '<path d="M12 4v11M7 10.5l5 5 5-5M5 20h14"/>',
   x: '<path d="M6 6l12 12M18 6L6 18"/>',
   more: '<circle cx="5.5" cy="12" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="18.5" cy="12" r="1.3" fill="currentColor"/>',
   list: '<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1" fill="currentColor"/><circle cx="4.5" cy="12" r="1" fill="currentColor"/><circle cx="4.5" cy="18" r="1" fill="currentColor"/>',
@@ -759,7 +765,7 @@ function gestures(target, h) {
 }
 /* ================= strings (pt / en) ================= */
 const STR = {
-  autoTheme: ['Auto', 'Auto'],
+  autoTheme: ['Auto', 'Auto'], dlBooks: ['Adicionando livros grátis {n} de {t}', 'Adding free books {n} of {t}'],
   gMorning: ['Bom dia', 'Good morning'], gAfternoon: ['Boa tarde', 'Good afternoon'], gNight: ['Boa noite', 'Good evening'], nItems: ['{n} na estante', '{n} on your shelf'],
   today: ['Hoje', 'Today'], goalOf: ['{n} de {g} min de leitura', '{n} of {g} min read'], goalMet: ['Meta do dia cumprida', 'Daily goal reached'], goalDone: ['Meta do dia cumprida! 🎉', 'Daily goal reached! 🎉'],
   goalTitle: ['Sua leitura', 'Your reading'], streakDays: ['dias seguidos', 'day streak'], weekMin: ['min nos últimos 7 dias', 'min in the last 7 days'], dailyGoal: ['Meta diária', 'Daily goal'],
@@ -941,7 +947,7 @@ const DB = {
 
 /* ================= settings ================= */
 const DEFAULTS = {
-  lang: 'pt', theme: 'auto', goalMin: 15, toured: false, warm: 0, dim: 0, pause: true, anim: true,
+  lang: 'pt', theme: 'auto', goalMin: 15, toured: false, starterGot: [], warm: 0, dim: 0, pause: true, anim: true,
   // comics
   cMode: 'quadros', cDir: 'ltr', cFullFirst: true, cSplit: true, cSpot: true,
   // books
@@ -2891,7 +2897,7 @@ const App = {
     await Goal.init();
     Lib.animNext = true;
     await Lib.render();
-    Splash.hide().then(() => Tour.maybe());
+    Splash.hide().then(() => { Tour.maybe(); Starter.run(); });
     // platform capabilities arrive later
     AI.init();
     Sync.init().then(async () => { if (Sync.on) { if (await Sync.pullPrefs()) { applyTheme(); applyComfort(); applyI18n(); } Lib.render(); } });
@@ -3083,5 +3089,36 @@ function greeting() {
 const darkMQ = matchMedia('(prefers-color-scheme: dark)');
 function effTheme() { return S.theme === 'auto' ? (darkMQ.matches ? 'escuro' : 'claro') : S.theme; }
 darkMQ.addEventListener && darkMQ.addEventListener('change', () => { if (S.theme === 'auto') applyTheme(); });
+
+/* ---------- free books bundled with the site: added to the shelf automatically ---------- */
+const Starter = {
+  base: /github\.io$/.test(location.hostname) ? 'livros/' : 'https://litzkow.github.io/Estante/livros/',
+  async run() {
+    let cat;
+    try { cat = await (await fetch(this.base + 'catalogo.json', { cache: 'no-cache' })).json(); } catch (e) { return; }
+    const got = new Set(S.starterGot || []);
+    const todo = cat.filter(x => !got.has(x.file));
+    if (!todo.length) return;
+    const ban = el('div', { class: 'banner dl' }, icon('download'), el('div', { class: 'dlt' }, el('div', { class: 'dlm' }), el('div', { class: 'hbar' }, el('i'))));
+    $('#l-banner').append(ban);
+    const total = todo.reduce((a, x) => a + x.size, 0); let done = 0, k = 0;
+    const upd = name => { ban.querySelector('.dlm').textContent = t('dlBooks').replace('{n}', ++k).replace('{t}', todo.length) + ' · ' + name; ban.querySelector('i').style.width = Math.round(done / total * 100) + '%'; };
+    const batch = [];
+    const flush = async () => { if (batch.length) { await importFiles(batch.splice(0)); setS('starterGot', [...got]); } };
+    for (const x of todo) {
+      upd(x.title);
+      try {
+        const r = await fetch(this.base + encodeURIComponent(x.file));
+        if (!r.ok) throw new Error(r.status);
+        const reader = r.body.getReader(); const parts = [];
+        for (; ;) { const { done: d, value } = await reader.read(); if (d) break; parts.push(value); done += value.length; ban.querySelector('i').style.width = Math.round(done / total * 100) + '%'; }
+        batch.push(new File(parts, x.file)); got.add(x.file);
+        if (x.big) await flush();
+      } catch (e) { console.warn('starter', x.file, e); }
+    }
+    await flush();
+    ban.remove();
+  },
+};
 </script>
 </body></html>

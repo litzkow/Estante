@@ -173,3 +173,34 @@ function greeting() {
 const darkMQ = matchMedia('(prefers-color-scheme: dark)');
 function effTheme() { return S.theme === 'auto' ? (darkMQ.matches ? 'escuro' : 'claro') : S.theme; }
 darkMQ.addEventListener && darkMQ.addEventListener('change', () => { if (S.theme === 'auto') applyTheme(); });
+
+/* ---------- free books bundled with the site: added to the shelf automatically ---------- */
+const Starter = {
+  base: /github\.io$/.test(location.hostname) ? 'livros/' : 'https://litzkow.github.io/Estante/livros/',
+  async run() {
+    let cat;
+    try { cat = await (await fetch(this.base + 'catalogo.json', { cache: 'no-cache' })).json(); } catch (e) { return; }
+    const got = new Set(S.starterGot || []);
+    const todo = cat.filter(x => !got.has(x.file));
+    if (!todo.length) return;
+    const ban = el('div', { class: 'banner dl' }, icon('download'), el('div', { class: 'dlt' }, el('div', { class: 'dlm' }), el('div', { class: 'hbar' }, el('i'))));
+    $('#l-banner').append(ban);
+    const total = todo.reduce((a, x) => a + x.size, 0); let done = 0, k = 0;
+    const upd = name => { ban.querySelector('.dlm').textContent = t('dlBooks').replace('{n}', ++k).replace('{t}', todo.length) + ' · ' + name; ban.querySelector('i').style.width = Math.round(done / total * 100) + '%'; };
+    const batch = [];
+    const flush = async () => { if (batch.length) { await importFiles(batch.splice(0)); setS('starterGot', [...got]); } };
+    for (const x of todo) {
+      upd(x.title);
+      try {
+        const r = await fetch(this.base + encodeURIComponent(x.file));
+        if (!r.ok) throw new Error(r.status);
+        const reader = r.body.getReader(); const parts = [];
+        for (; ;) { const { done: d, value } = await reader.read(); if (d) break; parts.push(value); done += value.length; ban.querySelector('i').style.width = Math.round(done / total * 100) + '%'; }
+        batch.push(new File(parts, x.file)); got.add(x.file);
+        if (x.big) await flush();
+      } catch (e) { console.warn('starter', x.file, e); }
+    }
+    await flush();
+    ban.remove();
+  },
+};

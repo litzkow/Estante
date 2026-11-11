@@ -384,3 +384,8 @@ body.no-ai #b-ai,body.no-ai #p-ai{display:none!important}
 @keyframes knob{0%,100%{transform:translateX(0)}50%{transform:translateX(-60px)}}
 
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-delay:0s!important;transition-duration:.01ms!important}}
+.banner.dl{align-items:center}
+.banner.dl .dlt{flex:1;min-width:0}
+.banner.dl .dlm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.banner.dl .hbar{height:4px;border-radius:2px;background:var(--card);margin-top:6px;overflow:hidden}
+.banner.dl .hbar i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}

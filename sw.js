@@ -1,5 +1,5 @@
 // Estante: funciona sem internet e se atualiza sozinho
-const VERSION = 'estante-202611110814';
+const VERSION = 'estante-202611110819';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'lib/icon-180.png', 'lib/icon-192.png', 'lib/icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -24,7 +24,8 @@ self.addEventListener('fetch', e => {
   }
   if (url.origin !== location.origin) return;
   // o próprio app: tenta a rede primeiro (pega versão nova), cai no cache sem internet
-  e.respondWith(fetch(req).then(res => {
+  if (url.pathname.includes('/livros/')) return; // livros vão para a estante, não para o cache
+  e.respondWith(fetch(req, { cache: 'no-cache' }).then(res => {
     if (res && res.ok) { const copy = res.clone(); caches.open(VERSION).then(c => c.put(req, copy)); }
     return res;
   }).catch(() => caches.match(req).then(r => r || caches.match('index.html'))));
