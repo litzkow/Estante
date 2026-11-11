@@ -452,3 +452,8 @@ html[data-view=v-comic],html[data-view=v-comic] body{background:#000}
 .trate{min-width:52px;height:34px;border-radius:999px;background:rgba(127,127,127,.16);font-weight:700;font-size:13px;font-variant-numeric:tabular-nums}
 #ttsdark{position:fixed;inset:0;z-index:120;background:#000;display:flex;align-items:flex-end;justify-content:center;padding-bottom:calc(var(--sb) + 40px)}
 #ttsdark .tdh{color:#3a3a3a;font-size:13px;animation:fadeIn 1s}
+/* margens no estilo Apple Books: mais respiro em cima e embaixo */
+#b-frame{top:calc(var(--st) + 64px);bottom:calc(var(--sb) + 56px)}
+#b-head{top:calc(var(--st) + 22px)}
+#b-foot{bottom:calc(var(--sb) + 18px)}
+.b-x{top:calc(var(--st) + 12px)}

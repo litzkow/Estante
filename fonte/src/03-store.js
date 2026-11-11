@@ -78,7 +78,7 @@ function setS(k, v) { S[k] = v; S.updated = Date.now(); saveSettings(); }
 async function loadSettings() {
   const v = await DB.get('kv', 'settings');
   if (v) Object.assign(S, v);
-  if (!S.typoV) { S.bSize = 18; S.bJustify = false; S.bLh = 1.6; S.bTurn = S.bAnim === false ? 'none' : 'slide'; S.typoV = 1; }
+  if (v && !v.typoV) { S.bSize = 18; S.bJustify = false; S.bLh = 1.6; S.bTurn = S.bAnim === false ? 'none' : 'slide'; S.typoV = 1; }
   else { const l = (navigator.language || 'pt').toLowerCase(); S.lang = l.startsWith('pt') ? 'pt' : 'pt'; }
 }
 

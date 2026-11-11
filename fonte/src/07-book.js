@@ -106,7 +106,7 @@ const Book = {
   layout() {
     const FW = this.frame.clientWidth, FH = this.frame.clientHeight;
     this.FW = FW; this.FH = FH;
-    let mx = { s: 14, m: 24, l: 40 }[S.bMargin] || 24;
+    let mx = { s: 18, m: 28, l: 44 }[S.bMargin] || 28;
     if (FW > 600) mx += 12;
     let cpp = (FW >= 900 && FW > FH * 1.15) ? 2 : 1;
     let col = cpp === 2 ? (FW - 4 * mx) / 2 : FW - 2 * mx;

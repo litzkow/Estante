@@ -470,6 +470,11 @@ html[data-view=v-comic],html[data-view=v-comic] body{background:#000}
 .trate{min-width:52px;height:34px;border-radius:999px;background:rgba(127,127,127,.16);font-weight:700;font-size:13px;font-variant-numeric:tabular-nums}
 #ttsdark{position:fixed;inset:0;z-index:120;background:#000;display:flex;align-items:flex-end;justify-content:center;padding-bottom:calc(var(--sb) + 40px)}
 #ttsdark .tdh{color:#3a3a3a;font-size:13px;animation:fadeIn 1s}
+/* margens no estilo Apple Books: mais respiro em cima e embaixo */
+#b-frame{top:calc(var(--st) + 64px);bottom:calc(var(--sb) + 56px)}
+#b-head{top:calc(var(--st) + 22px)}
+#b-foot{bottom:calc(var(--sb) + 18px)}
+.b-x{top:calc(var(--st) + 12px)}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
@@ -1052,7 +1057,7 @@ function setS(k, v) { S[k] = v; S.updated = Date.now(); saveSettings(); }
 async function loadSettings() {
   const v = await DB.get('kv', 'settings');
   if (v) Object.assign(S, v);
-  if (!S.typoV) { S.bSize = 18; S.bJustify = false; S.bLh = 1.6; S.bTurn = S.bAnim === false ? 'none' : 'slide'; S.typoV = 1; }
+  if (v && !v.typoV) { S.bSize = 18; S.bJustify = false; S.bLh = 1.6; S.bTurn = S.bAnim === false ? 'none' : 'slide'; S.typoV = 1; }
   else { const l = (navigator.language || 'pt').toLowerCase(); S.lang = l.startsWith('pt') ? 'pt' : 'pt'; }
 }
 
@@ -2363,7 +2368,7 @@ const Book = {
   layout() {
     const FW = this.frame.clientWidth, FH = this.frame.clientHeight;
     this.FW = FW; this.FH = FH;
-    let mx = { s: 14, m: 24, l: 40 }[S.bMargin] || 24;
+    let mx = { s: 18, m: 28, l: 44 }[S.bMargin] || 28;
     if (FW > 600) mx += 12;
     let cpp = (FW >= 900 && FW > FH * 1.15) ? 2 : 1;
     let col = cpp === 2 ? (FW - 4 * mx) / 2 : FW - 2 * mx;
