@@ -457,3 +457,4 @@ html[data-view=v-comic],html[data-view=v-comic] body{background:#000}
 #b-head{top:calc(var(--st) + 22px)}
 #b-foot{bottom:calc(var(--sb) + 18px)}
 .b-x{top:calc(var(--st) + 12px)}
+canvas.peel{position:absolute;z-index:4;pointer-events:none}

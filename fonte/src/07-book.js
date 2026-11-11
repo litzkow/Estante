@@ -229,6 +229,11 @@ const Book = {
       if (dir > 0) { on(F, g); a = [F.animate([{ transform: 'translateY(100%)', boxShadow: '0 -20px 40px rgba(0,0,0,.25)' }, { transform: 'none', boxShadow: '0 -20px 40px rgba(0,0,0,0)' }], { duration: D, easing: ease }), g.animate([{ transform: 'none', filter: 'brightness(1)' }, { transform: 'scale(.94)', filter: 'brightness(.8)' }], { duration: D, easing: ease })]; }
       else { on(g, F); a = [g.animate([{ transform: 'none' }, { transform: 'translateY(100%)' }], { duration: D, easing: ease }), F.animate([{ transform: 'scale(.94)', filter: 'brightness(.8)' }, { transform: 'none', filter: 'brightness(1)' }], { duration: D, easing: ease })]; }
     } else if (mode === 'curl') {
+      a = [this.peel(dir > 0 ? g : F, dir > 0 ? F : g, dir)];
+      this.fx = a;
+      Promise.all(a.map(x => x.finished)).catch(() => { }).then(() => { if (this.ghost === g) { g.remove(); this.ghost = null; } F.style.zIndex = ''; F.style.clipPath = F.style.webkitClipPath = ''; });
+      return;
+    } else if (mode === 'curlHard') {
       const out = [{ transform: 'perspective(1800px) rotateY(0)', filter: 'brightness(1)', boxShadow: '0 0 0 rgba(0,0,0,0)' }, { transform: 'perspective(1800px) rotateY(-30deg)', filter: 'brightness(.95)', boxShadow: '20px 0 40px rgba(0,0,0,.3)', offset: .35 }, { transform: 'perspective(1800px) rotateY(-100deg)', filter: 'brightness(.7)', boxShadow: '40px 0 60px rgba(0,0,0,0)' }];
       if (dir > 0) { on(g, F); g.style.transformOrigin = '0 50%'; a = [g.animate(out, { duration: D, easing: 'ease-in-out' }), F.animate([{ filter: 'brightness(.8)' }, { filter: 'brightness(1)' }], { duration: D })]; }
       else { on(F, g); F.style.transformOrigin = '0 50%'; a = [F.animate(out.slice().reverse().map((k, i) => ({ ...k, offset: [0, .65, 1][i] })), { duration: D, easing: 'ease-in-out' }), g.animate([{ filter: 'brightness(1)' }, { filter: 'brightness(.8)' }], { duration: D })]; }
@@ -240,6 +245,77 @@ const Book = {
     }
     this.fx = a;
     Promise.all(a.map(x => x.finished)).catch(() => { }).then(() => { if (this.ghost === g) { g.remove(); this.ghost = null; } F.style.zIndex = ''; F.style.transformOrigin = ''; });
+  },
+  // paper page peel: the bottom corner lifts and the sheet folds up (canvas draws the back of the sheet and the shadows)
+  peel(top, under, dir) {
+    top.style.zIndex = 3; under.style.zIndex = 2;
+    const W = this.frame.clientWidth, H = this.frame.clientHeight, dpr = Math.min(2, devicePixelRatio || 1);
+    const cv = document.createElement('canvas'); cv.className = 'peel'; cv.width = W * dpr; cv.height = H * dpr;
+    Object.assign(cv.style, { left: this.frame.offsetLeft + 'px', top: this.frame.offsetTop + 'px', width: W + 'px', height: H + 'px' });
+    this.frame.parentNode.append(cv);
+    const ctx = cv.getContext('2d'); ctx.scale(dpr, dpr);
+    const paper = getComputedStyle(this.frame).backgroundColor || '#fbfaf7';
+    const C = { x: W, y: H }, D = { x: -1.2 * W, y: -2.2 * H };
+    const clipHalf = (poly, M, n, keepPos) => {
+      const out = [], side = p => ((p.x - M.x) * n.x + (p.y - M.y) * n.y) * (keepPos ? 1 : -1);
+      for (let i = 0; i < poly.length; i++) {
+        const a = poly[i], b = poly[(i + 1) % poly.length], sa = side(a), sb = side(b);
+        if (sa >= 0) out.push(a);
+        if ((sa >= 0) !== (sb >= 0)) { const t = sa / (sa - sb); out.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }); }
+      }
+      return out;
+    };
+    const rect = [{ x: 0, y: 0 }, { x: W, y: 0 }, { x: W, y: H }, { x: 0, y: H }];
+    const ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    const dur = 720, t0 = performance.now();
+    let raf, done, finished = false;
+    const pr = new Promise(r => done = r);
+    const draw = k => {
+      const P = { x: C.x + D.x * k, y: C.y + D.y * k }, M = { x: (C.x + P.x) / 2, y: (C.y + P.y) / 2 };
+      const len = Math.hypot(P.x - C.x, P.y - C.y) || 1e-6, n = { x: (P.x - C.x) / len, y: (P.y - C.y) / len };
+      const keep = clipHalf(rect, M, n, true), fold = clipHalf(rect, M, n, false);
+      const cp = keep.length ? 'polygon(' + keep.map(p => p.x.toFixed(1) + 'px ' + p.y.toFixed(1) + 'px').join(',') + ')' : 'polygon(0 0,0 0,0 0)';
+      top.style.clipPath = top.style.webkitClipPath = cp;
+      ctx.clearRect(0, 0, W, H);
+      if (k <= 0.0001) return;
+      const refl = fold.map(p => { const s = 2 * ((p.x - M.x) * n.x + (p.y - M.y) * n.y); return { x: p.x - s * n.x, y: p.y - s * n.y }; });
+      const along = { x: -n.y, y: n.x };
+      // shadow cast on the page underneath, next to the crease
+      if (fold.length) {
+        ctx.save(); ctx.beginPath(); fold.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.closePath(); ctx.clip();
+        const g1 = ctx.createLinearGradient(M.x, M.y, M.x - n.x * 60, M.y - n.y * 60);
+        g1.addColorStop(0, 'rgba(0,0,0,.32)'); g1.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g1; ctx.fillRect(0, 0, W, H); ctx.restore();
+      }
+      // soft curvature on the page still lying flat
+      if (keep.length) {
+        ctx.save(); ctx.beginPath(); keep.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.closePath(); ctx.clip();
+        const g2 = ctx.createLinearGradient(M.x, M.y, M.x + n.x * 40, M.y + n.y * 40);
+        g2.addColorStop(0, 'rgba(0,0,0,.10)'); g2.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g2; ctx.fillRect(0, 0, W, H); ctx.restore();
+      }
+      // the back of the sheet (the folded flap)
+      if (refl.length > 2) {
+        let far = 0; for (const p of refl) far = Math.max(far, (p.x - M.x) * n.x + (p.y - M.y) * n.y);
+        ctx.save();
+        ctx.beginPath(); refl.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.closePath();
+        ctx.shadowColor = 'rgba(0,0,0,.28)'; ctx.shadowBlur = 18; ctx.shadowOffsetX = n.x * 6; ctx.shadowOffsetY = n.y * 6;
+        ctx.fillStyle = paper; ctx.fill(); ctx.restore();
+        ctx.save(); ctx.beginPath(); refl.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.closePath(); ctx.clip();
+        const f = Math.max(30, far), g3 = ctx.createLinearGradient(M.x, M.y, M.x + n.x * f, M.y + n.y * f);
+        g3.addColorStop(0, 'rgba(0,0,0,.22)'); g3.addColorStop(.18, 'rgba(255,255,255,.18)'); g3.addColorStop(.55, 'rgba(0,0,0,.03)'); g3.addColorStop(1, 'rgba(0,0,0,.12)');
+        ctx.fillStyle = g3; ctx.fillRect(0, 0, W, H);
+        ctx.strokeStyle = 'rgba(0,0,0,.08)'; ctx.lineWidth = 1; ctx.stroke(); ctx.restore();
+      }
+      void along;
+    };
+    const step = now => {
+      if (finished) return;
+      let t = Math.min(1, (now - t0) / dur); const k = ease(dir > 0 ? t : 1 - t);
+      draw(k);
+      if (t < 1) raf = requestAnimationFrame(step); else end();
+    };
+    const end = () => { if (finished) return; finished = true; cancelAnimationFrame(raf); cv.remove(); top.style.clipPath = top.style.webkitClipPath = ''; done(); };
+    draw(dir > 0 ? 0 : 1); raf = requestAnimationFrame(step);
+    return { finished: pr, finish: end };
   },
   async jumpTo(j) {
     // same chapter number in the other language if possible, else same percentage
