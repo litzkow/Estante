@@ -275,3 +275,112 @@ textarea.field{height:110px;padding:12px 14px;resize:none;line-height:1.4}
 
 body.no-ai #b-ai,body.no-ai #p-ai{display:none!important}
 #b-flow p:has(br),#b-flow .poem p,#b-flow .stanza,#b-flow .poetry,#b-flow .poetry0,#b-flow .poetry2,#b-flow .verse{text-align:left!important;-webkit-hyphens:manual;hyphens:manual;text-indent:0}
+
+/* ================= design pass ================= */
+/* splash */
+#splash{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;background:radial-gradient(120% 80% at 50% 70%,#3a2a1a 0,#1c1a28 45%,#0e0e12 100%);transition:opacity .5s ease,transform .5s ease}
+#splash.out{opacity:0;transform:scale(1.04);pointer-events:none}
+.sp-in{display:flex;flex-direction:column;align-items:center}
+#splash .logo{width:132px;height:132px;overflow:visible}
+.lb{transform-box:fill-box;transform-origin:50% 100%;animation:bookUp .7s cubic-bezier(.2,1.4,.4,1) both;animation-delay:calc(.15s + var(--d)*.09s)}
+.lb.lean{transform-origin:0 100%;animation-name:bookLean}
+.lg-shelf{transform-box:fill-box;transform-origin:50% 50%;animation:shelfIn .5s cubic-bezier(.2,.8,.2,1) both}
+@keyframes bookUp{from{transform:scaleY(0);opacity:0}to{transform:none;opacity:1}}
+@keyframes bookLean{0%{transform:scaleY(0);opacity:0}60%{transform:rotate(-17deg);opacity:1}80%{transform:rotate(3deg)}100%{transform:none}}
+@keyframes shelfIn{from{transform:scaleX(0)}to{transform:none}}
+.sp-name{font-family:var(--serif);font-size:40px;font-weight:600;color:#f6ecd6;letter-spacing:-.5px;margin-top:14px;animation:riseIn .6s .6s cubic-bezier(.2,.8,.2,1) both}
+.sp-tag{display:flex;align-items:center;gap:10px;margin-top:8px;font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#e8a33d;animation:riseIn .6s .78s cubic-bezier(.2,.8,.2,1) both}
+.sp-tag i{width:4px;height:4px;border-radius:1px;background:#e8a33d;transform:rotate(45deg)}
+@keyframes riseIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+/* views fade in */
+.view.on{animation:fadeIn .28s ease}
+
+/* library header */
+.brand{font-size:32px}
+.greet{color:var(--muted);font-size:14px;margin:-4px 0 12px 2px}
+.today{width:100%;display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:12px 14px;margin:0 0 12px;text-align:left}
+.tring{position:relative;width:56px;height:56px;flex:none}
+.tring b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;font-variant-numeric:tabular-nums}
+.ring{transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:6;stroke-linecap:round}
+.ring .rt{stroke:var(--card2)}
+.ring .rv{stroke:var(--accent);animation:ringFill 1.1s .2s cubic-bezier(.2,.8,.2,1) forwards}
+.ring.full .rv{stroke:#4cc38a}
+@keyframes ringFill{to{stroke-dashoffset:var(--to)}}
+.tinfo{flex:1;min-width:0}
+.tinfo .tl{font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:var(--accent);font-weight:700}
+.tinfo .tv{font-size:15px;font-weight:600;margin-top:3px}
+.streak{display:flex;align-items:center;gap:4px;height:34px;padding:0 12px;border-radius:999px;background:var(--card2);color:var(--muted);font-weight:700;font-variant-numeric:tabular-nums}
+.streak svg{width:17px;height:17px}
+.streak.on{background:rgba(232,104,61,.16);color:#f07a3d}
+.gstats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.gstats div{background:var(--card2);border-radius:14px;padding:12px 14px}
+.gstats b{display:block;font-size:26px;font-weight:700}
+.gstats span{font-size:12.5px;color:var(--muted)}
+.week{display:flex;gap:8px;height:120px}
+.wd{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px}
+.wd span{font-size:12px;color:var(--muted)}
+.wb{position:relative;flex:1;width:100%;max-width:30px;background:var(--card2);border-radius:8px;overflow:hidden;display:flex;align-items:flex-end}
+.wb i{display:block;width:100%;background:var(--accent);border-radius:8px;opacity:.75}
+.wd.met .wb i{background:#4cc38a;opacity:1}
+.wb hr{position:absolute;left:0;right:0;margin:0;border:0;border-top:1.5px dashed var(--muted);opacity:.6}
+.goalseg{display:grid!important;grid-template-columns:repeat(4,1fr)}
+
+/* hero */
+.hero{position:relative;overflow:hidden;padding:16px;gap:18px;border-radius:22px}
+.hero .hbg{position:absolute;inset:-30px;filter:blur(34px) saturate(1.4);opacity:.38;z-index:0;pointer-events:none}
+.hero .hbg img,.hero .hbg .gen{width:100%;height:100%;object-fit:cover}
+.hero>*:not(.hbg){position:relative;z-index:1}
+.hero .hcover{width:96px;border-radius:4px 8px 8px 4px;box-shadow:0 10px 26px rgba(0,0,0,.4)}
+.hero .htitle{font-size:21px}
+.hero .hpct{font-size:12px;color:var(--muted);margin-top:5px;font-variant-numeric:tabular-nums}
+.hero .hgo{width:52px;height:52px;box-shadow:0 6px 18px rgba(232,163,61,.45)}
+.hero:active{transform:scale(.985)}
+.hero{transition:transform .15s}
+
+/* covers: book-like depth */
+.card .cover{border-radius:3px 8px 8px 3px;transition:transform .18s ease,box-shadow .18s ease;box-shadow:0 1px 2px rgba(0,0,0,.2),0 8px 18px -6px rgba(0,0,0,.45)}
+.card .cover::after{content:'';position:absolute;inset:0;pointer-events:none;border-radius:inherit;background:linear-gradient(90deg,rgba(0,0,0,.32) 0,rgba(255,255,255,.22) 2.5%,rgba(0,0,0,.14) 4.5%,rgba(0,0,0,0) 9%,rgba(0,0,0,0) 94%,rgba(255,255,255,.10) 100%),linear-gradient(180deg,rgba(255,255,255,.08),rgba(0,0,0,0) 30%)}
+.card .cover:active{transform:perspective(700px) rotateY(-9deg) scale(.96)}
+@media (hover:hover){.card .cover:hover{transform:translateY(-4px);box-shadow:0 2px 4px rgba(0,0,0,.2),0 16px 28px -8px rgba(0,0,0,.5)}}
+.grid.anim .card{animation:cardIn .55s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i)*40ms)}
+@keyframes cardIn{from{opacity:0;transform:translateY(18px) scale(.96)}to{opacity:1;transform:none}}
+.fab{transition:transform .15s}
+.fab:active{transform:scale(.94)}
+
+/* opening transition */
+.openfx{position:fixed;z-index:84;overflow:hidden;pointer-events:none}
+.openfx>img,.openfx>.gen{width:100%;height:100%;object-fit:cover}
+
+/* tour */
+.tour{position:fixed;inset:0;z-index:150;background:rgba(0,0,0,.55);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn .3s}
+.tour.out{opacity:0;transition:opacity .3s}
+.tw-card{width:100%;max-width:400px;background:var(--bg);border:1px solid var(--line);border-radius:28px;padding:26px 22px 20px;box-shadow:0 30px 80px rgba(0,0,0,.5);text-align:center;touch-action:pan-y}
+.tw-card.in .tw-art,.tw-card.in .tw-txt{animation:riseIn .45s cubic-bezier(.2,.8,.2,1) both}
+.tw-card.in .tw-txt{animation-delay:.06s}
+.tw-art{height:170px;display:flex;align-items:center;justify-content:center;background:radial-gradient(70% 70% at 50% 60%,rgba(232,163,61,.18),transparent 70%);border-radius:20px;margin-bottom:18px}
+.tw-art svg{height:150px;width:auto;max-width:100%;overflow:visible}
+.tw-art .logo{height:130px}
+.tw-txt h2{font-family:var(--serif);font-size:24px;margin:0 0 8px;letter-spacing:-.3px}
+.tw-txt p{color:var(--muted);line-height:1.5;font-size:15px;margin:0;min-height:68px}
+.tw-dots{display:flex;gap:6px;justify-content:center;margin:18px 0}
+.tw-dots i{width:7px;height:7px;border-radius:4px;background:var(--card2);transition:all .25s}
+.tw-dots i.on{width:22px;background:var(--accent)}
+.tw-btns{display:flex;gap:10px}
+.tw-btns .btn{flex:1}
+.btn.ghost{background:transparent;color:var(--muted)}
+.tw-pop{transform-box:fill-box;transform-origin:center;animation:pop 1.6s .3s ease-in-out infinite}
+.tw-files rect,.tw-files text{animation:floaty 2.4s ease-in-out infinite}
+.tw-focus{animation:pulse 1.4s ease-in-out infinite}
+.tw-hl{transform-box:fill-box;transform-origin:0 50%;animation:hl 1.8s .2s ease-out both}
+.tw-bar{animation:riseIn .5s 1s both}
+.tw-knob{animation:knob 2.6s ease-in-out infinite}
+@keyframes pop{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
+@keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes hl{from{transform:scaleX(0)}to{transform:none}}
+@keyframes knob{0%,100%{transform:translateX(0)}50%{transform:translateX(-60px)}}
+
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-delay:0s!important;transition-duration:.01ms!important}}

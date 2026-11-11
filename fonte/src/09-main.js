@@ -4,13 +4,13 @@ function applyComfort() {
   $('#dim').style.opacity = (S.dim / 100 * 0.7).toFixed(3);
 }
 function applyTheme() {
-  document.body.className = document.body.className.replace(/\bt-\w+/g, '').trim() + ' t-' + S.theme;
-  const c = { claro: '#f6f4ef', sepia: '#efe3c8', escuro: '#141518', noite: '#000000' }[S.theme];
+  document.body.className = document.body.className.replace(/\bt-\w+/g, '').trim() + ' t-' + effTheme();
+  const c = { claro: '#f6f4ef', sepia: '#efe3c8', escuro: '#141518', noite: '#000000' }[effTheme()];
   const m = $('meta[name=theme-color]'); if (m) m.content = c;
 }
 function themePicker(after) {
   const box = el('div', { class: 'themes' });
-  const defs = [['claro', t('light'), '#fbfaf7', '#1d1c1a'], ['sepia', t('sepia'), '#f3e7cf', '#4a3b27'], ['escuro', t('dark'), '#1e1f22', '#d9d4cb'], ['noite', t('night'), '#000', '#9d968a']];
+  const defs = [['auto', t('autoTheme'), 'linear-gradient(135deg,#fbfaf7 50%,#1e1f22 50%)', '#e8a33d'], ['claro', t('light'), '#fbfaf7', '#1d1c1a'], ['sepia', t('sepia'), '#f3e7cf', '#4a3b27'], ['escuro', t('dark'), '#1e1f22', '#d9d4cb'], ['noite', t('night'), '#000', '#9d968a']];
   const btns = defs.map(([k, label, bg, fg]) => el('button', { class: S.theme === k ? 'on' : '', style: { background: bg, color: fg, borderColor: S.theme === k ? 'var(--accent)' : (k === 'noite' ? '#333' : 'transparent') }, onclick: () => { setS('theme', k); applyTheme(); btns.forEach(x => { x.classList.remove('on'); x.style.borderColor = 'transparent'; }); const b = btns[defs.findIndex(d => d[0] === k)]; b.classList.add('on'); b.style.borderColor = 'var(--accent)'; after && after(); } }, el('b', { text: 'Aa' }), label));
   box.append(...btns); return box;
 }
@@ -83,7 +83,7 @@ function applyI18n() {
 /* ================= app shell ================= */
 const App = {
   view: 'v-lib',
-  show(id) { this.view = id; $$('.view').forEach(v => v.classList.toggle('on', v.id === id)); Sheets.closeAll(); Book.hideSel && Book.hideSel(); },
+  show(id) { if (id === 'v-lib' && this.view !== 'v-lib') setTimeout(() => Lib.render(), 0); this.view = id; $$('.view').forEach(v => v.classList.toggle('on', v.id === id)); Sheets.closeAll(); Book.hideSel && Book.hideSel(); },
   async init() {
     $$('[data-ic]').forEach(e => e.prepend(icon(e.dataset.ic)));
     await DB.open();
@@ -117,7 +117,10 @@ const App = {
     // save on hide
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveRecSoon.flush(); });
     addEventListener('pagehide', () => saveRecSoon.flush());
+    await Goal.init();
+    Lib.animNext = true;
     await Lib.render();
+    Splash.hide().then(() => Tour.maybe());
     // platform capabilities arrive later
     AI.init();
     Sync.init().then(async () => { if (Sync.on) { if (await Sync.pullPrefs()) { applyTheme(); applyComfort(); applyI18n(); } Lib.render(); } });

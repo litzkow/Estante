@@ -38,17 +38,22 @@ const Lib = {
     // banner
     const ban = $('#l-banner'); ban.replaceChildren();
     if (!DB.ok || this.memOnly) ban.append(el('div', { class: 'banner' }, icon('info'), el('div', { text: t('memOnly') })));
+    // greeting + daily goal
+    $('#l-greet').textContent = greeting() + (this.books.length ? ' · ' + t('nItems').replace('{n}', this.books.length) : '');
+    $('#l-today').replaceChildren(this.books.length ? Goal.widget() : '');
     // hero
     const hero = $('#l-hero'); hero.replaceChildren();
     const cont = this.books.filter(b => b.opened && !b.finished).sort((a, b) => b.opened - a.opened)[0];
     if (cont && !this.q) {
-      hero.append(el('button', { class: 'hero', onclick: () => this.open(cont.id) },
+      const pc = Math.round((cont.pct || 0) * 100);
+      hero.append(el('button', { class: 'hero', onclick: e => this.open(cont.id, e.currentTarget.querySelector('.hcover')) },
+        el('div', { class: 'hbg' }, this.coverEl(cont)),
         el('div', { class: 'hcover' }, this.coverEl(cont)),
         el('div', { class: 'hinfo' },
           el('div', { class: 'hlabel', text: t('continue') }),
           el('div', { class: 'htitle', text: cont.title }),
-          el('div', { class: 'hsub', text: [cont.author, this.kindLabel(cont), this.pctLabel(cont)].filter(Boolean).join(' · ') }),
-          el('div', { class: 'hbar' }, el('i', { style: { width: Math.round((cont.pct || 0) * 100) + '%' } }))),
+          el('div', { class: 'hsub', text: [cont.author, this.kindLabel(cont)].filter(Boolean).join(' · ') }),
+          el('div', { class: 'hbar' }, el('i', { style: { width: pc + '%' } })), el('div', { class: 'hpct', text: pc + '%' })),
         el('div', { class: 'hgo' }, icon('play'))));
     }
     // chips
@@ -56,11 +61,12 @@ const Lib = {
     const cdefs = [['all', t('all')], ['comic', t('comics'), 'comic'], ['book', t('books'), 'book'], ['reading', t('reading')], ['done', t('finishedPl')]];
     for (const c of this.collections()) cdefs.push(['c:' + c, c, 'folder']);
     if (!cdefs.some(c => c[0] === S.filter)) S.filter = 'all';
-    for (const [v, label, ic] of cdefs) chips.append(el('button', { class: 'chip' + (S.filter === v ? ' on' : ''), onclick: () => { setS('filter', v); this.render(); } }, ic ? icon(ic) : null, label));
+    for (const [v, label, ic] of cdefs) chips.append(el('button', { class: 'chip' + (S.filter === v ? ' on' : ''), onclick: () => { setS('filter', v); this.animNext = true; this.render(); } }, ic ? icon(ic) : null, label));
     // grid
     const grid = $('#l-grid'); grid.replaceChildren();
     const list = this.filtered();
-    for (const b of list) grid.append(this.card(b));
+    grid.classList.toggle('anim', !!this.animNext && !reduceMotion()); this.animNext = false;
+    list.forEach((b, i) => { const c = this.card(b); c.style.setProperty('--i', Math.min(i, 18)); grid.append(c); });
     // empty
     const em = $('#l-empty');
     if (!this.books.length) {
@@ -108,7 +114,7 @@ const Lib = {
     });
   },
   card(b) {
-    const cover = el('button', { class: 'cover', 'aria-label': b.title, onclick: () => this.open(b.id) }, this.coverEl(b),
+    const cover = el('button', { class: 'cover', 'aria-label': b.title, onclick: e => this.open(b.id, e.currentTarget) }, this.coverEl(b),
       el('span', { class: 'badge', text: b.format === 'cbz' ? 'HQ' : b.format.toUpperCase() }),
       b.finished ? el('span', { class: 'done' }, icon('check')) : null,
       (b.pct > 0 && !b.finished) ? el('div', { class: 'cbar' }, el('i', { style: { width: Math.round(b.pct * 100) + '%' } })) : null);
@@ -191,9 +197,13 @@ const Lib = {
       }
     });
   },
-  async open(id) {
+  async open(id, from) {
     const rec = await DB.get('books', id);
     if (!rec) return;
+    const fx = OpenFx.start(from, rec.kind === 'comic' ? '#000' : getComputedStyle(document.body).getPropertyValue('--paper'));
+    try { await this.open2(rec, id); } finally { OpenFx.end(fx); }
+  },
+  async open2(rec, id) {
     const blob = await DB.get('files', id);
     if (!blob) { Sheets.confirm(t('fileMissing'), t('fileMissingText'), t('addFile')).then(ok => ok && $('#l-file').click()); return; }
     // resume from another device?

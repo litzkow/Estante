@@ -58,7 +58,7 @@ const DB = {
 
 /* ================= settings ================= */
 const DEFAULTS = {
-  lang: 'pt', theme: 'escuro', warm: 0, dim: 0, pause: true, anim: true,
+  lang: 'pt', theme: 'auto', goalMin: 15, toured: false, warm: 0, dim: 0, pause: true, anim: true,
   // comics
   cMode: 'quadros', cDir: 'ltr', cFullFirst: true, cSplit: true, cSpot: true,
   // books

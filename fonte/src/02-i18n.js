@@ -1,5 +1,15 @@
 /* ================= strings (pt / en) ================= */
 const STR = {
+  autoTheme: ['Auto', 'Auto'],
+  gMorning: ['Bom dia', 'Good morning'], gAfternoon: ['Boa tarde', 'Good afternoon'], gNight: ['Boa noite', 'Good evening'], nItems: ['{n} na estante', '{n} on your shelf'],
+  today: ['Hoje', 'Today'], goalOf: ['{n} de {g} min de leitura', '{n} of {g} min read'], goalMet: ['Meta do dia cumprida', 'Daily goal reached'], goalDone: ['Meta do dia cumprida! 🎉', 'Daily goal reached! 🎉'],
+  goalTitle: ['Sua leitura', 'Your reading'], streakDays: ['dias seguidos', 'day streak'], weekMin: ['min nos últimos 7 dias', 'min in the last 7 days'], dailyGoal: ['Meta diária', 'Daily goal'],
+  twNext: ['Continuar', 'Next'], twStart: ['Começar', 'Get started'],
+  tw1t: ['Bem-vindo à Estante', 'Welcome to Estante'], tw1: ['Suas HQs e livros num lugar só, no celular e no tablet, mesmo sem internet.', 'Your comics and books in one place, on phone and tablet, even offline.'],
+  tw2t: ['Adicione o que quiser ler', 'Add anything you want to read'], tw2: ['Toque em Adicionar e escolha arquivos CBZ, PDF, EPUB ou TXT. Eles ficam guardados no seu aparelho.', 'Tap Add and pick CBZ, PDF, EPUB or TXT files. They stay stored on your device.'],
+  tw3t: ['HQ quadro a quadro', 'Comics panel by panel'], tw3: ['Toque na direita para ir ao próximo quadro e na esquerda para voltar. Faça pinça para ampliar.', 'Tap the right side for the next panel and the left to go back. Pinch to zoom.'],
+  tw4t: ['Livros do seu jeito', 'Books your way'], tw4: ['Segure o dedo numa palavra para destacar, buscar ou pedir ao Claude para explicar.', 'Press and hold a word to highlight, search or ask Claude to explain it.'],
+  tw5t: ['Cuidado com a vista', 'Easy on the eyes'], tw5: ['Filtro quente, escurecer a tela e um lembrete de pausa a cada 20 minutos. E uma meta diária para criar o hábito.', 'Warm filter, screen dimming and a break reminder every 20 minutes. Plus a daily goal to build the habit.'],
   appName: ['Estante', 'Estante'],
   add: ['Adicionar', 'Add'], addFirst: ['Adicionar HQ ou livro', 'Add a comic or book'], addFile: ['Adicionar arquivo', 'Add file'],
   dropHere: ['Solte os arquivos aqui', 'Drop files here'],
