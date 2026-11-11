@@ -110,7 +110,7 @@ const App = {
     await DB.open();
     await loadSettings();
     applyTheme(); applyComfort(); applyI18n();
-    Comic.init(); Book.init(); PdfBook.init();
+    Comic.init(); Book.init(); PdfBook.init(); TTS.init();
     // library controls
     $('#l-add').onclick = () => $('#l-file').click();
     $('#l-file').onchange = e => { const f = [...e.target.files]; e.target.value = ''; importFiles(f); };

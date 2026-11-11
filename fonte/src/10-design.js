@@ -85,7 +85,7 @@ const Goal = {
     setInterval(() => this.tick(), 15000);
   },
   tick() {
-    if (App.view === 'v-lib' || document.visibilityState !== 'visible' || performance.now() - this.lastInput > 3 * 60 * 1000) return;
+    if (App.view === 'v-lib' || document.visibilityState !== 'visible' || (performance.now() - this.lastInput > 3 * 60 * 1000 && !TTS.playing)) return;
     const k = this.ymd(); const before = this.today();
     this.days[k] = (this.days[k] || 0) + 15;
     if (before < S.goalMin * 60 && this.today() >= S.goalMin * 60) toast(t('goalDone'));

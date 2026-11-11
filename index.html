@@ -458,6 +458,18 @@ html[data-view=v-comic],html[data-view=v-comic] body{background:#000}
 .fhead{display:flex;flex-direction:column;justify-content:center;margin-left:6px;line-height:1.15}
 .fhead b{font-family:var(--serif);font-size:19px}
 .fhead span{font-size:12px;color:var(--muted)}
+/* ouvir o livro */
+::highlight(tts){background-color:rgba(232,163,61,.32);color:inherit}
+#tts-bar{position:absolute;z-index:7;left:50%;bottom:calc(var(--sb) + 36px);transform:translate(-50%,140%);opacity:0;pointer-events:none;width:min(420px,calc(100% - 24px));background:var(--bar);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);border:1px solid var(--line);border-radius:22px;padding:8px 10px 10px;box-shadow:0 14px 40px rgba(0,0,0,.25);transition:transform .35s cubic-bezier(.2,.8,.2,1),opacity .25s;color:var(--fg)}
+#v-book.tts-on #tts-bar{transform:translate(-50%,0);opacity:1;pointer-events:auto}
+#v-book.tts-on:not(.ui-off) #tts-bar{bottom:calc(var(--sb) + 96px)}
+.tvoice{display:block;margin:0 auto 4px;font-size:12px;color:var(--muted);max-width:90%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:2px 8px}
+.trow{display:flex;align-items:center;justify-content:space-between}
+.tplay{width:54px;height:54px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px rgba(232,163,61,.4)}
+.tplay svg{width:26px;height:26px}
+.trate{min-width:52px;height:34px;border-radius:999px;background:rgba(127,127,127,.16);font-weight:700;font-size:13px;font-variant-numeric:tabular-nums}
+#ttsdark{position:fixed;inset:0;z-index:120;background:#000;display:flex;align-items:flex-end;justify-content:center;padding-bottom:calc(var(--sb) + 40px)}
+#ttsdark .tdh{color:#3a3a3a;font-size:13px;animation:fadeIn 1s}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
@@ -519,10 +531,12 @@ html[data-view=v-comic],html[data-view=v-comic] body{background:#000}
   <button class="b-x" id="b-x" data-ic="x" data-tl="back"></button>
   <div id="b-frame"><div id="b-flow"></div></div>
   <div id="b-foot" class="b-meta"><span id="b-f1"></span><span id="b-f2"></span></div>
+  <div id="tts-bar"><button class="tvoice"></button><div class="trow"><button class="icon tx" data-ic="x"></button><button class="icon tback" data-ic="skipBack"></button><button class="tplay"></button><button class="icon tfwd" data-ic="skipFwd"></button><button class="trate"></button><button class="icon tmoon" data-ic="moon"></button></div></div>
   <header class="r-top">
     <button class="icon r-back" data-ic="back" data-tl="back"></button>
     <div class="r-title" id="b-title"></div>
     <button class="pill hide" id="b-lang"></button>
+    <button class="icon" id="b-tts" data-ic="headphones" data-tl="ttsListen"></button>
     <button class="icon" id="b-find" data-ic="search" data-tl="searchBook"></button>
     <button class="icon" id="b-ai" data-ic="sparkle" data-tl="aiTools"></button>
     <button class="icon" id="b-bmk" data-ic="bookmark" data-tl="bookmark"></button>
@@ -634,6 +648,12 @@ const ICONS = {
   sliders: '<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',
   sort: '<path d="M7 4v16M3.5 16.5L7 20l3.5-3.5M13 6h8M13 11h6M13 16h4"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
+  headphones: '<path d="M4 15v-3a8 8 0 0116 0v3"/><rect x="3" y="14" width="4.5" height="7" rx="1.5"/><rect x="16.5" y="14" width="4.5" height="7" rx="1.5"/>',
+  playF: '<path d="M8 5.5v13l10-6.5z" fill="currentColor"/>',
+  pause: '<rect x="6.5" y="5" width="3.6" height="14" rx="1" fill="currentColor"/><rect x="13.9" y="5" width="3.6" height="14" rx="1" fill="currentColor"/>',
+  skipBack: '<path d="M11 7L6 12l5 5M18 7l-5 5 5 5"/>',
+  skipFwd: '<path d="M13 7l5 5-5 5M6 7l5 5-5 5"/>',
+  speed: '<path d="M4.5 16a8 8 0 1115 0"/><path d="M12 16l4-5"/>',
   download: '<path d="M12 4v11M7 10.5l5 5 5-5M5 20h14"/>',
   x: '<path d="M6 6l12 12M18 6L6 18"/>',
   more: '<circle cx="5.5" cy="12" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="18.5" cy="12" r="1.3" fill="currentColor"/>',
@@ -819,7 +839,13 @@ function gestures(target, h) {
 }
 /* ================= strings (pt / en) ================= */
 const STR = {
-  autoTheme: ['Auto', 'Auto'], shelfBack: ['Estante', 'Shelf'], nVolumes: ['{n} volumes', '{n} volumes'], nRead: ['{n} lidos', '{n} read'], volumeN: ['Volume {n}', 'Volume {n}'], hideGoal: ['Esconder da tela inicial', 'Hide from home screen'], hideGoalToast: ['Dá para mostrar de novo em Ajustes', 'You can show it again in Settings'],
+  autoTheme: ['Auto', 'Auto'],
+  ttsListen: ['Ouvir', 'Listen'], ttsTitle: ['Ouvir o livro', 'Listen to the book'], ttsVoice: ['Voz', 'Voice'], ttsSpeed: ['Velocidade', 'Speed'], ttsSleep: ['Parar depois de', 'Stop after'], off: ['Não', 'Off'],
+  ttsScreen: ['Tela', 'Screen'], ttsDark: ['Apagar a tela e continuar ouvindo', 'Turn the screen black and keep listening'], ttsDarkHint: ['Lendo em voz alta · toque para voltar', 'Reading aloud · tap to return'],
+  ttsLockNote: ['A tela fica preta (quase não gasta bateria) e a leitura continua. Não bloqueie o iPhone: com a tela bloqueada o iOS pausa a voz de apps da internet.', 'The screen goes black (almost no battery use) and reading continues. Do not lock the iPhone: iOS pauses the voice of web apps when locked.'],
+  ttsTip: ['Para vozes mais naturais no iPhone: Ajustes › Acessibilidade › Conteúdo Falado › Vozes › Português (ou Inglês) e baixe uma voz "Melhorada" ou "Premium". Depois ela aparece aqui.', 'For more natural voices on iPhone: Settings › Accessibility › Spoken Content › Voices › English and download an "Enhanced" or "Premium" voice. It will then appear here.'],
+  ttsEnh: ['Melhorada', 'Enhanced'], ttsNoVoices: ['Nenhuma voz neste idioma no aparelho.', 'No voices for this language on this device.'], ttsNo: ['Este aparelho não lê em voz alta', 'This device cannot read aloud'],
+  ttsEnd: ['Fim do livro', 'End of the book'], ttsSlept: ['Leitura pausada pelo timer', 'Paused by the sleep timer'], ttsSleepSet: ['Para em {n} min', 'Stops in {n} min'], shelfBack: ['Estante', 'Shelf'], nVolumes: ['{n} volumes', '{n} volumes'], nRead: ['{n} lidos', '{n} read'], volumeN: ['Volume {n}', 'Volume {n}'], hideGoal: ['Esconder da tela inicial', 'Hide from home screen'], hideGoalToast: ['Dá para mostrar de novo em Ajustes', 'You can show it again in Settings'],
   comfortAuto: ['Automático (recomendado)', 'Automatic (recommended)'], comfortAutoSub: ['Deixa a tela mais quente e um pouco mais escura à noite, como o Night Shift', 'Makes the screen warmer and slightly dimmer at night, like Night Shift'],
   homeScreen: ['Tela inicial e leitura', 'Home screen and reading'], showGoal: ['Mostrar meta de leitura', 'Show reading goal'], showGoalSub: ['Minutos lidos hoje e dias seguidos', 'Minutes read today and day streak'], showContinue: ['Mostrar "Continuar lendo"', 'Show "Continue reading"'],
   pagesLeft: ['{n} páginas até o fim do capítulo', '{n} pages left in chapter'], pageLeft1: ['1 página até o fim do capítulo', '1 page left in chapter'], lastPageCh: ['Última página do capítulo', 'Last page in chapter'],
@@ -2478,6 +2504,7 @@ const Book = {
     return this.jumpPct(j.pct || 0);
   },
   async switchLang() {
+    TTS.stop();
     const sib = this.sib; if (!sib) return;
     const num = chapNum(this.tocLabel(this.ch));
     const jump = { pct: this.pct(), num, frac: this.page / this.pages };
@@ -2820,6 +2847,7 @@ const Book = {
     });
   },
   close() {
+    TTS.stop();
     this.hideSel();
     saveRecSoon.flush();
     if (this.rec) saveRec(this.rec);
@@ -3118,7 +3146,7 @@ const App = {
     await DB.open();
     await loadSettings();
     applyTheme(); applyComfort(); applyI18n();
-    Comic.init(); Book.init(); PdfBook.init();
+    Comic.init(); Book.init(); PdfBook.init(); TTS.init();
     // library controls
     $('#l-add').onclick = () => $('#l-file').click();
     $('#l-file').onchange = e => { const f = [...e.target.files]; e.target.value = ''; importFiles(f); };
@@ -3253,7 +3281,7 @@ const Goal = {
     setInterval(() => this.tick(), 15000);
   },
   tick() {
-    if (App.view === 'v-lib' || document.visibilityState !== 'visible' || performance.now() - this.lastInput > 3 * 60 * 1000) return;
+    if (App.view === 'v-lib' || document.visibilityState !== 'visible' || (performance.now() - this.lastInput > 3 * 60 * 1000 && !TTS.playing)) return;
     const k = this.ymd(); const before = this.today();
     this.days[k] = (this.days[k] || 0) + 15;
     if (before < S.goalMin * 60 && this.today() >= S.goalMin * 60) toast(t('goalDone'));
@@ -3392,5 +3420,196 @@ const Starter = {
 function closeX(fn) {
   return el('button', { class: 'cardx', 'aria-label': t('close'), onclick: e => { e.stopPropagation(); fn(); } }, icon('x'));
 }
+/* ================= read aloud (text to speech) ================= */
+const TTS = {
+  playing: false, open: false, segs: [], i: 0, u: null, wake: null, sleepAt: 0,
+  supported() { return 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window; },
+  lang() { return ((Book.flow && Book.flow.lang) || 'pt').slice(0, 2).toLowerCase(); },
+  NOVELTY: /^(albert|bad news|bahh|bells|boing|bubbles|cellos|good news|jester|organ|superstar|trinoids|whisper|wobble|zarvox|junior|ralph|fred|kathy|grandma|grandpa|rocko|shelley|flo|eddy|reed|sandy|deranged|hysterical|pipe organ)\b/i,
+  score(v) {
+    const n = v.name;
+    return (/premium/i.test(n) ? 50 : 0) + (/enhanced|aprimorad|melhorad|natural|neural/i.test(n) ? 30 : 0) + (/google|microsoft/i.test(n) ? 12 : 0) + (v.localService ? 2 : 0) + (/-BR$/i.test(v.lang) || /en-US/i.test(v.lang) ? 3 : 0);
+  },
+  voices() {
+    const l = this.lang();
+    return speechSynthesis.getVoices().filter(v => v.lang.toLowerCase().replace('_', '-').startsWith(l) && !this.NOVELTY.test(v.name)).sort((a, b) => this.score(b) - this.score(a) || a.name.localeCompare(b.name));
+  },
+  voice() {
+    const vs = this.voices(), want = S['ttsVoice_' + this.lang()];
+    return vs.find(v => v.voiceURI === want) || vs[0] || null;
+  },
+  // split the chapter into readable pieces (paragraphs, then sentences, max ~220 chars)
+  build() {
+    const root = Book.flow.firstElementChild; this.segs = []; if (!root) return;
+    const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT); let n, pos = 0, cur = null;
+    const BLK = 'p,h1,h2,h3,h4,h5,h6,li,blockquote,td,th,pre,figcaption,dt,dd,div,section,header,hgroup';
+    const blocks = [];
+    while ((n = w.nextNode())) {
+      const b = n.parentElement && n.parentElement.closest(BLK);
+      const len = n.data.length;
+      if (!cur || cur.b !== b) { cur = { b, s: pos, e: pos + len }; blocks.push(cur); } else cur.e = pos + len;
+      pos += len;
+    }
+    const txt = Book.rootText;
+    for (const bl of blocks) {
+      const t0 = txt.slice(bl.s, bl.e); if (!t0.trim()) continue;
+      const re = /[^.!?…]+(?:[.!?…]+["”’»)\]]*|$)\s*/g; let m;
+      while ((m = re.exec(t0)) && m[0]) {
+        let a = bl.s + m.index, piece = m[0];
+        while (piece.length > 240) {
+          let cut = Math.max(piece.lastIndexOf(', ', 220), piece.lastIndexOf('; ', 220), piece.lastIndexOf(' — ', 220));
+          if (cut < 60) cut = piece.lastIndexOf(' ', 220); if (cut < 40) cut = 220;
+          this.push(a, a + cut + 1); a += cut + 1; piece = piece.slice(cut + 1);
+        }
+        this.push(a, a + piece.length);
+      }
+    }
+  },
+  push(s, e) { const t = Book.rootText.slice(s, e); if (/[\p{L}\p{N}]/u.test(t)) this.segs.push({ s, e, t: t.replace(/\s+/g, ' ').trim() }); },
+  range(s, e) {
+    const root = Book.flow.firstElementChild; if (!root) return null;
+    const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT); let n, pos = 0; const r = document.createRange(); let started = false;
+    while ((n = w.nextNode())) {
+      const len = n.data.length;
+      if (!started && s < pos + len) { r.setStart(n, Math.max(0, s - pos)); started = true; }
+      if (started && e <= pos + len) { r.setEnd(n, Math.max(0, e - pos)); return r; }
+      pos += len;
+    }
+    return started ? r : null;
+  },
+  mark(seg) {
+    if (!window.CSS || !CSS.highlights || typeof Highlight === 'undefined') return;
+    CSS.highlights.delete('tts');
+    if (!seg) return;
+    const r = this.range(seg.s, seg.e); if (r) CSS.highlights.set('tts', new Highlight(r));
+  },
+  // ---------- controls ----------
+  start() {
+    if (!this.supported()) { toast(t('ttsNo')); return; }
+    this.open = true; $('#v-book').classList.add('tts-on'); this.ui();
+    this.build();
+    const off = Book.curOff || 0;
+    this.i = Math.max(0, this.segs.findIndex(s => s.e > off));
+    this.play();
+  },
+  play() {
+    this.playing = true; this.keepAwake(true); this.ui(); this.speak();
+  },
+  pause() {
+    this.playing = false; this.u = null; speechSynthesis.cancel(); this.keepAwake(false); this.ui();
+  },
+  toggle() { this.playing ? this.pause() : this.play(); },
+  skip(d) {
+    this.i = clamp(this.i + d, 0, Math.max(0, this.segs.length - 1));
+    if (this.playing) this.speak(); else this.follow();
+  },
+  stop() {
+    if (!this.open) return;
+    this.playing = false; this.open = false; this.u = null;
+    try { speechSynthesis.cancel(); } catch (e) { }
+    this.mark(null); this.keepAwake(false); this.dark(false); this.sleepAt = 0;
+    $('#v-book').classList.remove('tts-on');
+  },
+  follow() {
+    const seg = this.segs[this.i]; this.mark(seg);
+    if (seg) { const p = Book.pageOfOffset(seg.s); if (p !== Book.page) Book.showPage(p, true, 1); }
+  },
+  speak() {
+    speechSynthesis.cancel();
+    if (this.sleepAt && Date.now() > this.sleepAt) { this.sleepAt = 0; this.pause(); toast(t('ttsSlept')); return; }
+    const seg = this.segs[this.i];
+    if (!seg) return this.nextChapter();
+    this.follow();
+    const u = new SpeechSynthesisUtterance(seg.t);
+    const v = this.voice(); if (v) { u.voice = v; u.lang = v.lang; } else u.lang = this.lang() === 'en' ? 'en-US' : 'pt-BR';
+    u.rate = S.ttsRate || 1; u.pitch = 1;
+    const go = () => { if (this.u !== u || !this.playing) return; this.i++; this.speak(); };
+    u.onend = go;
+    u.onerror = e => { if (e.error === 'interrupted' || e.error === 'canceled') return; go(); };
+    this.u = u;
+    speechSynthesis.speak(u);
+  },
+  async nextChapter() {
+    if (Book.ch >= Book.data.count - 1) { this.pause(); toast(t('ttsEnd')); return; }
+    await Book.turnChapter(Book.ch + 1, { frac: 0 }, 1);
+    this.build(); this.i = 0;
+    if (this.playing) this.speak();
+  },
+  // ---------- screen ----------
+  async keepAwake(on) {
+    try {
+      if (on && 'wakeLock' in navigator && !this.wake) { this.wake = await navigator.wakeLock.request('screen'); this.wake.addEventListener('release', () => { this.wake = null; }); }
+      if (!on && this.wake) { await this.wake.release(); this.wake = null; }
+    } catch (e) { }
+  },
+  dark(on) {
+    let d = $('#ttsdark');
+    if (!on) { if (d) d.remove(); return; }
+    if (d) return;
+    d = el('div', { id: 'ttsdark', onclick: () => this.dark(false) }, el('div', { class: 'tdh', text: t('ttsDarkHint') }));
+    document.body.append(d);
+  },
+  // ---------- interface ----------
+  ui() {
+    const bar = $('#tts-bar'); if (!bar) return;
+    bar.querySelector('.tplay').replaceChildren(icon(this.playing ? 'pause' : 'playF'));
+    bar.querySelector('.trate').textContent = (S.ttsRate || 1).toFixed(S.ttsRate % 1 ? (S.ttsRate * 10 % 1 ? 2 : 1) : 0).replace('.', ',') + '×';
+    const v = this.voice(); bar.querySelector('.tvoice').textContent = v ? v.name.replace(/\s*\(.*\)$/, '') : t('ttsVoice');
+  },
+  rateNext() {
+    const R = [0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2];
+    const k = R.indexOf(S.ttsRate || 1); setS('ttsRate', R[(k + 1) % R.length]); this.ui();
+    if (this.playing) this.speak();
+  },
+  sheet() {
+    const wasPlaying = this.playing;
+    const s = Sheets.open({
+      title: t('ttsTitle'), body: b => {
+        const vs = this.voices(), cur = this.voice();
+        const L = el('div', { class: 'list' });
+        const draw = () => {
+          L.replaceChildren();
+          if (!vs.length) L.append(el('p', { class: 'muted', text: t('ttsNoVoices') }));
+          for (const v of vs) {
+            const on = cur2() && v.voiceURI === cur2().voiceURI;
+            const q = /premium/i.test(v.name) ? 'Premium' : /enhanced|aprimorad|melhorad|natural|neural/i.test(v.name) ? t('ttsEnh') : '';
+            L.append(el('button', { class: 'li' + (on ? ' cur' : ''), onclick: () => { setS('ttsVoice_' + this.lang(), v.voiceURI); this.preview(v); draw(); this.ui(); } },
+              icon(on ? 'check' : 'headphones'), el('div', { class: 'lt' }, v.name.replace(/\s*\(.*\)$/, ''), el('small', { text: [v.lang, q].filter(Boolean).join(' · ') }))));
+          }
+        };
+        const cur2 = () => this.voice();
+        draw();
+        b.append(wGroup(t('ttsVoice'), L,
+          el('div', { class: 'banner', style: { marginTop: '10px' } }, icon('info'), el('div', { text: t('ttsTip') }))),
+          wGroup(t('ttsSpeed'), wSlider(0.6, 2, 0.05, S.ttsRate || 1, v => { setS('ttsRate', Math.round(v * 100) / 100); this.ui(); }, v => (+v).toFixed(2).replace('.', ',') + '×', 'speed')),
+          wGroup(t('ttsSleep'), wSeg([[0, t('off')], [15, '15 min'], [30, '30 min'], [60, '60 min']], this.sleepMin || 0, m => { this.sleepMin = m; this.sleepAt = m ? Date.now() + m * 60000 : 0; if (m) toast(t('ttsSleepSet', { n: m })); })),
+          wGroup(t('ttsScreen'), el('button', { class: 'btn block', onclick: () => { Sheets.close(s); this.dark(true); } }, icon('moon'), t('ttsDark')),
+            el('p', { class: 'muted', style: { fontSize: '12.5px', lineHeight: 1.45, margin: '8px 2px 0' }, text: t('ttsLockNote') })));
+      },
+      onClose: () => { if (wasPlaying && !this.playing && this.open) this.play(); },
+    });
+    if (this.playing) this.pause();
+  },
+  preview(v) {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(this.lang() === 'en' ? 'Hello! This is the voice that will read your books.' : 'Olá! Esta é a voz que vai ler os seus livros.');
+    u.voice = v; u.lang = v.lang; u.rate = S.ttsRate || 1; speechSynthesis.speak(u);
+  },
+  init() {
+    if (!this.supported()) { $('#b-tts').classList.add('hide'); return; }
+    speechSynthesis.getVoices();
+    speechSynthesis.addEventListener && speechSynthesis.addEventListener('voiceschanged', () => this.ui());
+    $('#b-tts').onclick = () => this.open ? this.toggle() : this.start();
+    const bar = $('#tts-bar');
+    bar.querySelector('.tback').onclick = () => this.skip(-1);
+    bar.querySelector('.tfwd').onclick = () => this.skip(1);
+    bar.querySelector('.tplay').onclick = () => this.toggle();
+    bar.querySelector('.trate').onclick = () => this.rateNext();
+    bar.querySelector('.tvoice').onclick = () => this.sheet();
+    bar.querySelector('.tmoon').onclick = () => this.dark(true);
+    bar.querySelector('.tx').onclick = () => this.stop();
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && this.playing) { this.keepAwake(true); if (!speechSynthesis.speaking) this.speak(); } });
+  },
+};
 </script>
 </body></html>

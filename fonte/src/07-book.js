@@ -247,6 +247,7 @@ const Book = {
     return this.jumpPct(j.pct || 0);
   },
   async switchLang() {
+    TTS.stop();
     const sib = this.sib; if (!sib) return;
     const num = chapNum(this.tocLabel(this.ch));
     const jump = { pct: this.pct(), num, frac: this.page / this.pages };
@@ -589,6 +590,7 @@ const Book = {
     });
   },
   close() {
+    TTS.stop();
     this.hideSel();
     saveRecSoon.flush();
     if (this.rec) saveRec(this.rec);

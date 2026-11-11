@@ -440,3 +440,15 @@ html[data-view=v-comic],html[data-view=v-comic] body{background:#000}
 .fhead{display:flex;flex-direction:column;justify-content:center;margin-left:6px;line-height:1.15}
 .fhead b{font-family:var(--serif);font-size:19px}
 .fhead span{font-size:12px;color:var(--muted)}
+/* ouvir o livro */
+::highlight(tts){background-color:rgba(232,163,61,.32);color:inherit}
+#tts-bar{position:absolute;z-index:7;left:50%;bottom:calc(var(--sb) + 36px);transform:translate(-50%,140%);opacity:0;pointer-events:none;width:min(420px,calc(100% - 24px));background:var(--bar);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);border:1px solid var(--line);border-radius:22px;padding:8px 10px 10px;box-shadow:0 14px 40px rgba(0,0,0,.25);transition:transform .35s cubic-bezier(.2,.8,.2,1),opacity .25s;color:var(--fg)}
+#v-book.tts-on #tts-bar{transform:translate(-50%,0);opacity:1;pointer-events:auto}
+#v-book.tts-on:not(.ui-off) #tts-bar{bottom:calc(var(--sb) + 96px)}
+.tvoice{display:block;margin:0 auto 4px;font-size:12px;color:var(--muted);max-width:90%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:2px 8px}
+.trow{display:flex;align-items:center;justify-content:space-between}
+.tplay{width:54px;height:54px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px rgba(232,163,61,.4)}
+.tplay svg{width:26px;height:26px}
+.trate{min-width:52px;height:34px;border-radius:999px;background:rgba(127,127,127,.16);font-weight:700;font-size:13px;font-variant-numeric:tabular-nums}
+#ttsdark{position:fixed;inset:0;z-index:120;background:#000;display:flex;align-items:flex-end;justify-content:center;padding-bottom:calc(var(--sb) + 40px)}
+#ttsdark .tdh{color:#3a3a3a;font-size:13px;animation:fadeIn 1s}
