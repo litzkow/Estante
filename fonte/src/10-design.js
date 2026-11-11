@@ -113,7 +113,7 @@ const Goal = {
   },
   widget() {
     const sec = this.today(), g = S.goalMin * 60, st = this.streak(), min = Math.floor(sec / 60);
-    return el('button', { class: 'today', onclick: () => this.sheet() },
+    return el('div', { class: 'today', role: 'button', onclick: () => this.sheet() }, closeX(() => { setS('showGoal', false); Lib.render(); toast(t('hideGoalToast')); }),
       el('div', { class: 'tring' }, this.ring(sec / g), el('b', { text: sec >= g ? '✓' : String(min) })),
       el('div', { class: 'tinfo' },
         el('div', { class: 'tl', text: t('today') }),
@@ -218,3 +218,8 @@ const Starter = {
     if (ch) Lib.render();
   },
 };
+
+// little x in the corner of home cards
+function closeX(fn) {
+  return el('button', { class: 'cardx', 'aria-label': t('close'), onclick: e => { e.stopPropagation(); fn(); } }, icon('x'));
+}

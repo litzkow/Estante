@@ -50,7 +50,8 @@ const Lib = {
     const cont = this.books.filter(b => b.opened && !b.finished).sort((a, b) => b.opened - a.opened)[0];
     if (cont && !this.q && S.showContinue) {
       const pc = Math.round((cont.pct || 0) * 100);
-      hero.append(el('button', { class: 'hero', onclick: e => this.open(cont.id, e.currentTarget.querySelector('.hcover')) },
+      hero.append(el('div', { class: 'hero', role: 'button', onclick: e => this.open(cont.id, e.currentTarget.querySelector('.hcover')) },
+        closeX(() => { setS('showContinue', false); this.render(); toast(t('hideGoalToast')); }),
         el('div', { class: 'hbg' }, this.coverEl(cont)),
         el('div', { class: 'hcover' }, this.coverEl(cont)),
         el('div', { class: 'hinfo' },

@@ -439,6 +439,13 @@ html[data-view=v-comic],html[data-view=v-comic] body{background:#000}
 /* faixa da barra de status: o conteúdo rola por baixo sem ficar embaixo do relógio */
 #v-lib::before{content:'';position:fixed;left:0;right:0;top:0;height:var(--st);background:var(--bar);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);z-index:5}
 .card .cover img{object-position:center}
+.today,.hero{position:relative;cursor:pointer}
+.cardx{position:absolute;top:6px;right:6px;z-index:3;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--muted);background:var(--card2);opacity:.85}
+.cardx svg{width:14px;height:14px}
+.cardx:active{transform:scale(.9)}
+.today .streak{margin-right:22px}
+.hero .hgo{margin-right:10px}
+.hero>.cardx{position:absolute;top:8px;right:8px;z-index:3}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
@@ -1607,7 +1614,8 @@ const Lib = {
     const cont = this.books.filter(b => b.opened && !b.finished).sort((a, b) => b.opened - a.opened)[0];
     if (cont && !this.q && S.showContinue) {
       const pc = Math.round((cont.pct || 0) * 100);
-      hero.append(el('button', { class: 'hero', onclick: e => this.open(cont.id, e.currentTarget.querySelector('.hcover')) },
+      hero.append(el('div', { class: 'hero', role: 'button', onclick: e => this.open(cont.id, e.currentTarget.querySelector('.hcover')) },
+        closeX(() => { setS('showContinue', false); this.render(); toast(t('hideGoalToast')); }),
         el('div', { class: 'hbg' }, this.coverEl(cont)),
         el('div', { class: 'hcover' }, this.coverEl(cont)),
         el('div', { class: 'hinfo' },
@@ -3222,7 +3230,7 @@ const Goal = {
   },
   widget() {
     const sec = this.today(), g = S.goalMin * 60, st = this.streak(), min = Math.floor(sec / 60);
-    return el('button', { class: 'today', onclick: () => this.sheet() },
+    return el('div', { class: 'today', role: 'button', onclick: () => this.sheet() }, closeX(() => { setS('showGoal', false); Lib.render(); toast(t('hideGoalToast')); }),
       el('div', { class: 'tring' }, this.ring(sec / g), el('b', { text: sec >= g ? '✓' : String(min) })),
       el('div', { class: 'tinfo' },
         el('div', { class: 'tl', text: t('today') }),
@@ -3327,5 +3335,10 @@ const Starter = {
     if (ch) Lib.render();
   },
 };
+
+// little x in the corner of home cards
+function closeX(fn) {
+  return el('button', { class: 'cardx', 'aria-label': t('close'), onclick: e => { e.stopPropagation(); fn(); } }, icon('x'));
+}
 </script>
 </body></html>
