@@ -208,8 +208,12 @@ const Starter = {
   async tag(cat) {
     let ch = false;
     for (const b of await DB.all('books')) {
-      const x = cat.find(x => x.file === b.fname); if (!x || !x.work) continue;
-      if (b.work !== x.work || b.lang !== x.lang) { b.work = x.work; b.lang = x.lang; await DB.put('books', b.id, b); ch = true; }
+      const x = cat.find(x => x.file === b.fname);
+      if (!x) continue;
+      if (x.work && (b.work !== x.work || b.lang !== x.lang)) { b.work = x.work; b.lang = x.lang; await DB.put('books', b.id, b); ch = true; }
+      if (x.cover && b.cv !== x.cv) {
+        try { const r = await fetch(this.base + x.cover); if (r.ok) { b.cover = await r.blob(); b.cv = x.cv; await DB.put('books', b.id, b); ch = true; } } catch (e) { }
+      }
     }
     if (ch) Lib.render();
   },

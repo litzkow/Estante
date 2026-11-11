@@ -18,11 +18,11 @@ Os livros ficam guardados só no aparelho de quem usa.
 R
 grep -c 'rel="manifest"' site/index.html; ls -la site site/lib
 # livros grátis que o app adiciona sozinho
-mkdir -p site/livros && cp /home/claude/obras/out/*.epub /home/claude/obras/out/*.cbz site/livros/
+mkdir -p site/livros/capas && cp /home/claude/obras/capas/*.jpg site/livros/capas/ && cp /home/claude/obras/out/*.epub /home/claude/obras/out/*.cbz site/livros/
 python3 - <<'PY'
 import zipfile, re, os, json, html
 d='/home/claude/estante/site/livros'; out=[]
-for f in os.listdir(d):
+for f in [x for x in os.listdir(d) if x.endswith(('.epub','.cbz'))]:
     p=os.path.join(d,f); sz=os.path.getsize(p); t=f.rsplit('.',1)[0].replace('-',' ')
     if f.endswith('.epub'):
         z=zipfile.ZipFile(p); opf=[n for n in z.namelist() if n.endswith('.opf')][0]; m=re.search(r'<dc:title[^>]*>(.*?)</dc:title>', z.read(opf).decode('utf-8','ignore'), re.S)
@@ -31,6 +31,8 @@ for f in os.listdir(d):
     work = {'The-Time-Machine.epub':'time-machine','A-Maquina-do-Tempo.epub':'time-machine'}.get(f)
     e={'file':f,'title':t,'size':sz,'big':sz>5_000_000,'lang':lang}
     if work: e['work']=work
+    cv='/home/claude/obras/capas/'+f.rsplit('.',1)[0]+'.jpg'
+    if os.path.exists(cv): e['cover']='capas/'+os.path.basename(cv); e['cv']=2
     out.append(e)
 out.sort(key=lambda x:x['size'])
 json.dump(out, open(os.path.join(d,'catalogo.json'),'w'), ensure_ascii=False, indent=1)

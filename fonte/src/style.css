@@ -418,3 +418,6 @@ html[data-view=v-comic],html[data-view=v-comic] body{background:#000}
 .seg.wrap{display:grid!important;grid-template-columns:repeat(3,1fr);gap:4px}
 .seg.wrap button{white-space:normal;line-height:1.15;min-height:40px}
 #b-flow blockquote{border-left:0;padding-left:0;margin:.8em 0}
+/* faixa da barra de status: o conteúdo rola por baixo sem ficar embaixo do relógio */
+#v-lib::before{content:'';position:fixed;left:0;right:0;top:0;height:var(--st);background:var(--bar);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);z-index:5}
+.card .cover img{object-position:center}
