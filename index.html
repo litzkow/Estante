@@ -446,6 +446,18 @@ html[data-view=v-comic],html[data-view=v-comic] body{background:#000}
 .today .streak{margin-right:22px}
 .hero .hgo{margin-right:10px}
 .hero>.cardx{position:absolute;top:8px;right:8px;z-index:3}
+/* pastas de série */
+.card .cover.fstack{background:none;box-shadow:none;overflow:visible;border-radius:0}
+.card .cover.fstack::after{display:none}
+.fstack .fs{position:absolute;inset:0;border-radius:3px 8px 8px 3px;overflow:hidden;background:var(--card2);box-shadow:0 1px 2px rgba(0,0,0,.2),0 8px 18px -6px rgba(0,0,0,.45);transform:translate(calc(var(--k)*6px),calc(var(--k)*-6px)) rotate(calc(var(--k)*2.5deg));transform-origin:50% 100%;transition:transform .25s}
+.fstack .fs img,.fstack .fs .gen{width:100%;height:100%;object-fit:cover}
+.fstack:active .fs{transform:translate(calc(var(--k)*9px),calc(var(--k)*-9px)) rotate(calc(var(--k)*4deg))}
+.fcount{position:absolute;right:6px;bottom:6px;z-index:2;display:flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:3px 7px;border-radius:999px;background:rgba(0,0,0,.65);color:#fff}
+.fcount svg{width:12px;height:12px}
+.card.folder{margin-top:6px}
+.fhead{display:flex;flex-direction:column;justify-content:center;margin-left:6px;line-height:1.15}
+.fhead b{font-family:var(--serif);font-size:19px}
+.fhead span{font-size:12px;color:var(--muted)}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
@@ -807,7 +819,7 @@ function gestures(target, h) {
 }
 /* ================= strings (pt / en) ================= */
 const STR = {
-  autoTheme: ['Auto', 'Auto'], hideGoal: ['Esconder da tela inicial', 'Hide from home screen'], hideGoalToast: ['Dá para mostrar de novo em Ajustes', 'You can show it again in Settings'],
+  autoTheme: ['Auto', 'Auto'], shelfBack: ['Estante', 'Shelf'], nVolumes: ['{n} volumes', '{n} volumes'], nRead: ['{n} lidos', '{n} read'], volumeN: ['Volume {n}', 'Volume {n}'], hideGoal: ['Esconder da tela inicial', 'Hide from home screen'], hideGoalToast: ['Dá para mostrar de novo em Ajustes', 'You can show it again in Settings'],
   comfortAuto: ['Automático (recomendado)', 'Automatic (recommended)'], comfortAutoSub: ['Deixa a tela mais quente e um pouco mais escura à noite, como o Night Shift', 'Makes the screen warmer and slightly dimmer at night, like Night Shift'],
   homeScreen: ['Tela inicial e leitura', 'Home screen and reading'], showGoal: ['Mostrar meta de leitura', 'Show reading goal'], showGoalSub: ['Minutos lidos hoje e dias seguidos', 'Minutes read today and day streak'], showContinue: ['Mostrar "Continuar lendo"', 'Show "Continue reading"'],
   pagesLeft: ['{n} páginas até o fim do capítulo', '{n} pages left in chapter'], pageLeft1: ['1 página até o fim do capítulo', '1 page left in chapter'], lastPageCh: ['Última página do capítulo', 'Last page in chapter'],
@@ -1085,6 +1097,8 @@ function mergeCloud(rec, cloud) {
 /* ================= records ================= */
 async function saveRec(rec, { sync = true } = {}) {
   rec.updated = Date.now();
+  // the shelf may have updated cover / language / series while this book was open: keep those
+  try { const cur = await DB.get('books', rec.id); if (cur) for (const k of ['cover', 'cv', 'work', 'lang', 'series', 'snum']) if (cur[k] !== undefined) rec[k] = cur[k]; } catch (e) { }
   await DB.put('books', rec.id, rec);
   if (sync) Sync.push(rec);
 }
@@ -1461,9 +1475,10 @@ async function importComicZip(blob, name, zip) {
   let cover = null;
   try { const u = URL.createObjectURL(new Blob([first], { type: mimeOf(imgs[0]) })); const im = await loadImg(u); cover = await thumbFrom(im, im.naturalWidth, im.naturalHeight); URL.revokeObjectURL(u); } catch (e) { }
   let title = cleanTitle(name.split('/').pop()), author = '';
+  let series = '', snum = 0;
   const ci = Object.keys(zip.files).find(n => /comicinfo\.xml$/i.test(n));
-  if (ci) { try { const x = parseXML(await zip.file(ci).async('string')); const g = n => (byTag(x, n)[0]?.textContent || '').trim(); const s = g('Series'), num = g('Number'), tt = g('Title'); if (s) title = s + (num ? ' #' + num : '') + (tt && tt !== s ? ' — ' + tt : ''); else if (tt) title = tt; author = g('Writer'); } catch (e) { } }
-  return addRecord({ id: uid(), kind: 'comic', format: 'cbz', title, author, fname: name, cover, pages: imgs.length, prefs: {}, titleGuess: true }, blob);
+  if (ci) { try { const x = parseXML(await zip.file(ci).async('string')); const g = n => (byTag(x, n)[0]?.textContent || '').trim(); const s = g('Series'), num = g('Number'), tt = g('Title'); if (s) { series = s; snum = +num || 0; } if (s) title = s + (num ? ' #' + num : '') + (tt && tt !== s ? ' — ' + tt : ''); else if (tt) title = tt; author = g('Writer'); } catch (e) { } }
+  return addRecord({ id: uid(), kind: 'comic', format: 'cbz', title, author, fname: name, cover, pages: imgs.length, prefs: {}, titleGuess: true, series: series || undefined, snum }, blob);
 }
 async function importImages(files) {
   files.sort((a, b) => natCmp(a.name, b.name));
@@ -1494,7 +1509,7 @@ async function epubCover(zip, href) {
 }
 // one-time repair of covers that came out blank on the phone
 async function fixCovers() {
-  if (S.coverFix) return;
+  if (S.coverFix >= 2) return;
   for (const b of await DB.all('books')) {
     if (b.format !== 'epub') continue;
     try {
@@ -1504,7 +1519,7 @@ async function fixCovers() {
       const c = await epubCover(zip, meta.coverHref); if (c) { b.cover = c; await DB.put('books', b.id, b); }
     } catch (e) { }
   }
-  setS('coverFix', 1); Lib.render();
+  setS('coverFix', 2); Lib.render();
 }
 async function importEpub(file, zip) {
   const meta = await parseEpub(zip);
@@ -1597,7 +1612,20 @@ const Lib = {
       author: (a, b) => natCmp(a.author || '~', b.author || '~') || natCmp(a.title, b.title),
       progress: (a, b) => (b.finished ? 1 : b.pct || 0) - (a.finished ? 1 : a.pct || 0),
     }[S.sort] || ((a, b) => 0);
-    return list.sort(by);
+    // a series opened as a folder: its volumes in order
+    if (this.series) return list.filter(b => b.series === this.series).sort((a, b) => (a.snum || 0) - (b.snum || 0) || natCmp(a.title, b.title));
+    list.sort(by);
+    if (this.q) return list;
+    // same universe → one folder on the shelf
+    const out = [], seen = new Map();
+    for (const b of list) {
+      if (!b.series) { out.push(b); continue; }
+      let f = seen.get(b.series);
+      if (!f) { f = { folder: true, series: b.series, books: [] }; seen.set(b.series, f); out.push(f); }
+      f.books.push(b);
+    }
+    for (const f of seen.values()) f.books.sort((a, b) => (a.snum || 0) - (b.snum || 0));
+    return out.map(x => x.folder && x.books.length === 1 ? x.books[0] : x);
   },
   collections() { const s = new Set(); for (const b of this.books) for (const c of b.collections || []) s.add(c); return [...s].sort(natCmp); },
   async render() {
@@ -1625,17 +1653,28 @@ const Lib = {
           el('div', { class: 'hbar' }, el('i', { style: { width: pc + '%' } })), el('div', { class: 'hpct', text: pc + '%' })),
         el('div', { class: 'hgo' }, icon('play'))));
     }
-    // chips
+    // chips (or the header of an open folder)
     const chips = $('#l-chips'); chips.replaceChildren();
+    if (this.series) {
+      const n = this.books.filter(b => b.series === this.series).length;
+      if (!n) this.series = null;
+      else {
+        chips.append(el('button', { class: 'chip on', onclick: () => this.closeFolder() }, icon('back'), t('shelfBack')),
+          el('div', { class: 'fhead' }, el('b', { text: this.series }), el('span', { text: t('nVolumes', { n }) })));
+        hero.replaceChildren();
+      }
+    }
+    if (!this.series) {
     const cdefs = [['all', t('all')], ['comic', t('comics'), 'comic'], ['book', t('books'), 'book'], ['reading', t('reading')], ['done', t('finishedPl')]];
     for (const c of this.collections()) cdefs.push(['c:' + c, c, 'folder']);
     if (!cdefs.some(c => c[0] === S.filter)) S.filter = 'all';
     for (const [v, label, ic] of cdefs) chips.append(el('button', { class: 'chip' + (S.filter === v ? ' on' : ''), onclick: () => { setS('filter', v); this.animNext = true; this.render(); } }, ic ? icon(ic) : null, label));
+    }
     // grid
     const grid = $('#l-grid'); grid.replaceChildren();
     const list = this.filtered();
     grid.classList.toggle('anim', !!this.animNext && !reduceMotion()); this.animNext = false;
-    list.forEach((b, i) => { const c = this.card(b); c.style.setProperty('--i', Math.min(i, 18)); grid.append(c); });
+    list.forEach((b, i) => { const c = b.folder ? this.folderCard(b) : this.card(b); c.style.setProperty('--i', Math.min(i, 18)); grid.append(c); });
     // empty
     const em = $('#l-empty');
     if (!this.books.length) {
@@ -1682,6 +1721,18 @@ const Lib = {
       }
     });
   },
+  openFolder(s) { this.series = s; this.animNext = true; this.render(); $('#v-lib').scrollTo({ top: 0, behavior: 'smooth' }); },
+  closeFolder() { this.series = null; this.animNext = true; this.render(); },
+  folderCard(f) {
+    const bs = f.books, top = bs.slice(0, 3).reverse();
+    const read = bs.filter(b => b.finished).length, started = bs.some(b => b.pct > 0);
+    const stack = el('button', { class: 'cover fstack', 'aria-label': f.series, onclick: () => this.openFolder(f.series) },
+      ...top.map((b, i) => el('div', { class: 'fs', style: { '--k': top.length - 1 - i } }, this.coverEl(b))),
+      el('span', { class: 'fcount' }, icon('folder'), String(bs.length)));
+    return el('div', { class: 'card folder' }, stack,
+      el('div', { class: 'crow' }, el('div', { class: 'ctext' }, el('div', { class: 'ctitle', text: f.series }),
+        el('div', { class: 'cmeta', text: t('nVolumes', { n: bs.length }) + (read ? ' · ' + t('nRead', { n: read }) : started ? ' · ' + t('reading').toLowerCase() : '') }))));
+  },
   card(b) {
     const cover = el('button', { class: 'cover', 'aria-label': b.title, onclick: e => this.open(b.id, e.currentTarget) }, this.coverEl(b),
       this.sibling(b) ? el('span', { class: 'badge', text: 'PT · EN' }) : null,
@@ -1689,8 +1740,8 @@ const Lib = {
       (b.pct > 0 && !b.finished) ? el('div', { class: 'cbar' }, el('i', { style: { width: Math.round(b.pct * 100) + '%' } })) : null);
     return el('div', { class: 'card' }, cover,
       el('div', { class: 'crow' },
-        el('div', { class: 'ctext' }, el('div', { class: 'ctitle', text: b.title }),
-          el('div', { class: 'cmeta', text: [b.author, this.pctLabel(b)].filter(Boolean).join(' · ') })),
+        el('div', { class: 'ctext' }, el('div', { class: 'ctitle', text: this.series && b.series && b.snum ? t('volumeN', { n: b.snum }) : b.title }),
+          el('div', { class: 'cmeta', text: this.series && b.series && b.snum ? [b.title.replace(/^.*?—\s*/, ''), this.pctLabel(b)].filter(Boolean).join(' · ') : [b.author, this.pctLabel(b)].filter(Boolean).join(' · ') })),
         el('button', { class: 'icon more', 'aria-label': t('options'), onclick: () => this.menu(b) }, icon('more'))));
   },
   menu(b) {
@@ -3328,6 +3379,7 @@ const Starter = {
       const x = cat.find(x => x.file === b.fname);
       if (!x) continue;
       if (x.work && (b.work !== x.work || b.lang !== x.lang)) { b.work = x.work; b.lang = x.lang; await DB.put('books', b.id, b); ch = true; }
+      if (x.series && (b.series !== x.series || b.snum !== x.num)) { b.series = x.series; b.snum = x.num; await DB.put('books', b.id, b); ch = true; }
       if (x.cover && b.cv !== x.cv) {
         try { const r = await fetch(this.base + x.cover); if (r.ok) { b.cover = await r.blob(); b.cv = x.cv; await DB.put('books', b.id, b); ch = true; } } catch (e) { }
       }

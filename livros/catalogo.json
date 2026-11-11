@@ -130,14 +130,18 @@
   "title": "Pepper and Carrot 1",
   "size": 11117260,
   "big": true,
-  "lang": "pt"
+  "lang": "pt",
+  "series": "Pepper&Carrot",
+  "num": 1
  },
  {
   "file": "Pepper-and-Carrot-2.cbz",
   "title": "Pepper and Carrot 2",
   "size": 11902460,
   "big": true,
-  "lang": "pt"
+  "lang": "pt",
+  "series": "Pepper&Carrot",
+  "num": 2
  },
  {
   "file": "Alices-Adventures-in-Wonderland.epub",
@@ -153,13 +157,17 @@
   "title": "Pepper and Carrot 3",
   "size": 14281190,
   "big": true,
-  "lang": "pt"
+  "lang": "pt",
+  "series": "Pepper&Carrot",
+  "num": 3
  },
  {
   "file": "Pepper-and-Carrot-4.cbz",
   "title": "Pepper and Carrot 4",
   "size": 15209260,
   "big": true,
-  "lang": "pt"
+  "lang": "pt",
+  "series": "Pepper&Carrot",
+  "num": 4
  }
 ]

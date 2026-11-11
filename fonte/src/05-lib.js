@@ -33,7 +33,20 @@ const Lib = {
       author: (a, b) => natCmp(a.author || '~', b.author || '~') || natCmp(a.title, b.title),
       progress: (a, b) => (b.finished ? 1 : b.pct || 0) - (a.finished ? 1 : a.pct || 0),
     }[S.sort] || ((a, b) => 0);
-    return list.sort(by);
+    // a series opened as a folder: its volumes in order
+    if (this.series) return list.filter(b => b.series === this.series).sort((a, b) => (a.snum || 0) - (b.snum || 0) || natCmp(a.title, b.title));
+    list.sort(by);
+    if (this.q) return list;
+    // same universe → one folder on the shelf
+    const out = [], seen = new Map();
+    for (const b of list) {
+      if (!b.series) { out.push(b); continue; }
+      let f = seen.get(b.series);
+      if (!f) { f = { folder: true, series: b.series, books: [] }; seen.set(b.series, f); out.push(f); }
+      f.books.push(b);
+    }
+    for (const f of seen.values()) f.books.sort((a, b) => (a.snum || 0) - (b.snum || 0));
+    return out.map(x => x.folder && x.books.length === 1 ? x.books[0] : x);
   },
   collections() { const s = new Set(); for (const b of this.books) for (const c of b.collections || []) s.add(c); return [...s].sort(natCmp); },
   async render() {
@@ -61,17 +74,28 @@ const Lib = {
           el('div', { class: 'hbar' }, el('i', { style: { width: pc + '%' } })), el('div', { class: 'hpct', text: pc + '%' })),
         el('div', { class: 'hgo' }, icon('play'))));
     }
-    // chips
+    // chips (or the header of an open folder)
     const chips = $('#l-chips'); chips.replaceChildren();
+    if (this.series) {
+      const n = this.books.filter(b => b.series === this.series).length;
+      if (!n) this.series = null;
+      else {
+        chips.append(el('button', { class: 'chip on', onclick: () => this.closeFolder() }, icon('back'), t('shelfBack')),
+          el('div', { class: 'fhead' }, el('b', { text: this.series }), el('span', { text: t('nVolumes', { n }) })));
+        hero.replaceChildren();
+      }
+    }
+    if (!this.series) {
     const cdefs = [['all', t('all')], ['comic', t('comics'), 'comic'], ['book', t('books'), 'book'], ['reading', t('reading')], ['done', t('finishedPl')]];
     for (const c of this.collections()) cdefs.push(['c:' + c, c, 'folder']);
     if (!cdefs.some(c => c[0] === S.filter)) S.filter = 'all';
     for (const [v, label, ic] of cdefs) chips.append(el('button', { class: 'chip' + (S.filter === v ? ' on' : ''), onclick: () => { setS('filter', v); this.animNext = true; this.render(); } }, ic ? icon(ic) : null, label));
+    }
     // grid
     const grid = $('#l-grid'); grid.replaceChildren();
     const list = this.filtered();
     grid.classList.toggle('anim', !!this.animNext && !reduceMotion()); this.animNext = false;
-    list.forEach((b, i) => { const c = this.card(b); c.style.setProperty('--i', Math.min(i, 18)); grid.append(c); });
+    list.forEach((b, i) => { const c = b.folder ? this.folderCard(b) : this.card(b); c.style.setProperty('--i', Math.min(i, 18)); grid.append(c); });
     // empty
     const em = $('#l-empty');
     if (!this.books.length) {
@@ -118,6 +142,18 @@ const Lib = {
       }
     });
   },
+  openFolder(s) { this.series = s; this.animNext = true; this.render(); $('#v-lib').scrollTo({ top: 0, behavior: 'smooth' }); },
+  closeFolder() { this.series = null; this.animNext = true; this.render(); },
+  folderCard(f) {
+    const bs = f.books, top = bs.slice(0, 3).reverse();
+    const read = bs.filter(b => b.finished).length, started = bs.some(b => b.pct > 0);
+    const stack = el('button', { class: 'cover fstack', 'aria-label': f.series, onclick: () => this.openFolder(f.series) },
+      ...top.map((b, i) => el('div', { class: 'fs', style: { '--k': top.length - 1 - i } }, this.coverEl(b))),
+      el('span', { class: 'fcount' }, icon('folder'), String(bs.length)));
+    return el('div', { class: 'card folder' }, stack,
+      el('div', { class: 'crow' }, el('div', { class: 'ctext' }, el('div', { class: 'ctitle', text: f.series }),
+        el('div', { class: 'cmeta', text: t('nVolumes', { n: bs.length }) + (read ? ' · ' + t('nRead', { n: read }) : started ? ' · ' + t('reading').toLowerCase() : '') }))));
+  },
   card(b) {
     const cover = el('button', { class: 'cover', 'aria-label': b.title, onclick: e => this.open(b.id, e.currentTarget) }, this.coverEl(b),
       this.sibling(b) ? el('span', { class: 'badge', text: 'PT · EN' }) : null,
@@ -125,8 +161,8 @@ const Lib = {
       (b.pct > 0 && !b.finished) ? el('div', { class: 'cbar' }, el('i', { style: { width: Math.round(b.pct * 100) + '%' } })) : null);
     return el('div', { class: 'card' }, cover,
       el('div', { class: 'crow' },
-        el('div', { class: 'ctext' }, el('div', { class: 'ctitle', text: b.title }),
-          el('div', { class: 'cmeta', text: [b.author, this.pctLabel(b)].filter(Boolean).join(' · ') })),
+        el('div', { class: 'ctext' }, el('div', { class: 'ctitle', text: this.series && b.series && b.snum ? t('volumeN', { n: b.snum }) : b.title }),
+          el('div', { class: 'cmeta', text: this.series && b.series && b.snum ? [b.title.replace(/^.*?—\s*/, ''), this.pctLabel(b)].filter(Boolean).join(' · ') : [b.author, this.pctLabel(b)].filter(Boolean).join(' · ') })),
         el('button', { class: 'icon more', 'aria-label': t('options'), onclick: () => this.menu(b) }, icon('more'))));
   },
   menu(b) {

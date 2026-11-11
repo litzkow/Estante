@@ -149,6 +149,8 @@ function mergeCloud(rec, cloud) {
 /* ================= records ================= */
 async function saveRec(rec, { sync = true } = {}) {
   rec.updated = Date.now();
+  // the shelf may have updated cover / language / series while this book was open: keep those
+  try { const cur = await DB.get('books', rec.id); if (cur) for (const k of ['cover', 'cv', 'work', 'lang', 'series', 'snum']) if (cur[k] !== undefined) rec[k] = cur[k]; } catch (e) { }
   await DB.put('books', rec.id, rec);
   if (sync) Sync.push(rec);
 }

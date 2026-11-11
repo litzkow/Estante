@@ -31,6 +31,8 @@ for f in [x for x in os.listdir(d) if x.endswith(('.epub','.cbz'))]:
     work = {'The-Time-Machine.epub':'time-machine','A-Maquina-do-Tempo.epub':'time-machine'}.get(f)
     e={'file':f,'title':t,'size':sz,'big':sz>5_000_000,'lang':lang}
     if work: e['work']=work
+    m=re.match(r'Pepper-and-Carrot-(\d+)', f)
+    if m: e['series']='Pepper&Carrot'; e['num']=int(m.group(1))
     cv='/home/claude/obras/capas/'+f.rsplit('.',1)[0]+'.jpg'
     if os.path.exists(cv): e['cover']='capas/'+os.path.basename(cv); e['cv']=2
     out.append(e)

@@ -1,6 +1,6 @@
 /* ================= strings (pt / en) ================= */
 const STR = {
-  autoTheme: ['Auto', 'Auto'], hideGoal: ['Esconder da tela inicial', 'Hide from home screen'], hideGoalToast: ['Dá para mostrar de novo em Ajustes', 'You can show it again in Settings'],
+  autoTheme: ['Auto', 'Auto'], shelfBack: ['Estante', 'Shelf'], nVolumes: ['{n} volumes', '{n} volumes'], nRead: ['{n} lidos', '{n} read'], volumeN: ['Volume {n}', 'Volume {n}'], hideGoal: ['Esconder da tela inicial', 'Hide from home screen'], hideGoalToast: ['Dá para mostrar de novo em Ajustes', 'You can show it again in Settings'],
   comfortAuto: ['Automático (recomendado)', 'Automatic (recommended)'], comfortAutoSub: ['Deixa a tela mais quente e um pouco mais escura à noite, como o Night Shift', 'Makes the screen warmer and slightly dimmer at night, like Night Shift'],
   homeScreen: ['Tela inicial e leitura', 'Home screen and reading'], showGoal: ['Mostrar meta de leitura', 'Show reading goal'], showGoalSub: ['Minutos lidos hoje e dias seguidos', 'Minutes read today and day streak'], showContinue: ['Mostrar "Continuar lendo"', 'Show "Continue reading"'],
   pagesLeft: ['{n} páginas até o fim do capítulo', '{n} pages left in chapter'], pageLeft1: ['1 página até o fim do capítulo', '1 page left in chapter'], lastPageCh: ['Última página do capítulo', 'Last page in chapter'],

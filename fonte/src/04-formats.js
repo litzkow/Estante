@@ -306,9 +306,10 @@ async function importComicZip(blob, name, zip) {
   let cover = null;
   try { const u = URL.createObjectURL(new Blob([first], { type: mimeOf(imgs[0]) })); const im = await loadImg(u); cover = await thumbFrom(im, im.naturalWidth, im.naturalHeight); URL.revokeObjectURL(u); } catch (e) { }
   let title = cleanTitle(name.split('/').pop()), author = '';
+  let series = '', snum = 0;
   const ci = Object.keys(zip.files).find(n => /comicinfo\.xml$/i.test(n));
-  if (ci) { try { const x = parseXML(await zip.file(ci).async('string')); const g = n => (byTag(x, n)[0]?.textContent || '').trim(); const s = g('Series'), num = g('Number'), tt = g('Title'); if (s) title = s + (num ? ' #' + num : '') + (tt && tt !== s ? ' — ' + tt : ''); else if (tt) title = tt; author = g('Writer'); } catch (e) { } }
-  return addRecord({ id: uid(), kind: 'comic', format: 'cbz', title, author, fname: name, cover, pages: imgs.length, prefs: {}, titleGuess: true }, blob);
+  if (ci) { try { const x = parseXML(await zip.file(ci).async('string')); const g = n => (byTag(x, n)[0]?.textContent || '').trim(); const s = g('Series'), num = g('Number'), tt = g('Title'); if (s) { series = s; snum = +num || 0; } if (s) title = s + (num ? ' #' + num : '') + (tt && tt !== s ? ' — ' + tt : ''); else if (tt) title = tt; author = g('Writer'); } catch (e) { } }
+  return addRecord({ id: uid(), kind: 'comic', format: 'cbz', title, author, fname: name, cover, pages: imgs.length, prefs: {}, titleGuess: true, series: series || undefined, snum }, blob);
 }
 async function importImages(files) {
   files.sort((a, b) => natCmp(a.name, b.name));
@@ -339,7 +340,7 @@ async function epubCover(zip, href) {
 }
 // one-time repair of covers that came out blank on the phone
 async function fixCovers() {
-  if (S.coverFix) return;
+  if (S.coverFix >= 2) return;
   for (const b of await DB.all('books')) {
     if (b.format !== 'epub') continue;
     try {
@@ -349,7 +350,7 @@ async function fixCovers() {
       const c = await epubCover(zip, meta.coverHref); if (c) { b.cover = c; await DB.put('books', b.id, b); }
     } catch (e) { }
   }
-  setS('coverFix', 1); Lib.render();
+  setS('coverFix', 2); Lib.render();
 }
 async function importEpub(file, zip) {
   const meta = await parseEpub(zip);
