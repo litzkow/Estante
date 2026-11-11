@@ -7,7 +7,7 @@
   "lang": "pt",
   "work": "time-machine",
   "cover": "capas/A-Maquina-do-Tempo.jpg",
-  "cv": 2
+  "cv": 3
  },
  {
   "file": "Os-Lusiadas.epub",
@@ -16,7 +16,7 @@
   "big": false,
   "lang": "pt",
   "cover": "capas/Os-Lusiadas.jpg",
-  "cv": 2
+  "cv": 3
  },
  {
   "file": "Memorias-Postumas-de-Bras-Cubas.epub",
@@ -25,7 +25,7 @@
   "big": false,
   "lang": "pt",
   "cover": "capas/Memorias-Postumas-de-Bras-Cubas.jpg",
-  "cv": 2
+  "cv": 3
  },
  {
   "file": "Dom-Casmurro.epub",
@@ -34,7 +34,7 @@
   "big": false,
   "lang": "pt",
   "cover": "capas/Dom-Casmurro.jpg",
-  "cv": 2
+  "cv": 3
  },
  {
   "file": "Iracema.epub",
@@ -43,7 +43,7 @@
   "big": false,
   "lang": "pt",
   "cover": "capas/Iracema.jpg",
-  "cv": 2
+  "cv": 3
  },
  {
   "file": "Quincas-Borba.epub",
@@ -52,7 +52,7 @@
   "big": false,
   "lang": "pt",
   "cover": "capas/Quincas-Borba.jpg",
-  "cv": 2
+  "cv": 3
  },
  {
   "file": "The-Time-Machine.epub",
@@ -62,7 +62,7 @@
   "lang": "en",
   "work": "time-machine",
   "cover": "capas/The-Time-Machine.jpg",
-  "cv": 2
+  "cv": 3
  },
  {
   "file": "Dracula.epub",
@@ -71,7 +71,7 @@
   "big": false,
   "lang": "en",
   "cover": "capas/Dracula.jpg",
-  "cv": 2
+  "cv": 3
  },
  {
   "file": "O-Cortico.epub",
@@ -80,7 +80,7 @@
   "big": false,
   "lang": "pt",
   "cover": "capas/O-Cortico.jpg",
-  "cv": 2
+  "cv": 3
  },
  {
   "file": "Os-Maias.epub",
@@ -96,7 +96,7 @@
   "big": false,
   "lang": "en",
   "cover": "capas/Frankenstein.jpg",
-  "cv": 2
+  "cv": 3
  },
  {
   "file": "Tarzan-of-the-Apes.epub",
@@ -105,7 +105,7 @@
   "big": false,
   "lang": "en",
   "cover": "capas/Tarzan-of-the-Apes.jpg",
-  "cv": 2
+  "cv": 3
  },
  {
   "file": "Grimms-Fairy-Tales.epub",
@@ -114,7 +114,7 @@
   "big": false,
   "lang": "en",
   "cover": "capas/Grimms-Fairy-Tales.jpg",
-  "cv": 2
+  "cv": 3
  },
  {
   "file": "Don-Quixote.epub",
@@ -123,7 +123,7 @@
   "big": false,
   "lang": "en",
   "cover": "capas/Don-Quixote.jpg",
-  "cv": 2
+  "cv": 3
  },
  {
   "file": "Pepper-and-Carrot-1.cbz",
@@ -150,7 +150,7 @@
   "big": true,
   "lang": "en",
   "cover": "capas/Alices-Adventures-in-Wonderland.jpg",
-  "cv": 2
+  "cv": 3
  },
  {
   "file": "Pepper-and-Carrot-3.cbz",

@@ -34,7 +34,7 @@ for f in [x for x in os.listdir(d) if x.endswith(('.epub','.cbz'))]:
     m=re.match(r'Pepper-and-Carrot-(\d+)', f)
     if m: e['series']='Pepper&Carrot'; e['num']=int(m.group(1))
     cv='/home/claude/obras/capas/'+f.rsplit('.',1)[0]+'.jpg'
-    if os.path.exists(cv): e['cover']='capas/'+os.path.basename(cv); e['cv']=2
+    if os.path.exists(cv): e['cover']='capas/'+os.path.basename(cv); e['cv']=3
     out.append(e)
 out.sort(key=lambda x:x['size'])
 json.dump(out, open(os.path.join(d,'catalogo.json'),'w'), ensure_ascii=False, indent=1)

@@ -3177,7 +3177,7 @@ const App = {
     await Goal.init();
     Lib.animNext = true;
     await Lib.render();
-    Splash.hide().then(async () => { Tour.maybe(); await fixCovers(); Starter.run(); });
+    Splash.hide().then(() => { Tour.maybe(); Starter.run(); });
     // platform capabilities arrive later
     AI.init();
     Sync.init().then(async () => { if (Sync.on) { if (await Sync.pullPrefs()) { applyTheme(); applyComfort(); applyI18n(); } Lib.render(); } });
@@ -3409,7 +3409,7 @@ const Starter = {
       if (x.work && (b.work !== x.work || b.lang !== x.lang)) { b.work = x.work; b.lang = x.lang; await DB.put('books', b.id, b); ch = true; }
       if (x.series && (b.series !== x.series || b.snum !== x.num)) { b.series = x.series; b.snum = x.num; await DB.put('books', b.id, b); ch = true; }
       if (x.cover && b.cv !== x.cv) {
-        try { const r = await fetch(this.base + x.cover); if (r.ok) { b.cover = await r.blob(); b.cv = x.cv; await DB.put('books', b.id, b); ch = true; } } catch (e) { }
+        try { const r = await fetch(this.base + x.cover); const bl = r.ok ? await r.blob() : null; if (bl && bl.size > 2000) { b.cover = new Blob([bl], { type: 'image/jpeg' }); b.cv = x.cv; await DB.put('books', b.id, b); ch = true; } } catch (e) { }
       }
     }
     if (ch) Lib.render();
