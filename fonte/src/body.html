@@ -1,0 +1,82 @@
+<section id="v-lib" class="view on">
+  <div class="lib-wrap">
+    <header class="lib-top">
+      <div class="brand"><span class="dot"></span><span data-t="appName">Estante</span></div>
+      <button class="icon" id="l-search" data-ic="search" data-tl="search"></button>
+      <button class="icon" id="l-sort" data-ic="sort" data-tl="sort"></button>
+      <button class="icon" id="l-set" data-ic="sliders" data-tl="settings"></button>
+    </header>
+    <div class="searchbar" id="l-sbar"><span data-ic="search"></span><input id="l-q" type="search" autocomplete="off" data-tp="searchPh"><button class="icon" id="l-sclose" data-ic="x"></button></div>
+    <div id="l-banner"></div>
+    <div id="l-hero"></div>
+    <div class="chips" id="l-chips"></div>
+    <div id="l-grid" class="grid"></div>
+    <div id="l-ghosts"></div>
+    <div id="l-empty" class="empty hide"></div>
+  </div>
+  <button class="fab" id="l-add"><span data-ic="plus"></span><span data-t="add">Adicionar</span></button>
+  <input type="file" id="l-file" multiple hidden accept=".cbz,.cbr,.zip,.pdf,.epub,.txt,.text,image/*,application/pdf,application/epub+zip,application/zip,application/x-cbz,text/plain">
+  <div class="drop" id="l-drop" data-t="dropHere">Solte os arquivos aqui</div>
+</section>
+
+<section id="v-comic" class="view reader dark-chrome">
+  <div id="c-stage"><div id="c-zoom"><div id="c-cam"></div><div id="c-spot"></div></div><div id="c-load" class="hide"><div class="spin"></div></div></div>
+  <header class="r-top">
+    <button class="icon r-back" data-ic="back" data-tl="back"></button>
+    <div class="r-title" id="c-title"></div>
+    <button class="icon" id="c-bmk" data-ic="bookmark" data-tl="bookmark"></button>
+    <button class="icon" id="c-grid" data-ic="grid" data-tl="pages"></button>
+    <button class="icon" id="c-set" data-ic="sliders" data-tl="settings"></button>
+  </header>
+  <footer class="r-bot">
+    <div class="row">
+      <button class="pill" id="c-mode"></button>
+      <input type="range" id="c-range" min="1" max="1" value="1">
+    </div>
+    <div class="lbl" id="c-label"></div>
+    <div class="c-steps" id="c-steps"></div>
+  </footer>
+</section>
+
+<section id="v-book" class="view reader">
+  <div id="b-bm"></div>
+  <div id="b-head" class="b-meta"><span id="b-h1"></span><span id="b-h2"></span></div>
+  <div id="b-frame"><div id="b-flow"></div></div>
+  <div id="b-foot" class="b-meta"><span id="b-f1"></span><span id="b-f2"></span></div>
+  <header class="r-top">
+    <button class="icon r-back" data-ic="back" data-tl="back"></button>
+    <div class="r-title" id="b-title"></div>
+    <button class="icon" id="b-find" data-ic="search" data-tl="searchBook"></button>
+    <button class="icon" id="b-ai" data-ic="sparkle" data-tl="aiTools"></button>
+    <button class="icon" id="b-bmk" data-ic="bookmark" data-tl="bookmark"></button>
+    <button class="icon" id="b-toc" data-ic="list" data-tl="contents"></button>
+    <button class="icon" id="b-aa" data-ic="type" data-tl="textSettings"></button>
+  </header>
+  <footer class="r-bot">
+    <div class="row"><input type="range" id="b-range" min="0" max="1000" value="0"></div>
+    <div class="lbl" id="b-label"></div>
+  </footer>
+</section>
+
+<section id="v-pdf" class="view reader">
+  <div id="p-scroll"><div id="p-pages"></div></div>
+  <header class="r-top">
+    <button class="icon r-back" data-ic="back" data-tl="back"></button>
+    <div class="r-title" id="p-title"></div>
+    <button class="icon" id="p-ai" data-ic="sparkle" data-tl="aiTools"></button>
+    <button class="icon" id="p-bmk" data-ic="bookmark" data-tl="bookmark"></button>
+    <button class="icon" id="p-out" data-ic="zoomOut" data-tl="zoomOut"></button>
+    <button class="icon" id="p-in" data-ic="zoomIn" data-tl="zoomIn"></button>
+    <button class="icon" id="p-set" data-ic="sliders" data-tl="settings"></button>
+  </header>
+  <footer class="r-bot">
+    <div class="row"><input type="range" id="p-range" min="1" max="1" value="1"></div>
+    <div class="lbl" id="p-label"></div>
+  </footer>
+</section>
+
+<div id="selbar"></div>
+<div id="sheets"></div>
+<div id="toast"></div>
+<div id="busy"><div class="spin"></div><div id="busy-t"></div></div>
+<div id="warm"></div><div id="dim"></div>
