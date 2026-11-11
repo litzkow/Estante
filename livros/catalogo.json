@@ -3,114 +3,135 @@
   "file": "A-Maquina-do-Tempo.epub",
   "title": "A Máquina do Tempo",
   "size": 153530,
-  "big": false
+  "big": false,
+  "lang": "pt",
+  "work": "time-machine"
  },
  {
   "file": "Os-Lusiadas.epub",
   "title": "Os Lusíadas",
   "size": 222127,
-  "big": false
+  "big": false,
+  "lang": "pt"
  },
  {
   "file": "Memorias-Postumas-de-Bras-Cubas.epub",
   "title": "Memórias Póstumas de Brás Cubas",
   "size": 336702,
-  "big": false
+  "big": false,
+  "lang": "pt"
  },
  {
   "file": "Dom-Casmurro.epub",
   "title": "Dom Casmurro",
   "size": 368180,
-  "big": false
+  "big": false,
+  "lang": "pt"
  },
  {
   "file": "Iracema.epub",
   "title": "Iracema",
   "size": 370053,
-  "big": false
+  "big": false,
+  "lang": "pt"
  },
  {
   "file": "Quincas-Borba.epub",
   "title": "Quincas Borba",
   "size": 461874,
-  "big": false
+  "big": false,
+  "lang": "pt"
  },
  {
   "file": "The-Time-Machine.epub",
   "title": "The Time Machine",
   "size": 533262,
-  "big": false
+  "big": false,
+  "lang": "en",
+  "work": "time-machine"
  },
  {
   "file": "Dracula.epub",
   "title": "Dracula",
   "size": 574300,
-  "big": false
+  "big": false,
+  "lang": "en"
  },
  {
   "file": "O-Cortico.epub",
   "title": "O Cortiço",
   "size": 576712,
-  "big": false
+  "big": false,
+  "lang": "pt"
  },
  {
   "file": "Os-Maias.epub",
   "title": "Os Maias",
   "size": 637430,
-  "big": false
+  "big": false,
+  "lang": "pt"
  },
  {
   "file": "Frankenstein.epub",
   "title": "Frankenstein",
   "size": 690116,
-  "big": false
+  "big": false,
+  "lang": "en"
  },
  {
   "file": "Tarzan-of-the-Apes.epub",
   "title": "Tarzan of the Apes",
   "size": 807017,
-  "big": false
+  "big": false,
+  "lang": "en"
  },
  {
   "file": "Grimms-Fairy-Tales.epub",
   "title": "Household Tales",
   "size": 1234977,
-  "big": false
+  "big": false,
+  "lang": "en"
  },
  {
   "file": "Don-Quixote.epub",
   "title": "Don Quixote",
   "size": 1411849,
-  "big": false
+  "big": false,
+  "lang": "en"
  },
  {
   "file": "Pepper-and-Carrot-1.cbz",
   "title": "Pepper and Carrot 1",
   "size": 11117260,
-  "big": true
+  "big": true,
+  "lang": "pt"
  },
  {
   "file": "Pepper-and-Carrot-2.cbz",
   "title": "Pepper and Carrot 2",
   "size": 11902460,
-  "big": true
+  "big": true,
+  "lang": "pt"
  },
  {
   "file": "Alices-Adventures-in-Wonderland.epub",
   "title": "Alice’s Adventures in Wonderland",
   "size": 13011903,
-  "big": true
+  "big": true,
+  "lang": "en"
  },
  {
   "file": "Pepper-and-Carrot-3.cbz",
   "title": "Pepper and Carrot 3",
   "size": 14281190,
-  "big": true
+  "big": true,
+  "lang": "pt"
  },
  {
   "file": "Pepper-and-Carrot-4.cbz",
   "title": "Pepper and Carrot 4",
   "size": 15209260,
-  "big": true
+  "big": true,
+  "lang": "pt"
  }
 ]

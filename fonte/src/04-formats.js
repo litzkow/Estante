@@ -140,7 +140,24 @@ async function parseEpub(zip) {
       }
     }
   } catch (e) { console.warn('toc', e); }
-  return { title, author, lang, spine, toc, coverHref };
+  let start = -1;
+  try {
+    const nav = Object.values(manifest).find(m => /\bnav\b/.test(m.props));
+    if (nav) {
+      const nd = new DOMParser().parseFromString(await zipFile(zip, nav.href).async('string'), 'application/xhtml+xml');
+      for (const a of byTag(nd, 'a')) {
+        const ty = a.getAttribute('epub:type') || a.getAttributeNS('http://www.idpf.org/2007/ops', 'type') || '';
+        if (/bodymatter/.test(ty)) { const h = a.getAttribute('href'); start = hrefIdx(resolvePath(dirname(nav.href), h.split('#')[0])).idx; break; }
+      }
+    }
+    if (start < 0) { const r = byTag(opf, 'reference').find(r => /^(text|start)$/i.test(r.getAttribute('type') || '')); if (r) start = hrefIdx(resolvePath(dirname(opfPath), r.getAttribute('href').split('#')[0])).idx; }
+  } catch (e) { }
+  if (start < 0) {
+    const FRONT = /^(cover|capa|title ?page|half ?title|imprint|copyright|cr[eé]ditos|dedica|epigra|contents|table of contents|sum[aá]rio|[ií]ndice|preface|pref[aá]cio|introduc|introdu[cç]|foreword|translator|tradu|note|nota|colophon|frontispiece|illustrations|list of|pr[oó]logo do tradutor)/i;
+    const e = toc.find(e => e.idx > 0 && !FRONT.test(e.label) && e.label.trim().toLowerCase() !== title.trim().toLowerCase());
+    if (e) start = e.idx;
+  }
+  return { title, author, lang, spine, toc, coverHref, start: Math.max(0, start) };
 }
 
 function sanitizeInto(root) {
@@ -302,12 +319,42 @@ async function importImages(files) {
   if (!name || name.length < 2) name = t('imagesTitle') + ' ' + new Date().toLocaleDateString();
   return importComicZip(blob, name + '.cbz', zip);
 }
+// cover thumbnail; SVG covers (Standard Ebooks) get an explicit size, or fall back to the picture inside them (iPhone needs this)
+async function epubCover(zip, href) {
+  const tryBlob = async (blob, w0, h0) => { const u = URL.createObjectURL(blob); try { const im = await loadImg(u); const w = im.naturalWidth || w0, h = im.naturalHeight || h0; if (!w || !h) throw 0; return await thumbFrom(im, w, h); } finally { URL.revokeObjectURL(u); } };
+  try {
+    const f = zipFile(zip, href); if (!f) return null;
+    if (/\.svg$/i.test(href)) {
+      let s = await f.async('string');
+      const vb = (s.match(/viewBox="[\d.\s-]*?([\d.]+)\s+([\d.]+)"/) || []).slice(1).map(Number);
+      const W = vb[0] || 1400, H = vb[1] || 2100;
+      if (!/<svg[^>]*\swidth=/.test(s)) s = s.replace(/<svg\b/, `<svg width="${W}" height="${H}"`);
+      try { return await tryBlob(new Blob([s], { type: 'image/svg+xml' }), W, H); } catch (e) { }
+      const m = s.match(/href="data:(image\/[a-z+]+);base64,([^"]+)"/);
+      if (m) { const bin = atob(m[2]), a = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return await tryBlob(new Blob([a], { type: m[1] }), W, H); }
+      return null;
+    }
+    return await tryBlob(new Blob([await f.async('blob')], { type: mimeOf(href) }));
+  } catch (e) { return null; }
+}
+// one-time repair of covers that came out blank on the phone
+async function fixCovers() {
+  if (S.coverFix) return;
+  for (const b of await DB.all('books')) {
+    if (b.format !== 'epub') continue;
+    try {
+      const blob = await DB.get('files', b.id); if (!blob) continue;
+      const zip = await JSZip.loadAsync(blob); const meta = await parseEpub(zip);
+      if (!meta.coverHref || !/\.svg$/i.test(meta.coverHref)) continue;
+      const c = await epubCover(zip, meta.coverHref); if (c) { b.cover = c; await DB.put('books', b.id, b); }
+    } catch (e) { }
+  }
+  setS('coverFix', 1); Lib.render();
+}
 async function importEpub(file, zip) {
   const meta = await parseEpub(zip);
   let cover = null;
-  if (meta.coverHref) {
-    try { const f = zipFile(zip, meta.coverHref); const b = await f.async('blob'); const u = URL.createObjectURL(new Blob([b], { type: mimeOf(meta.coverHref) })); const im = await loadImg(u); cover = await thumbFrom(im, im.naturalWidth, im.naturalHeight); URL.revokeObjectURL(u); } catch (e) { }
-  }
+  if (meta.coverHref) cover = await epubCover(zip, meta.coverHref);
   return addRecord({ id: uid(), kind: 'book', format: 'epub', title: meta.title || cleanTitle(file.name), author: meta.author, lang: meta.lang, fname: file.name, cover, chapters: meta.spine.length, prefs: {} }, file);
 }
 async function importPdf(file) {

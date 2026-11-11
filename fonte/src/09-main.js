@@ -1,10 +1,21 @@
 /* ================= comfort & theme ================= */
-function applyComfort() {
-  $('#warm').style.opacity = (S.warm / 100 * 0.5).toFixed(3);
-  $('#dim').style.opacity = (S.dim / 100 * 0.7).toFixed(3);
+// automatic eye comfort: warmer and a bit dimmer in the evening and at night (like Night Shift)
+function autoComfort(d = new Date()) {
+  const h = d.getHours() + d.getMinutes() / 60;
+  const ramp = (x, a, b) => Math.min(1, Math.max(0, (x - a) / (b - a)));
+  const night = h >= 12 ? ramp(h, 17.5, 21) : 1 - ramp(h, 5.5, 7.5);
+  const late = h >= 12 ? ramp(h, 21, 23) : 1 - ramp(h, 4.5, 6);
+  return { warm: Math.round(night * 45), dim: Math.round(late * 18) };
 }
+function applyComfort() {
+  const c = S.comfortAuto ? autoComfort() : { warm: S.warm, dim: S.dim };
+  $('#warm').style.opacity = (c.warm / 100 * 0.5).toFixed(3);
+  $('#dim').style.opacity = (c.dim / 100 * 0.7).toFixed(3);
+}
+setInterval(() => { if (S.comfortAuto) applyComfort(); }, 5 * 60 * 1000);
 function applyTheme() {
   document.body.className = document.body.className.replace(/\bt-\w+/g, '').trim() + ' t-' + effTheme();
+  document.documentElement.className = 't-' + effTheme();
   const c = { claro: '#f6f4ef', sepia: '#efe3c8', escuro: '#141518', noite: '#000000' }[effTheme()];
   const m = $('meta[name=theme-color]'); if (m) m.content = c;
 }
@@ -15,12 +26,17 @@ function themePicker(after) {
   box.append(...btns); return box;
 }
 function comfortGroup() {
-  return wGroup(t('eyeComfort'),
-    el('div', { style: { margin: '4px 0 2px', fontSize: '14px', fontWeight: 600 }, text: t('warmFilter') }),
+  const manual = el('div', { class: S.comfortAuto ? 'hide' : '' });
+  const box = wGroup(t('eyeComfort'),
+    wToggle(t('comfortAuto'), t('comfortAutoSub'), S.comfortAuto, v => { setS('comfortAuto', v); applyComfort(); manual.classList.toggle('hide', v); }),
+    manual,
+    wToggle(t('pauseRem'), t('pauseRemSub'), S.pause, v => setS('pause', v)));
+  manual.append(
+    el('div', { style: { margin: '10px 0 2px', fontSize: '14px', fontWeight: 600 }, text: t('warmFilter') }),
     wSlider(0, 100, 1, S.warm, v => { S.warm = v; applyComfort(); setS('warm', v); }, v => v + '%', 'flame'),
     el('div', { style: { margin: '12px 0 2px', fontSize: '14px', fontWeight: 600 }, text: t('dimScreen') }),
-    wSlider(0, 100, 1, S.dim, v => { S.dim = v; applyComfort(); setS('dim', v); }, v => v + '%', 'moon'),
-    wToggle(t('pauseRem'), t('pauseRemSub'), S.pause, v => setS('pause', v)));
+    wSlider(0, 100, 1, S.dim, v => { S.dim = v; applyComfort(); setS('dim', v); }, v => v + '%', 'moon'));
+  return box;
 }
 
 /* ================= 20-20-20 reminder ================= */
@@ -55,6 +71,11 @@ async function settingsSheet() {
         wGroup(t('language'), wSeg([['pt', 'Português'], ['en', 'English']], S.lang, v => { setS('lang', v); applyI18n(); Sheets.closeAll(); Lib.render(); settingsSheet(); })),
         wGroup(t('theme'), themePicker()),
         comfortGroup(),
+        wGroup(t('homeScreen'),
+          wToggle(t('showGoal'), t('showGoalSub'), S.showGoal, v => { setS('showGoal', v); Lib.render(); }),
+          wToggle(t('showContinue'), null, S.showContinue, v => { setS('showContinue', v); Lib.render(); }),
+          el('div', { style: { margin: '12px 0 6px', fontSize: '14px', fontWeight: 600 }, text: t('pageTurn') }),
+          wSeg([['slide', t('ptSlide')], ['vertical', t('ptVertical')], ['curl', t('ptCurl')], ['fade', t('ptFade')], ['none', t('ptNone')]], S.bTurn || 'slide', x => { setS('bTurn', x); setS('bAnim', x !== 'none'); }, 'wrap')),
         wGroup(t('comicsDefault'),
           wSeg([['quadros', t('mode_quadros'), 'panels'], ['largura', t('mode_largura'), 'width'], ['pagina', t('mode_pagina'), 'page']], S.cMode, v => setS('cMode', v)),
           el('div', { style: { height: '8px' } }),
@@ -67,7 +88,7 @@ async function settingsSheet() {
           el('button', { class: 'btn block', style: { marginTop: '6px' }, onclick: async () => { const all = await DB.all('books'); for (const x of all) { await DB.delPrefix('kv', 'pn:' + x.id + ':'); await DB.delPrefix('kv', 'th:' + x.id + ':'); } toast(t('cacheCleared')); } }, icon('trash'), t('clearCache'))),
         wGroup(t('howTo'), el('div', { class: 'list' },
           ...[['hand', t('help1')], ['panels', t('help2')], ['zoomIn', t('help3')], ['type', t('help4')], ['cloud', t('help6')]].map(([ic, tx]) => el('div', { class: 'li', style: { display: 'flex', gap: '12px', padding: '11px 2px', borderBottom: '1px solid var(--line)', fontSize: '14px', lineHeight: 1.45 } }, icon(ic), el('div', { class: 'lt', text: tx }))))),
-        el('p', { class: 'muted', style: { textAlign: 'center', fontSize: '12px', marginTop: '22px' }, text: 'Estante · v1.0' }));
+        el('p', { class: 'muted', style: { textAlign: 'center', fontSize: '12px', marginTop: '22px' }, text: 'Estante · v1.1' }));
     }
   });
 }
@@ -83,7 +104,7 @@ function applyI18n() {
 /* ================= app shell ================= */
 const App = {
   view: 'v-lib',
-  show(id) { if (id === 'v-lib' && this.view !== 'v-lib') setTimeout(() => Lib.render(), 0); this.view = id; $$('.view').forEach(v => v.classList.toggle('on', v.id === id)); Sheets.closeAll(); Book.hideSel && Book.hideSel(); },
+  show(id) { document.documentElement.dataset.view = id; if (id === 'v-lib' && this.view !== 'v-lib') setTimeout(() => Lib.render(), 0); this.view = id; $$('.view').forEach(v => v.classList.toggle('on', v.id === id)); Sheets.closeAll(); Book.hideSel && Book.hideSel(); },
   async init() {
     $$('[data-ic]').forEach(e => e.prepend(icon(e.dataset.ic)));
     await DB.open();
@@ -120,7 +141,7 @@ const App = {
     await Goal.init();
     Lib.animNext = true;
     await Lib.render();
-    Splash.hide().then(() => { Tour.maybe(); Starter.run(); });
+    Splash.hide().then(async () => { Tour.maybe(); await fixCovers(); Starter.run(); });
     // platform capabilities arrive later
     AI.init();
     Sync.init().then(async () => { if (Sync.on) { if (await Sync.pullPrefs()) { applyTheme(); applyComfort(); applyI18n(); } Lib.render(); } });

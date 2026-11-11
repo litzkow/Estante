@@ -195,8 +195,8 @@ const Sheets = {
 };
 
 /* ================= setting widgets ================= */
-function wSeg(options, cur, onChange) {
-  const box = el('div', { class: 'seg' });
+function wSeg(options, cur, onChange, cls) {
+  const box = el('div', { class: 'seg' + (cls ? ' ' + cls : '') });
   const btns = options.map(([v, label, ic]) => {
     const b = el('button', { class: v === cur ? 'on' : '', onclick: () => { btns.forEach(x => x.classList.remove('on')); b.classList.add('on'); onChange(v); } }, ic ? icon(ic) : null, label);
     return b;
@@ -251,6 +251,7 @@ function gestures(target, h) {
     if (e.type === 'pointercancel') { st = null; return; }
     if (!moved && dt < 550 && !multi) h.tap && h.tap(e.clientX, e.clientY, e);
     else if (!consumed && !multi && Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.2 && dt < 900) h.swipe && h.swipe(dx < 0 ? 'left' : 'right');
+    else if (!consumed && !multi && h.vswipe && Math.abs(dy) > 40 && Math.abs(dy) > Math.abs(dx) * 1.2 && dt < 900) h.vswipe(dy < 0 ? 'up' : 'down');
     st = null;
   };
   target.addEventListener('pointerup', up);

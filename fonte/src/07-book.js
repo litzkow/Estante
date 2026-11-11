@@ -50,7 +50,10 @@ const Book = {
         z >= 0.7 ? this.next() : this.prev();
       },
       swipe: d => { const sel = getSelection(); if (sel && !sel.isCollapsed) return; d === 'left' ? this.next() : this.prev(); },
+      vswipe: d => { const sel = getSelection(); if (sel && !sel.isCollapsed) return; if (S.bTurn === 'vertical') d === 'up' ? this.next() : this.prev(); },
     });
+    $('#b-x').onclick = () => this.close();
+    $('#b-lang').onclick = () => this.switchLang();
     // tap zones in the top/bottom margins as well
     for (const id of ['#b-head', '#b-foot']) $(id).style.pointerEvents = 'none';
     $('#v-book .r-back').onclick = () => this.close();
@@ -81,7 +84,12 @@ const Book = {
       this.applyStyle();
       this.showUI(true);
       const pos = rec.pos || {};
-      await this.render(clamp(pos.ch || 0, 0, this.data.count - 1), pos.off != null ? { offset: pos.off } : { frac: pos.frac || 0 });
+      this.sib = Lib.sibling(rec);
+      $('#b-lang').classList.toggle('hide', !this.sib);
+      if (this.sib) $('#b-lang').textContent = langName(this.sib.lang);
+      if (pos.jump) { delete rec.pos; await this.jumpTo(pos.jump); }
+      else if (!rec.pos) await this.render(this.data.start || 0, { frac: 0 });
+      else await this.render(clamp(pos.ch || 0, 0, this.data.count - 1), pos.off != null ? { offset: pos.off } : { frac: pos.frac || 0 });
     } finally { busy(null); }
     if (!(await DB.get('kv', 'hint:book'))) { DB.put('kv', 'hint:book', 1); const h = el('div', { class: 'hint' }, el('div', { text: t('hintBack') }), el('div', { text: t('hintMenuSel') }), el('div', { text: t('hintNext') })); $('#v-book').append(h); setTimeout(() => h.remove(), 3400); }
   },
@@ -163,6 +171,7 @@ const Book = {
     this.ch = ch;
     this.flow.style.transition = 'none'; this.flow.style.transform = 'translateX(0)';
     this.flow.replaceChildren(node);
+    this.flow.classList.toggle('opener', (node.textContent || '').trim().length < 160 && !node.querySelector('img,svg'));
     this.applyHighlights();
     await this.waitImgs();
     if (document.fonts && document.fonts.ready) await Promise.race([document.fonts.ready, sleep(1500)]);
@@ -176,23 +185,74 @@ const Book = {
     this.showPage(p, false);
     if (where.flash) this.flash(where.flash[0], where.flash[1]);
   },
-  showPage(p, anim) {
-    this.page = clamp(p, 0, this.pages - 1);
-    this.flow.style.transition = anim && S.bAnim ? 'transform .26s cubic-bezier(.3,.7,.3,1)' : 'none';
+  showPage(p, anim, dir) {
+    const np = clamp(p, 0, this.pages - 1), mode = S.bTurn || 'slide';
+    if (anim && np !== this.page && mode !== 'slide' && mode !== 'none') {
+      const g = this.snap(); dir = dir || (np > this.page ? 1 : -1);
+      this.page = np; this.flow.style.transition = 'none'; this.flow.style.transform = `translateX(${-this.page * this.FW}px)`;
+      this.afterMove(); this.play(g, dir, mode); return;
+    }
+    this.page = np;
+    this.flow.style.transition = anim && mode === 'slide' ? 'transform .26s cubic-bezier(.3,.7,.3,1)' : 'none';
     this.flow.style.transform = `translateX(${-this.page * this.FW}px)`;
     this.afterMove();
   },
   next() {
     this.trackSpeed();
     if (this.page < this.pages - 1) this.showPage(this.page + 1, true);
-    else if (this.ch < this.data.count - 1) this.render(this.ch + 1, { frac: 0 });
+    else if (this.ch < this.data.count - 1) this.turnChapter(this.ch + 1, { frac: 0 }, 1);
     else this.finish();
   },
   prev() {
     this.turnAt = 0;
     if (this.page > 0) this.showPage(this.page - 1, true);
-    else if (this.ch > 0) this.render(this.ch - 1, 'end');
+    else if (this.ch > 0) this.turnChapter(this.ch - 1, 'end', -1);
     else toast(t('atStart'));
+  },
+  async turnChapter(ch, where, dir) {
+    const mode = S.bTurn || 'slide';
+    const g = mode !== 'none' ? this.snap() : null;
+    await this.render(ch, where);
+    if (g) this.play(g, dir, mode === 'slide' ? 'slideG' : mode);
+  },
+  snap() {
+    this.endFx();
+    const g = this.frame.cloneNode(true); g.classList.add('pt-ghost');
+    this.frame.after(g); this.ghost = g; return g;
+  },
+  endFx() { (this.fx || []).forEach(a => { try { a.finish(); } catch (e) { } }); this.fx = []; if (this.ghost) { this.ghost.remove(); this.ghost = null; } },
+  play(g, dir, mode) {
+    const F = this.frame, ease = 'cubic-bezier(.2,.75,.25,1)', D = mode === 'curl' ? 560 : mode === 'fade' ? 300 : 420;
+    const on = (top, below) => { top.style.zIndex = 3; below.style.zIndex = 2; };
+    let a = [];
+    if (mode === 'vertical') {
+      if (dir > 0) { on(F, g); a = [F.animate([{ transform: 'translateY(100%)', boxShadow: '0 -20px 40px rgba(0,0,0,.25)' }, { transform: 'none', boxShadow: '0 -20px 40px rgba(0,0,0,0)' }], { duration: D, easing: ease }), g.animate([{ transform: 'none', filter: 'brightness(1)' }, { transform: 'scale(.94)', filter: 'brightness(.8)' }], { duration: D, easing: ease })]; }
+      else { on(g, F); a = [g.animate([{ transform: 'none' }, { transform: 'translateY(100%)' }], { duration: D, easing: ease }), F.animate([{ transform: 'scale(.94)', filter: 'brightness(.8)' }, { transform: 'none', filter: 'brightness(1)' }], { duration: D, easing: ease })]; }
+    } else if (mode === 'curl') {
+      const out = [{ transform: 'perspective(1800px) rotateY(0)', filter: 'brightness(1)', boxShadow: '0 0 0 rgba(0,0,0,0)' }, { transform: 'perspective(1800px) rotateY(-30deg)', filter: 'brightness(.95)', boxShadow: '20px 0 40px rgba(0,0,0,.3)', offset: .35 }, { transform: 'perspective(1800px) rotateY(-100deg)', filter: 'brightness(.7)', boxShadow: '40px 0 60px rgba(0,0,0,0)' }];
+      if (dir > 0) { on(g, F); g.style.transformOrigin = '0 50%'; a = [g.animate(out, { duration: D, easing: 'ease-in-out' }), F.animate([{ filter: 'brightness(.8)' }, { filter: 'brightness(1)' }], { duration: D })]; }
+      else { on(F, g); F.style.transformOrigin = '0 50%'; a = [F.animate(out.slice().reverse().map((k, i) => ({ ...k, offset: [0, .65, 1][i] })), { duration: D, easing: 'ease-in-out' }), g.animate([{ filter: 'brightness(1)' }, { filter: 'brightness(.8)' }], { duration: D })]; }
+    } else if (mode === 'fade') {
+      on(g, F); a = [g.animate([{ opacity: 1 }, { opacity: 0 }], { duration: D, easing: 'ease-out' })];
+    } else {
+      on(g, F); const x = dir > 0 ? '-100%' : '100%', y = dir > 0 ? '100%' : '-100%';
+      a = [g.animate([{ transform: 'none' }, { transform: `translateX(${x})` }], { duration: 300, easing: ease }), F.animate([{ transform: `translateX(${y})` }, { transform: 'none' }], { duration: 300, easing: ease })];
+    }
+    this.fx = a;
+    Promise.all(a.map(x => x.finished)).catch(() => { }).then(() => { if (this.ghost === g) { g.remove(); this.ghost = null; } F.style.zIndex = ''; F.style.transformOrigin = ''; });
+  },
+  async jumpTo(j) {
+    // same chapter number in the other language if possible, else same percentage
+    if (j.num) { const e = this.data.toc.find(e => chapNum(e.label) === j.num); if (e) return this.render(e.idx, { frac: j.frac || 0 }); }
+    return this.jumpPct(j.pct || 0);
+  },
+  async switchLang() {
+    const sib = this.sib; if (!sib) return;
+    const num = chapNum(this.tocLabel(this.ch));
+    const jump = { pct: this.pct(), num, frac: this.page / this.pages };
+    saveRecSoon.flush && saveRecSoon.flush(); await saveRec(this.rec);
+    sib.pos = Object.assign({}, sib.pos || {}, { jump }); await DB.put('books', sib.id, sib);
+    this.endFx(); Lib.open(sib.id);
   },
   trackSpeed() {
     const now = Date.now();
@@ -225,9 +285,9 @@ const Book = {
     const pct = this.pct(), chapLabel = this.tocLabel(this.ch) || this.rec.title;
     const left = this.pages - this.page - 1, cpp = this.rootText.length / this.pages;
     const mins = Math.max(0, Math.round(left * cpp / (S.cpm || 1000)));
-    $('#b-h1').textContent = chapLabel;
+    $('#b-h1').textContent = niceLabel(chapLabel);
     $('#b-h2').textContent = '';
-    $('#b-f1').textContent = t('pageXofY', { a: this.page + 1, b: this.pages });
+    $('#b-f1').textContent = left > 0 ? t(left === 1 ? 'pageLeft1' : 'pagesLeft', { n: left }) : t('lastPageCh');
     $('#b-f2').textContent = (left > 0 ? t('minLeft', { m: mins < 1 ? '<1' : mins }) + ' · ' : '') + Math.round(pct * 100) + '%';
     $('#b-range').value = Math.round(pct * 1000);
     $('#b-label').textContent = t('chapterN', { n: this.ch + 1, m: this.data.count }) + ' · ' + Math.round(pct * 100) + '%';
@@ -387,7 +447,8 @@ const Book = {
           wGroup(t('layout'),
             wToggle(t('justify'), null, S.bJustify, x => { setS('bJustify', x); this.relayout(); }),
             wToggle(t('indent'), t('indentSub'), S.bIndent, x => { setS('bIndent', x); this.relayout(); }),
-            wToggle(t('pageAnim'), null, S.bAnim, x => setS('bAnim', x))),
+            ),
+          wGroup(t('pageTurn'), wSeg([['slide', t('ptSlide')], ['vertical', t('ptVertical')], ['curl', t('ptCurl')], ['fade', t('ptFade')], ['none', t('ptNone')]], S.bTurn || 'slide', x => { setS('bTurn', x); setS('bAnim', x !== 'none'); }, 'wrap')),
           comfortGroup());
       }
     });
@@ -541,3 +602,22 @@ const Book = {
     else if (e.key === 'Escape') this.close();
   },
 };
+
+function chapNum(label) {
+  const s = (label || '').replace(/^(cap[ií]tulo|chapter|cap\.?)\s+/i, '').trim();
+  if (/^(ep[ií]logo|epilogue)$/i.test(s)) return 'epi';
+  const m = s.match(/^([IVXLC]+|\d+)\b\.?$/i) || s.match(/^([IVXLC]+|\d+)[.:\s—-]/i);
+  if (!m) return '';
+  const r = m[1].toUpperCase(); if (/^\d+$/.test(r)) return String(+r);
+  const v = { I: 1, V: 5, X: 10, L: 50, C: 100 }; let n = 0;
+  for (let i = 0; i < r.length; i++) { const a = v[r[i]], b = v[r[i + 1]] || 0; n += a < b ? -a : a; }
+  return String(n);
+}
+function niceLabel(l) {
+  if (S.lang === 'en') return l;
+  const M = { 'titlepage': 'Folha de rosto', 'title page': 'Folha de rosto', 'imprint': 'Créditos', 'dedication': 'Dedicatória', 'colophon': 'Colofão', 'uncopyright': 'Licença', 'epigraph': 'Epígrafe', 'preface': 'Prefácio', "translator’s preface": 'Prefácio do tradutor', "translator's preface": 'Prefácio do tradutor', 'introduction': 'Introdução', 'contents': 'Sumário', 'endnotes': 'Notas', 'epilogue': 'Epílogo', 'halftitle': 'Folha de rosto' };
+  const k = (l || '').trim().toLowerCase();
+  if (M[k]) return M[k];
+  return l.replace(/^Part\s+/i, 'Parte ').replace(/^Book\s+/i, 'Livro ').replace(/^Chapter\s+/i, 'Capítulo ');
+}
+function langName(l) { return (l || '').toLowerCase().startsWith('en') ? 'English' : 'Português'; }

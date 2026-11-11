@@ -14,8 +14,12 @@ const Lib = {
     return Math.round(b.pct * 100) + '%';
   },
   kindLabel(b) { return b.kind === 'comic' ? t('comic') : t('book'); },
+  sibling(rec) { return rec.work ? this.books.find(b => b.id !== rec.id && b.work === rec.work) || null : null; },
   filtered() {
     let list = this.books.slice();
+    const pick = new Map();
+    for (const b of list) if (b.work) { const o = pick.get(b.work); const score = x => (x.opened || 0) * 10 + ((x.lang || '').startsWith(S.lang === 'en' ? 'en' : 'pt') ? 1 : 0); if (!o || score(b) > score(o)) pick.set(b.work, b); }
+    list = list.filter(b => !b.work || pick.get(b.work) === b);
     const f = S.filter;
     if (f === 'comic' || f === 'book') list = list.filter(b => b.kind === f);
     else if (f === 'reading') list = list.filter(b => b.pct > 0 && !b.finished);
@@ -40,11 +44,11 @@ const Lib = {
     if (!DB.ok || this.memOnly) ban.append(el('div', { class: 'banner' }, icon('info'), el('div', { text: t('memOnly') })));
     // greeting + daily goal
     $('#l-greet').textContent = greeting() + (this.books.length ? ' · ' + t('nItems').replace('{n}', this.books.length) : '');
-    $('#l-today').replaceChildren(this.books.length ? Goal.widget() : '');
+    $('#l-today').replaceChildren(this.books.length && S.showGoal ? Goal.widget() : '');
     // hero
     const hero = $('#l-hero'); hero.replaceChildren();
     const cont = this.books.filter(b => b.opened && !b.finished).sort((a, b) => b.opened - a.opened)[0];
-    if (cont && !this.q) {
+    if (cont && !this.q && S.showContinue) {
       const pc = Math.round((cont.pct || 0) * 100);
       hero.append(el('button', { class: 'hero', onclick: e => this.open(cont.id, e.currentTarget.querySelector('.hcover')) },
         el('div', { class: 'hbg' }, this.coverEl(cont)),
@@ -115,7 +119,7 @@ const Lib = {
   },
   card(b) {
     const cover = el('button', { class: 'cover', 'aria-label': b.title, onclick: e => this.open(b.id, e.currentTarget) }, this.coverEl(b),
-      el('span', { class: 'badge', text: b.format === 'cbz' ? 'HQ' : b.format.toUpperCase() }),
+      this.sibling(b) ? el('span', { class: 'badge', text: 'PT · EN' }) : null,
       b.finished ? el('span', { class: 'done' }, icon('check')) : null,
       (b.pct > 0 && !b.finished) ? el('div', { class: 'cbar' }, el('i', { style: { width: Math.round(b.pct * 100) + '%' } })) : null);
     return el('div', { class: 'card' }, cover,

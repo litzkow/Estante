@@ -27,7 +27,11 @@ for f in os.listdir(d):
     if f.endswith('.epub'):
         z=zipfile.ZipFile(p); opf=[n for n in z.namelist() if n.endswith('.opf')][0]; m=re.search(r'<dc:title[^>]*>(.*?)</dc:title>', z.read(opf).decode('utf-8','ignore'), re.S)
         if m: t=html.unescape(m.group(1).strip())
-    out.append({'file':f,'title':t,'size':sz,'big':sz>5_000_000})
+    lang = 'en' if f in ('Alices-Adventures-in-Wonderland.epub','Dracula.epub','Frankenstein.epub','Tarzan-of-the-Apes.epub','The-Time-Machine.epub','Grimms-Fairy-Tales.epub','Don-Quixote.epub') else 'pt'
+    work = {'The-Time-Machine.epub':'time-machine','A-Maquina-do-Tempo.epub':'time-machine'}.get(f)
+    e={'file':f,'title':t,'size':sz,'big':sz>5_000_000,'lang':lang}
+    if work: e['work']=work
+    out.append(e)
 out.sort(key=lambda x:x['size'])
 json.dump(out, open(os.path.join(d,'catalogo.json'),'w'), ensure_ascii=False, indent=1)
 print(len(out),'livros no catálogo')

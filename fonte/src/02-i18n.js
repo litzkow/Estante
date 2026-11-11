@@ -1,6 +1,11 @@
 /* ================= strings (pt / en) ================= */
 const STR = {
-  autoTheme: ['Auto', 'Auto'], dlBooks: ['Adicionando livros grátis {n} de {t}', 'Adding free books {n} of {t}'],
+  autoTheme: ['Auto', 'Auto'], hideGoal: ['Esconder da tela inicial', 'Hide from home screen'], hideGoalToast: ['Dá para mostrar de novo em Ajustes', 'You can show it again in Settings'],
+  comfortAuto: ['Automático (recomendado)', 'Automatic (recommended)'], comfortAutoSub: ['Deixa a tela mais quente e um pouco mais escura à noite, como o Night Shift', 'Makes the screen warmer and slightly dimmer at night, like Night Shift'],
+  homeScreen: ['Tela inicial e leitura', 'Home screen and reading'], showGoal: ['Mostrar meta de leitura', 'Show reading goal'], showGoalSub: ['Minutos lidos hoje e dias seguidos', 'Minutes read today and day streak'], showContinue: ['Mostrar "Continuar lendo"', 'Show "Continue reading"'],
+  pagesLeft: ['{n} páginas até o fim do capítulo', '{n} pages left in chapter'], pageLeft1: ['1 página até o fim do capítulo', '1 page left in chapter'], lastPageCh: ['Última página do capítulo', 'Last page in chapter'],
+  pageTurn: ['Virar a página', 'Page turn'], ptSlide: ['Deslizar', 'Slide'], ptVertical: ['De baixo para cima', 'Bottom to top'], ptCurl: ['Virar papel', 'Curl'], ptFade: ['Esmaecer', 'Fade'], ptNone: ['Nenhuma', 'None'],
+  readIn: ['Ler em', 'Read in'], bothLangs: ['Português e inglês', 'Portuguese and English'], dlBooks: ['Adicionando livros grátis {n} de {t}', 'Adding free books {n} of {t}'],
   gMorning: ['Bom dia', 'Good morning'], gAfternoon: ['Boa tarde', 'Good afternoon'], gNight: ['Boa noite', 'Good evening'], nItems: ['{n} na estante', '{n} on your shelf'],
   today: ['Hoje', 'Today'], goalOf: ['{n} de {g} min de leitura', '{n} of {g} min read'], goalMet: ['Meta do dia cumprida', 'Daily goal reached'], goalDone: ['Meta do dia cumprida! 🎉', 'Daily goal reached! 🎉'],
   goalTitle: ['Sua leitura', 'Your reading'], streakDays: ['dias seguidos', 'day streak'], weekMin: ['min nos últimos 7 dias', 'min in the last 7 days'], dailyGoal: ['Meta diária', 'Daily goal'],

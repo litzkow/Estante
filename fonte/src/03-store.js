@@ -58,11 +58,11 @@ const DB = {
 
 /* ================= settings ================= */
 const DEFAULTS = {
-  lang: 'pt', theme: 'auto', goalMin: 15, toured: false, starterGot: [], warm: 0, dim: 0, pause: true, anim: true,
+  lang: 'pt', theme: 'auto', goalMin: 15, toured: false, comfortAuto: true, showGoal: true, showContinue: true, starterGot: [], warm: 0, dim: 0, pause: true, anim: true,
   // comics
   cMode: 'quadros', cDir: 'ltr', cFullFirst: true, cSplit: true, cSpot: true,
   // books
-  bFont: 'literata', bSize: 20, bLh: 1.6, bMargin: 'm', bJustify: true, bIndent: false, bAnim: true,
+  bFont: 'literata', bSize: 18, bLh: 1.6, bMargin: 'm', bJustify: false, bIndent: false, bAnim: true, bTurn: 'slide', typoV: 1,
   // translation
   trTo: 'pt',
   // library
@@ -78,6 +78,7 @@ function setS(k, v) { S[k] = v; S.updated = Date.now(); saveSettings(); }
 async function loadSettings() {
   const v = await DB.get('kv', 'settings');
   if (v) Object.assign(S, v);
+  if (!S.typoV) { S.bSize = 18; S.bJustify = false; S.bLh = 1.6; S.bTurn = S.bAnim === false ? 'none' : 'slide'; S.typoV = 1; }
   else { const l = (navigator.language || 'pt').toLowerCase(); S.lang = l.startsWith('pt') ? 'pt' : 'pt'; }
 }
 

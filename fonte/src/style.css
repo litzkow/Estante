@@ -6,10 +6,10 @@
   --accent:#e8a33d;--accent-ink:#1a1307;--danger:#e5484d;
   --r:14px;
 }
-body.t-claro{--bg:#f6f4ef;--fg:#1f1d1a;--muted:#77716a;--card:#ffffff;--card2:#efebe3;--line:#e2ddd3;--bar:rgba(246,244,239,.94);--shadow:0 6px 20px rgba(40,30,10,.12);--paper:#fbfaf7;--ink:#1d1c1a}
-body.t-sepia{--bg:#efe3c8;--fg:#43351f;--muted:#80704f;--card:#f7edd8;--card2:#e7d7b5;--line:#d9c7a1;--bar:rgba(239,227,200,.95);--shadow:0 6px 20px rgba(70,50,10,.16);--paper:#f3e7cf;--ink:#4a3b27}
-body.t-escuro{--bg:#141518;--fg:#ebe7df;--muted:#9a958c;--card:#1f2024;--card2:#2a2b30;--line:#2e2f35;--bar:rgba(20,21,24,.93);--shadow:0 8px 24px rgba(0,0,0,.45);--paper:#1e1f22;--ink:#d9d4cb}
-body.t-noite{--bg:#000;--fg:#b3ab9e;--muted:#6f685e;--card:#0c0c0c;--card2:#171717;--line:#1d1d1d;--bar:rgba(0,0,0,.94);--shadow:none;--paper:#000;--ink:#9d968a}
+.t-claro{--bg:#f6f4ef;--fg:#1f1d1a;--muted:#77716a;--card:#ffffff;--card2:#efebe3;--line:#e2ddd3;--bar:rgba(246,244,239,.94);--shadow:0 6px 20px rgba(40,30,10,.12);--paper:#fbfaf7;--ink:#1d1c1a}
+.t-sepia{--bg:#efe3c8;--fg:#43351f;--muted:#80704f;--card:#f7edd8;--card2:#e7d7b5;--line:#d9c7a1;--bar:rgba(239,227,200,.95);--shadow:0 6px 20px rgba(70,50,10,.16);--paper:#f3e7cf;--ink:#4a3b27}
+.t-escuro{--bg:#141518;--fg:#ebe7df;--muted:#9a958c;--card:#1f2024;--card2:#2a2b30;--line:#2e2f35;--bar:rgba(20,21,24,.93);--shadow:0 8px 24px rgba(0,0,0,.45);--paper:#1e1f22;--ink:#d9d4cb}
+.t-noite{--bg:#000;--fg:#b3ab9e;--muted:#6f685e;--card:#0c0c0c;--card2:#171717;--line:#1d1d1d;--bar:rgba(0,0,0,.94);--shadow:none;--paper:#000;--ink:#9d968a}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:var(--ui);-webkit-tap-highlight-color:transparent;overscroll-behavior:none;-webkit-text-size-adjust:100%}
 body{overflow:hidden}
@@ -389,3 +389,32 @@ body.no-ai #b-ai,body.no-ai #p-ai{display:none!important}
 .banner.dl .dlm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
 .banner.dl .hbar{height:4px;border-radius:2px;background:var(--card);margin-top:6px;overflow:hidden}
 .banner.dl .hbar i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+
+/* ================= reader polish (Apple Books / Kindle as reference) ================= */
+html[data-view=v-book],html[data-view=v-book] body{background:var(--paper)}
+html[data-view=v-comic],html[data-view=v-comic] body{background:#000}
+#b-frame{touch-action:none}
+#b-flow{text-rendering:optimizeLegibility;font-kerning:normal;-webkit-font-smoothing:antialiased;font-feature-settings:"kern","liga","onum"}
+#b-flow p{orphans:2;widows:2}
+#b-flow h1,#b-flow h2,#b-flow h3{text-align:center;font-weight:600;letter-spacing:-.01em;margin:1.4em 0 1.1em}
+#b-flow h1{font-size:1.45em}#b-flow h2{font-size:1.3em}#b-flow h3{font-size:1.1em}
+#b-flow .chap>h1:first-child,#b-flow .chap>h2:first-child,#b-flow .chap>section:first-child>h2:first-child,#b-flow .chap>section:first-child>header:first-child{margin-top:1.6em}
+#b-flow hgroup,#b-flow header{text-align:center;margin-bottom:1.2em}
+#b-flow hgroup p,#b-flow header p{text-indent:0;font-style:italic;color:var(--muted)}
+#b-flow.opener .chap{padding-top:calc(var(--bk-h) * .3);text-align:center}
+#b-flow.opener h1,#b-flow.opener h2,#b-flow.opener h3{font-size:1.7em;margin:0 0 .5em}
+#b-flow.opener p{text-indent:0;color:var(--muted)}
+.b-meta{font-size:12px;letter-spacing:.1px}
+#b-head{left:calc(var(--sl) + 56px);right:calc(var(--sr) + 56px);justify-content:center;text-align:center}
+#b-h2:empty{display:none}
+#b-foot{justify-content:space-between}
+.b-x{position:absolute;z-index:5;top:calc(var(--st) + 2px);left:calc(var(--sl) + 8px);width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--muted);opacity:.75}
+.b-x svg{width:18px;height:18px}
+.b-x:active{background:rgba(127,127,127,.18)}
+#v-book:not(.ui-off) .b-x{opacity:0;pointer-events:none}
+#b-lang{margin-right:2px}
+.pt-ghost{background:var(--paper);pointer-events:none;will-change:transform}
+#b-frame{background:var(--paper)}
+.seg.wrap{display:grid!important;grid-template-columns:repeat(3,1fr);gap:4px}
+.seg.wrap button{white-space:normal;line-height:1.15;min-height:40px}
+#b-flow blockquote{border-left:0;padding-left:0;margin:.8em 0}

@@ -91,7 +91,7 @@ const Goal = {
     if (before < S.goalMin * 60 && this.today() >= S.goalMin * 60) toast(t('goalDone'));
     this.save();
   },
-  save: debounce(function () { DB.put('kv', 'stats', { days: this.days }).catch(() => { }); }, 2000),
+  save: debounce(() => { DB.put('kv', 'stats', { days: Goal.days }).catch(() => { }); }, 2000),
   today() { return this.days[this.ymd()] || 0; },
   streak() {
     const g = S.goalMin * 60, d = new Date(); let n = 0;
@@ -134,7 +134,7 @@ const Goal = {
           el('div', { class: 'gl', style: { margin: '18px 0 8px' }, text: t('dailyGoal') }));
         const row = el('div', { class: 'seg goalseg' });
         for (const m of [5, 10, 15, 20, 30, 45, 60]) row.append(el('button', { class: S.goalMin === m ? 'on' : '', text: m + ' min', onclick: () => { setS('goalMin', m); Sheets.close(s); Lib.render(); } }));
-        b.append(row);
+        b.append(row, el('button', { class: 'btn block', style: { marginTop: '14px' }, text: t('hideGoal'), onclick: () => { setS('showGoal', false); Sheets.close(s); Lib.render(); toast(t('hideGoalToast')); } }));
       },
     });
   },
@@ -180,6 +180,7 @@ const Starter = {
   async run() {
     let cat;
     try { cat = await (await fetch(this.base + 'catalogo.json', { cache: 'no-cache' })).json(); } catch (e) { return; }
+    await this.tag(cat);
     const got = new Set(S.starterGot || []);
     const todo = cat.filter(x => !got.has(x.file));
     if (!todo.length) return;
@@ -202,5 +203,14 @@ const Starter = {
     }
     await flush();
     ban.remove();
+    await this.tag(cat);
+  },
+  async tag(cat) {
+    let ch = false;
+    for (const b of await DB.all('books')) {
+      const x = cat.find(x => x.file === b.fname); if (!x || !x.work) continue;
+      if (b.work !== x.work || b.lang !== x.lang) { b.work = x.work; b.lang = x.lang; await DB.put('books', b.id, b); ch = true; }
+    }
+    if (ch) Lib.render();
   },
 };
