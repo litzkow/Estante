@@ -2,6 +2,7 @@
 const Lib = {
   books: [], urls: [], memOnly: false, q: '',
   coverEl(b) {
+    if (!b.cover && b.id && (b.format === 'pdf' || (S.starterGot || []).includes(b.fname))) setTimeout(() => this.repairCover(b), 1500);
     if (b.cover instanceof Blob) {
       const u = URL.createObjectURL(b.cover); this.urls.push(u);
       // iPhone sometimes loses a saved picture: show a drawn cover and fetch the real one again
@@ -16,7 +17,7 @@ const Lib = {
     try {
       let cat = null; try { cat = await (await fetch(Starter.base + 'catalogo.json', { cache: 'no-cache' })).json(); } catch (e) { } const x = cat && cat.find(x => x.file === b.fname);
       if (x && x.cover) { const r = await fetch(Starter.base + x.cover, { cache: 'reload' }); if (r.ok && (r.headers.get('content-type') || '').startsWith('image')) blob = new Blob([await r.arrayBuffer()], { type: 'image/jpeg' }); }
-      if (!blob && b.format === 'pdf') { const f = await DB.get('files', b.fileOf || b.id); if (f) { const pdf = await openPdf(f); try { const cv = await renderPdfPage(pdf, (b.range && b.range.from) || 1, 360); blob = new Blob([await (await canvasBlob(typeof trimWhite === 'function' ? trimWhite(cv) : cv, 'image/jpeg', 0.85)).arrayBuffer()], { type: 'image/jpeg' }); } finally { closePdf(pdf); } } }
+      if (!blob && b.format === 'pdf') { const f = await DB.get('files', b.fileOf || b.id); if (f) { const pdf = await openPdf(f); try { const c = await bestCover(pdf, (b.range && b.range.from) || 1, b.range && b.range.to); if (c) blob = new Blob([await c.arrayBuffer()], { type: 'image/jpeg' }); } finally { closePdf(pdf); } } }
     } catch (e) { }
     const rec = await DB.get('books', b.id);
     if (rec) { rec.cover = blob || null; await DB.put('books', rec.id, rec); await this.render(); }

@@ -1,5 +1,6 @@
 /* ================= strings (pt / en) ================= */
 const STR = {
+  tapToPlay: ['Pronto! Toque no ▶ para começar a ouvir.', 'Ready! Tap ▶ to start listening.'],
   cDblT: ['Dois toques na tela', 'Double tap'], cDblZoom: ['Zoom (aproximar/afastar)', 'Zoom in/out'], cDblPanel: ['Ir para o quadro', 'Go to panel'],
   abReady: ['audiolivro pronto · sem pausas', 'ready audiobook · no pauses'], abReadyHD: ['audiolivro pronto · voz mais natural', 'ready audiobook · most natural voice'], abMissing: ['Este capítulo ainda não tem áudio.', 'This chapter has no audio yet.'],
   abNet: ['Não deu para tocar o audiolivro. Confira a internet e tente de novo.', "Couldn't play the audiobook. Check the internet and try again."],

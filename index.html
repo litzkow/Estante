@@ -893,6 +893,7 @@ function gestures(target, h) {
 }
 /* ================= strings (pt / en) ================= */
 const STR = {
+  tapToPlay: ['Pronto! Toque no ▶ para começar a ouvir.', 'Ready! Tap ▶ to start listening.'],
   cDblT: ['Dois toques na tela', 'Double tap'], cDblZoom: ['Zoom (aproximar/afastar)', 'Zoom in/out'], cDblPanel: ['Ir para o quadro', 'Go to panel'],
   abReady: ['audiolivro pronto · sem pausas', 'ready audiobook · no pauses'], abReadyHD: ['audiolivro pronto · voz mais natural', 'ready audiobook · most natural voice'], abMissing: ['Este capítulo ainda não tem áudio.', 'This chapter has no audio yet.'],
   abNet: ['Não deu para tocar o audiolivro. Confira a internet e tente de novo.', "Couldn't play the audiobook. Check the internet and try again."],
@@ -1104,12 +1105,21 @@ const DB = {
       tx.oncomplete = () => res(out); tx.onerror = () => rej(tx.error); tx.onabort = () => rej(tx.error || new Error('abort'));
     });
   },
+  // iPhone bug: a picture read from the database and saved back can turn unreadable.
+  // So book covers are kept as plain bytes and turned into a picture again when read.
+  dec(v) { if (v && v.cover && v.cover.__bytes) v.cover = new Blob([v.cover.__bytes], { type: v.cover.type || 'image/jpeg' }); return v; },
+  async enc(v) {
+    if (!v || !(v.cover instanceof Blob)) return v;
+    let bytes = null; try { bytes = await v.cover.arrayBuffer(); } catch (e) { }
+    return Object.assign({}, v, { cover: bytes && bytes.byteLength ? { __bytes: bytes, type: v.cover.type } : null });
+  },
   async get(store, key) {
-    if (this.mem[store].has(key)) return this.mem[store].get(key);
+    if (this.mem[store].has(key)) return store === 'books' ? this.dec(Object.assign({}, this.mem[store].get(key))) : this.mem[store].get(key);
     if (!this.ok) return undefined;
-    try { return await this._do(store, 'readonly', s => s.get(key)); } catch (e) { return undefined; }
+    try { const v = await this._do(store, 'readonly', s => s.get(key)); return store === 'books' ? this.dec(v) : v; } catch (e) { return undefined; }
   },
   async put(store, key, val) {
+    if (store === 'books') val = await this.enc(val);
     if (this.ok) {
       try { await this._do(store, 'readwrite', s => s.put(val, key)); this.mem[store].delete(key); return true; }
       catch (e) { console.warn('put falhou', store, e); }
@@ -1128,7 +1138,7 @@ const DB = {
     const m = new Map();
     if (this.ok) try { const vals = await this._do(store, 'readonly', s => s.getAll()); for (const v of vals || []) if (v && v.id) m.set(v.id, v); } catch (e) { }
     for (const [k, v] of this.mem[store]) m.set(k, v);
-    return [...m.values()];
+    return store === 'books' ? [...m.values()].map(v => this.dec(Object.assign({}, v))) : [...m.values()];
   },
 };
 
@@ -1765,6 +1775,7 @@ async function importFiles(list) {
 const Lib = {
   books: [], urls: [], memOnly: false, q: '',
   coverEl(b) {
+    if (!b.cover && b.id && (b.format === 'pdf' || (S.starterGot || []).includes(b.fname))) setTimeout(() => this.repairCover(b), 1500);
     if (b.cover instanceof Blob) {
       const u = URL.createObjectURL(b.cover); this.urls.push(u);
       // iPhone sometimes loses a saved picture: show a drawn cover and fetch the real one again
@@ -1779,7 +1790,7 @@ const Lib = {
     try {
       let cat = null; try { cat = await (await fetch(Starter.base + 'catalogo.json', { cache: 'no-cache' })).json(); } catch (e) { } const x = cat && cat.find(x => x.file === b.fname);
       if (x && x.cover) { const r = await fetch(Starter.base + x.cover, { cache: 'reload' }); if (r.ok && (r.headers.get('content-type') || '').startsWith('image')) blob = new Blob([await r.arrayBuffer()], { type: 'image/jpeg' }); }
-      if (!blob && b.format === 'pdf') { const f = await DB.get('files', b.fileOf || b.id); if (f) { const pdf = await openPdf(f); try { const cv = await renderPdfPage(pdf, (b.range && b.range.from) || 1, 360); blob = new Blob([await (await canvasBlob(typeof trimWhite === 'function' ? trimWhite(cv) : cv, 'image/jpeg', 0.85)).arrayBuffer()], { type: 'image/jpeg' }); } finally { closePdf(pdf); } } }
+      if (!blob && b.format === 'pdf') { const f = await DB.get('files', b.fileOf || b.id); if (f) { const pdf = await openPdf(f); try { const c = await bestCover(pdf, (b.range && b.range.from) || 1, b.range && b.range.to); if (c) blob = new Blob([await c.arrayBuffer()], { type: 'image/jpeg' }); } finally { closePdf(pdf); } } }
     } catch (e) { }
     const rec = await DB.get('books', b.id);
     if (rec) { rec.cover = blob || null; await DB.put('books', rec.id, rec); await this.render(); }
@@ -3724,7 +3735,7 @@ const App = {
     await Goal.init();
     Lib.animNext = true;
     await Lib.render();
-    Splash.hide().then(async () => { Tour.maybe(); await splitCollections(); await Starter.run(); Family.sync(true); });
+    Splash.hide().then(async () => { Tour.maybe(); await splitCollections(); fixVolumes().catch(() => { }); await Starter.run(); Family.sync(true); });
     // platform capabilities arrive later
     AI.init();
     Sync.init().then(async () => { if (Sync.on) { if (await Sync.pullPrefs()) { applyTheme(); applyComfort(); applyI18n(); } Lib.render(); } });
@@ -4057,7 +4068,14 @@ const TTS = {
   },
   // iPhone only lets audio start from a tap: start the player silently right now, inside the tap
   unlock() {
-    try { const a = NeuralPlayer.audio; if (!a.src) { NeuralPlayer.silent = true; a.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA='; a.play().catch(() => { }); } } catch (e) { }
+    // iPhone only lets a page play sound that starts from a tap: play a short real silence now, during the tap,
+    // so the same player may play the book a moment later (after it's downloaded or generated)
+    try {
+      const a = NeuralPlayer.audio; if (NeuralPlayer.unlocked && a.src) return;
+      if (!this.silentUrl) this.silentUrl = URL.createObjectURL(wavBlob(new Float32Array(4800), 16000));
+      NeuralPlayer.silent = true; a.src = this.silentUrl;
+      a.play().then(() => { NeuralPlayer.unlocked = true; }).catch(() => { });
+    } catch (e) { }
   },
   async play() {
     this.playing = true; this.keepAwake(true); this.ui();
@@ -4482,16 +4500,7 @@ async function splitCollections() {
         try { let tx = ''; for (const pg of [vols[0].page + 8, vols[0].page + 12, vols[0].page + 20]) { if (pg > n) continue; const tc = await (await pdf.getPage(pg)).getTextContent(); tx += ' ' + tc.items.map(i => i.str).join(' '); } lang = detectLang(tx) || lang; } catch (e) { }
         for (let k = 0; k < vols.length; k++) {
           const v = vols[k]; let cover = null;
-          // the volume's own cover is usually one of its first pages: take the most "inked" one (a full-page picture beats a title page)
-          try {
-            let best = null, bestInk = -1;
-            for (let pg = v.page; pg <= Math.min(v.to, v.page + 3); pg++) {
-              const cv = await renderPdfPage(pdf, pg, 360), cx = cv.getContext('2d'), d = cx.getImageData(0, 0, cv.width, cv.height).data;
-              let ink = 0; for (let i = 0; i < d.length; i += 64) if (d[i] + d[i + 1] + d[i + 2] < 690) ink++;
-              if (ink > bestInk) { bestInk = ink; best = cv; }
-            }
-            if (best) cover = await canvasBlob(trimWhite(best), 'image/jpeg', 0.85);
-          } catch (e) { }
+          try { cover = await bestCover(pdf, v.page, v.to); } catch (e) { }
           const id = b.id + '-v' + (k + 1);
           await DB.put('books', id, { id, kind: 'book', format: 'pdf', title: v.label, author: b.author || '', fname: b.fname, fileOf: b.id, range: { from: v.page, to: v.to }, series, snum: k + 1, cover, pages: v.to - v.page + 1, size: 0, added: b.added || Date.now(), opened: 0, updated: 0, pct: 0, pos: null, bookmarks: [], highlights: [], collections: [], prefs: {}, fp: (b.fp || b.id) + ':v' + (k + 1), lang, work: 'serie:' + seriesKey(series) + '#' + (k + 1) });
         }
@@ -4517,6 +4526,46 @@ function trimWhite(cv) {
   if (w > W * 0.95 && h > H * 0.95) return cv;
   if (w < W * 0.4 || h < H * 0.4 || h / w < 1.1 || h / w > 1.8) return cv;
   const o = document.createElement('canvas'); o.width = w; o.height = h; o.getContext('2d').drawImage(cv, l, t, w, h, 0, 0, w, h); return o;
+}
+
+// a volume's own cover is usually one of its first pages: take the most "inked" one (a full-page picture beats a white title page)
+async function bestCover(pdf, from, to) {
+  let best = null, bestInk = -1;
+  for (let pg = from; pg <= Math.min(to || from + 3, from + 3, pdf.numPages); pg++) {
+    const cv = await renderPdfPage(pdf, pg, 360), d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
+    let ink = 0; for (let i = 0; i < d.length; i += 64) if (d[i] + d[i + 1] + d[i + 2] < 690) ink++;
+    if (ink > bestInk) { bestInk = ink; best = cv; }
+  }
+  return best ? canvasBlob(trimWhite(best), 'image/jpeg', 0.85) : null;
+}
+
+// once: volumes of a collection get the same work tag (so the two languages show as one book) and their real cover
+async function fixVolumes() {
+  const all = await DB.all('books'), vols = all.filter(b => b.fileOf && b.series && b.snum);
+  if (!vols.length) return;
+  const groups = new Map();
+  for (const b of vols) { const k = seriesKey(b.series) + '#' + b.snum; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(b); }
+  let changed = false;
+  for (const [k, g] of groups) {
+    const langs = g.map(b => b.lang).filter(Boolean);
+    for (const b of g) {
+      let ch = false;
+      if (!b.work) { b.work = 'serie:' + k; ch = true; }
+      if (!b.lang && g.length === 2) { const other = langs[0]; if (other) { b.lang = other === 'pt' ? 'en' : 'pt'; ch = true; } }
+      if (ch) { await DB.put('books', b.id, b); changed = true; }
+    }
+  }
+  if (!S.volCoverFix) {
+    setS('volCoverFix', true);
+    const byFile = new Map(); for (const b of vols) { if (!byFile.has(b.fileOf)) byFile.set(b.fileOf, []); byFile.get(b.fileOf).push(b); }
+    for (const [fid, g] of byFile) {
+      const f = await DB.get('files', fid); if (!f) continue;
+      let pdf; try { pdf = await openPdf(f); } catch (e) { continue; }
+      try { for (const b of g) { try { const c = await bestCover(pdf, b.range.from, b.range.to); if (c) { const r = await DB.get('books', b.id); r.cover = c; await DB.put('books', b.id, r); changed = true; } } catch (e) { } } }
+      finally { closePdf(pdf); }
+    }
+  }
+  if (changed) { Lib.books = (await DB.all('books')).filter(b => !b.hidden); await Lib.render(); }
 }
 /* ================= natural voices: free neural voices that run on the phone, or Microsoft with a key =================
    neural  → English: Kokoro (kokoro-js), Portuguese: Piper (vits-web). Both run on the device, free, no limit.
@@ -4681,7 +4730,7 @@ const NeuralPlayer = {
     if (tok !== this.token || !TTS.playing) return;
     const u = URL.createObjectURL(b); this.urls.push(u); if (this.urls.length > 6) URL.revokeObjectURL(this.urls.shift());
     const a = this.audio; this.silent = false; a.src = u; a.playbackRate = S.ttsRate || 1;
-    try { await a.play(); } catch (e) { TTS.pause(); return; }
+    try { await a.play(); NeuralPlayer.unlocked = true; } catch (e) { TTS.pause(); if (e && e.name === 'NotAllowedError') toast(t('tapToPlay'), 5000); return; }
     this.meta();
     // generate the next passages while this one plays (one at a time: the phone does the work)
     for (let j = 1; j <= 6; j++) { if (this.k + j < this.chunks.length) { try { await this.get(this.k + j, this.voice, this.lang); } catch (e) { break; } } if (tok !== this.token) return; }
@@ -4702,7 +4751,7 @@ const NeuralPlayer = {
     if (a.src !== L.url) { this.silent = false; a.src = L.url; }
     const k0 = Math.max(0, this.k - L.from); a.currentTime = L.starts[k0] || 0; a.playbackRate = S.ttsRate || 1;
     a.ontimeupdate = () => { if (!this.long) return; let j = 0; while (j + 1 < L.starts.length && L.starts[j + 1] <= a.currentTime) j++; if (L.from + j !== this.k) { this.k = L.from + j; const c = this.chunks[this.k]; if (c) { TTS.i = c.first; if (document.visibilityState === 'visible') TTS.follow(c); } } };
-    try { await a.play(); } catch (e) { TTS.pause(); return; }
+    try { await a.play(); NeuralPlayer.unlocked = true; } catch (e) { TTS.pause(); if (e && e.name === 'NotAllowedError') toast(t('tapToPlay'), 5000); return; }
     this.meta();
   },
   // ---------- narrated audiobook ----------
@@ -4726,7 +4775,8 @@ const NeuralPlayer = {
     try {
       if (st) { await new Promise(r => { if (a.readyState >= 1) r(); else a.addEventListener('loadedmetadata', r, { once: true }); }); a.currentTime = st; }
       await a.play();
-    } catch (e) { if (tok === this.token) TTS.pause(); return; }
+      this.unlocked = true;
+    } catch (e) { if (tok === this.token) { TTS.pause(); if (e && e.name === 'NotAllowedError') toast(t('tapToPlay'), 5000); } return; }
     a.ontimeupdate = () => this.abTick();
     this.meta();
     AudioBook.prefetch(rec, voice.slice(2), ch + 1);

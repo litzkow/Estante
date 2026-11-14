@@ -88,7 +88,14 @@ const TTS = {
   },
   // iPhone only lets audio start from a tap: start the player silently right now, inside the tap
   unlock() {
-    try { const a = NeuralPlayer.audio; if (!a.src) { NeuralPlayer.silent = true; a.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA='; a.play().catch(() => { }); } } catch (e) { }
+    // iPhone only lets a page play sound that starts from a tap: play a short real silence now, during the tap,
+    // so the same player may play the book a moment later (after it's downloaded or generated)
+    try {
+      const a = NeuralPlayer.audio; if (NeuralPlayer.unlocked && a.src) return;
+      if (!this.silentUrl) this.silentUrl = URL.createObjectURL(wavBlob(new Float32Array(4800), 16000));
+      NeuralPlayer.silent = true; a.src = this.silentUrl;
+      a.play().then(() => { NeuralPlayer.unlocked = true; }).catch(() => { });
+    } catch (e) { }
   },
   async play() {
     this.playing = true; this.keepAwake(true); this.ui();

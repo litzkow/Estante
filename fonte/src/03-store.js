@@ -28,12 +28,21 @@ const DB = {
       tx.oncomplete = () => res(out); tx.onerror = () => rej(tx.error); tx.onabort = () => rej(tx.error || new Error('abort'));
     });
   },
+  // iPhone bug: a picture read from the database and saved back can turn unreadable.
+  // So book covers are kept as plain bytes and turned into a picture again when read.
+  dec(v) { if (v && v.cover && v.cover.__bytes) v.cover = new Blob([v.cover.__bytes], { type: v.cover.type || 'image/jpeg' }); return v; },
+  async enc(v) {
+    if (!v || !(v.cover instanceof Blob)) return v;
+    let bytes = null; try { bytes = await v.cover.arrayBuffer(); } catch (e) { }
+    return Object.assign({}, v, { cover: bytes && bytes.byteLength ? { __bytes: bytes, type: v.cover.type } : null });
+  },
   async get(store, key) {
-    if (this.mem[store].has(key)) return this.mem[store].get(key);
+    if (this.mem[store].has(key)) return store === 'books' ? this.dec(Object.assign({}, this.mem[store].get(key))) : this.mem[store].get(key);
     if (!this.ok) return undefined;
-    try { return await this._do(store, 'readonly', s => s.get(key)); } catch (e) { return undefined; }
+    try { const v = await this._do(store, 'readonly', s => s.get(key)); return store === 'books' ? this.dec(v) : v; } catch (e) { return undefined; }
   },
   async put(store, key, val) {
+    if (store === 'books') val = await this.enc(val);
     if (this.ok) {
       try { await this._do(store, 'readwrite', s => s.put(val, key)); this.mem[store].delete(key); return true; }
       catch (e) { console.warn('put falhou', store, e); }
@@ -52,7 +61,7 @@ const DB = {
     const m = new Map();
     if (this.ok) try { const vals = await this._do(store, 'readonly', s => s.getAll()); for (const v of vals || []) if (v && v.id) m.set(v.id, v); } catch (e) { }
     for (const [k, v] of this.mem[store]) m.set(k, v);
-    return [...m.values()];
+    return store === 'books' ? [...m.values()].map(v => this.dec(Object.assign({}, v))) : [...m.values()];
   },
 };
 

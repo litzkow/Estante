@@ -246,16 +246,7 @@ async function splitCollections() {
         try { let tx = ''; for (const pg of [vols[0].page + 8, vols[0].page + 12, vols[0].page + 20]) { if (pg > n) continue; const tc = await (await pdf.getPage(pg)).getTextContent(); tx += ' ' + tc.items.map(i => i.str).join(' '); } lang = detectLang(tx) || lang; } catch (e) { }
         for (let k = 0; k < vols.length; k++) {
           const v = vols[k]; let cover = null;
-          // the volume's own cover is usually one of its first pages: take the most "inked" one (a full-page picture beats a title page)
-          try {
-            let best = null, bestInk = -1;
-            for (let pg = v.page; pg <= Math.min(v.to, v.page + 3); pg++) {
-              const cv = await renderPdfPage(pdf, pg, 360), cx = cv.getContext('2d'), d = cx.getImageData(0, 0, cv.width, cv.height).data;
-              let ink = 0; for (let i = 0; i < d.length; i += 64) if (d[i] + d[i + 1] + d[i + 2] < 690) ink++;
-              if (ink > bestInk) { bestInk = ink; best = cv; }
-            }
-            if (best) cover = await canvasBlob(trimWhite(best), 'image/jpeg', 0.85);
-          } catch (e) { }
+          try { cover = await bestCover(pdf, v.page, v.to); } catch (e) { }
           const id = b.id + '-v' + (k + 1);
           await DB.put('books', id, { id, kind: 'book', format: 'pdf', title: v.label, author: b.author || '', fname: b.fname, fileOf: b.id, range: { from: v.page, to: v.to }, series, snum: k + 1, cover, pages: v.to - v.page + 1, size: 0, added: b.added || Date.now(), opened: 0, updated: 0, pct: 0, pos: null, bookmarks: [], highlights: [], collections: [], prefs: {}, fp: (b.fp || b.id) + ':v' + (k + 1), lang, work: 'serie:' + seriesKey(series) + '#' + (k + 1) });
         }
@@ -281,4 +272,44 @@ function trimWhite(cv) {
   if (w > W * 0.95 && h > H * 0.95) return cv;
   if (w < W * 0.4 || h < H * 0.4 || h / w < 1.1 || h / w > 1.8) return cv;
   const o = document.createElement('canvas'); o.width = w; o.height = h; o.getContext('2d').drawImage(cv, l, t, w, h, 0, 0, w, h); return o;
+}
+
+// a volume's own cover is usually one of its first pages: take the most "inked" one (a full-page picture beats a white title page)
+async function bestCover(pdf, from, to) {
+  let best = null, bestInk = -1;
+  for (let pg = from; pg <= Math.min(to || from + 3, from + 3, pdf.numPages); pg++) {
+    const cv = await renderPdfPage(pdf, pg, 360), d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
+    let ink = 0; for (let i = 0; i < d.length; i += 64) if (d[i] + d[i + 1] + d[i + 2] < 690) ink++;
+    if (ink > bestInk) { bestInk = ink; best = cv; }
+  }
+  return best ? canvasBlob(trimWhite(best), 'image/jpeg', 0.85) : null;
+}
+
+// once: volumes of a collection get the same work tag (so the two languages show as one book) and their real cover
+async function fixVolumes() {
+  const all = await DB.all('books'), vols = all.filter(b => b.fileOf && b.series && b.snum);
+  if (!vols.length) return;
+  const groups = new Map();
+  for (const b of vols) { const k = seriesKey(b.series) + '#' + b.snum; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(b); }
+  let changed = false;
+  for (const [k, g] of groups) {
+    const langs = g.map(b => b.lang).filter(Boolean);
+    for (const b of g) {
+      let ch = false;
+      if (!b.work) { b.work = 'serie:' + k; ch = true; }
+      if (!b.lang && g.length === 2) { const other = langs[0]; if (other) { b.lang = other === 'pt' ? 'en' : 'pt'; ch = true; } }
+      if (ch) { await DB.put('books', b.id, b); changed = true; }
+    }
+  }
+  if (!S.volCoverFix) {
+    setS('volCoverFix', true);
+    const byFile = new Map(); for (const b of vols) { if (!byFile.has(b.fileOf)) byFile.set(b.fileOf, []); byFile.get(b.fileOf).push(b); }
+    for (const [fid, g] of byFile) {
+      const f = await DB.get('files', fid); if (!f) continue;
+      let pdf; try { pdf = await openPdf(f); } catch (e) { continue; }
+      try { for (const b of g) { try { const c = await bestCover(pdf, b.range.from, b.range.to); if (c) { const r = await DB.get('books', b.id); r.cover = c; await DB.put('books', b.id, r); changed = true; } } catch (e) { } } }
+      finally { closePdf(pdf); }
+    }
+  }
+  if (changed) { Lib.books = (await DB.all('books')).filter(b => !b.hidden); await Lib.render(); }
 }

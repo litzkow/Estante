@@ -161,7 +161,7 @@ const NeuralPlayer = {
     if (tok !== this.token || !TTS.playing) return;
     const u = URL.createObjectURL(b); this.urls.push(u); if (this.urls.length > 6) URL.revokeObjectURL(this.urls.shift());
     const a = this.audio; this.silent = false; a.src = u; a.playbackRate = S.ttsRate || 1;
-    try { await a.play(); } catch (e) { TTS.pause(); return; }
+    try { await a.play(); NeuralPlayer.unlocked = true; } catch (e) { TTS.pause(); if (e && e.name === 'NotAllowedError') toast(t('tapToPlay'), 5000); return; }
     this.meta();
     // generate the next passages while this one plays (one at a time: the phone does the work)
     for (let j = 1; j <= 6; j++) { if (this.k + j < this.chunks.length) { try { await this.get(this.k + j, this.voice, this.lang); } catch (e) { break; } } if (tok !== this.token) return; }
@@ -182,7 +182,7 @@ const NeuralPlayer = {
     if (a.src !== L.url) { this.silent = false; a.src = L.url; }
     const k0 = Math.max(0, this.k - L.from); a.currentTime = L.starts[k0] || 0; a.playbackRate = S.ttsRate || 1;
     a.ontimeupdate = () => { if (!this.long) return; let j = 0; while (j + 1 < L.starts.length && L.starts[j + 1] <= a.currentTime) j++; if (L.from + j !== this.k) { this.k = L.from + j; const c = this.chunks[this.k]; if (c) { TTS.i = c.first; if (document.visibilityState === 'visible') TTS.follow(c); } } };
-    try { await a.play(); } catch (e) { TTS.pause(); return; }
+    try { await a.play(); NeuralPlayer.unlocked = true; } catch (e) { TTS.pause(); if (e && e.name === 'NotAllowedError') toast(t('tapToPlay'), 5000); return; }
     this.meta();
   },
   // ---------- narrated audiobook ----------
@@ -206,7 +206,8 @@ const NeuralPlayer = {
     try {
       if (st) { await new Promise(r => { if (a.readyState >= 1) r(); else a.addEventListener('loadedmetadata', r, { once: true }); }); a.currentTime = st; }
       await a.play();
-    } catch (e) { if (tok === this.token) TTS.pause(); return; }
+      this.unlocked = true;
+    } catch (e) { if (tok === this.token) { TTS.pause(); if (e && e.name === 'NotAllowedError') toast(t('tapToPlay'), 5000); } return; }
     a.ontimeupdate = () => this.abTick();
     this.meta();
     AudioBook.prefetch(rec, voice.slice(2), ch + 1);
