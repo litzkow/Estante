@@ -1,0 +1,18 @@
+name: Procurar traduções livres
+on: { workflow_dispatch: {} }
+jobs:
+  procurar:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -fsSL -o c.csv https://www.gutenberg.org/cache/epub/feeds/pg_catalog.csv
+          python3 - <<'PY'
+          import csv
+          rows = list(csv.DictReader(open('c.csv', encoding='utf-8')))
+          want = [('Wells', 'pt'), ('Carroll', 'pt'), ('Stoker', 'pt'), ('Shelley, Mary', 'pt'), ('Burroughs, Edgar Rice', 'pt'), ('Grimm', 'pt'), ('Cervantes', 'pt'),
+                  ('Camões', 'en'), ('Alencar', 'en'), ('Machado de Assis', 'en'), ('Azevedo, Aluísio', 'en'), ('Queirós', 'en'), ('Eça', 'en'), ('Assis', 'en')]
+          for a, l in want:
+              for r in rows:
+                  if a.lower() in r['Authors'].lower() and r['Language'] == l:
+                      print(l, '|', r['Text#'], '|', r['Title'][:90].replace('\n', ' '), '|', r['Authors'][:80])
+          PY
