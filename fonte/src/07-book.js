@@ -90,6 +90,7 @@ const Book = {
       this.sib = Lib.sibling(rec);
       $('#b-lang').classList.toggle('hide', !this.sib);
       if (this.sib) $('#b-lang').textContent = langName(this.sib.lang);
+      if (rec.prevOpened && Date.now() - rec.prevOpened > 3 * 864e5 && (rec.pct || 0) > 0.02 && AI.on) setTimeout(() => this.welcomeBack(Math.round((Date.now() - rec.prevOpened) / 864e5)), 1200);
       if (pos.jump) { delete rec.pos; await this.jumpTo(pos.jump); }
       else if (!rec.pos) await this.render(this.data.start || 0, { frac: 0 });
       else await this.render(clamp(pos.ch || 0, 0, this.data.count - 1), pos.off != null ? { offset: pos.off } : { frac: pos.frac || 0 });
@@ -171,6 +172,7 @@ const Book = {
     const tok = ++this.tok;
     let node;
     try { node = await this.data.chapter(ch); } catch (e) { node = el('div', { class: 'chap' }, el('p', { text: '—' })); }
+    try { node = await Trans.apply(node, ch, this.rec); } catch (e) { console.warn('trans', e); }
     if (tok !== this.tok) return;
     this.ch = ch;
     this.flow.style.transition = 'none'; this.flow.style.transform = 'translateX(0)';
@@ -442,6 +444,9 @@ const Book = {
     for (const [c, col] of Object.entries(HL_COLORS)) bar.append(el('button', { class: 'sw', style: { background: col }, 'aria-label': t('highlight'), onclick: () => this.addHL(c) }));
     bar.append(...[el('span', { class: 'sep' }),
       el('button', { onclick: () => this.addNote() }, icon('note')),
+      el('button', { onclick: () => this.translateSel() }, t('trShort')),
+      el('button', { 'aria-label': t('ttsListen'), onclick: () => this.sayWord() }, icon('headphones')),
+      el('button', { 'aria-label': t('vocabAdd'), onclick: () => { const o = this.selOffsets(); Vocab.add(this.selText, o ? this.rootText.slice(Math.max(0, o.s - 120), o.e + 120) : '', this.rec); this.clearSel(); } }, icon('bookmark')),
       AI.on ? el('button', { onclick: () => this.explainSel() }, icon('sparkle'), t('explain')) : null,
       el('button', { onclick: async () => { try { await navigator.clipboard.writeText(this.selText); toast(t('copied')); } catch (e) { toast(t('copyFail')); } this.clearSel(); } }, icon('copy'))].filter(Boolean));
     bar.classList.add('on');
@@ -520,6 +525,7 @@ const Book = {
           fonts.append(btn);
         }
         b.append(
+          Trans.sheetGroup(this.rec, () => { Sheets.closeAll(); this.render(this.ch, { frac: this.page / Math.max(1, this.pages) }); }),
           wGroup(t('fontSize'), el('div', { class: 'stepper' }, el('button', { style: { fontSize: '15px' }, onclick: () => setSize(-1) }, 'A−'), v, el('button', { style: { fontSize: '20px' }, onclick: () => setSize(1) }, 'A+'))),
           wGroup(t('font'), fonts, el('p', { class: 'muted', style: { fontSize: '12.5px', margin: '8px 0 0', lineHeight: 1.4 }, text: t('fontHelp') })),
           wGroup(t('spacing'), wSeg([[1.4, t('compact')], [1.6, t('normal')], [1.85, t('airy')]], S.bLh, x => { setS('bLh', x); this.relayout(); })),
@@ -610,17 +616,75 @@ const Book = {
     return this.rootText.slice(Math.max(0, end - maxChars), end);
   },
   aiSheet() {
-    if (!AI.on) return toast(t('aiOff'));
     const s = Sheets.open({
       title: t('aiTools'), body: b => {
         const L = el('div', { class: 'list' });
         const item = (ic, label, sub, fn) => L.append(el('button', { class: 'li', onclick: () => { Sheets.close(s); fn(); } }, icon(ic), el('div', { class: 'lt' }, label, el('small', { text: sub }))));
-        item('summary', t('recap'), t('recapSub'), () => this.recap());
-        item('hand', t('askBook'), t('askBookSub'), () => this.askSheet());
-        item('sparkle', t('explainSel'), t('explainSelSub'), () => toast(t('selectFirst'), 3500));
+        if (AI.on) {
+          item('summary', t('recap'), t('recapSub'), () => this.recap());
+          item('hand', t('askBook'), t('askBookSub'), () => this.askSheet());
+          item('people', t('whoTitle'), t('whoSub'), () => this.whoSheet());
+          item('sparkle', t('explainSel'), t('explainSelSub'), () => toast(t('selectFirst'), 3500));
+        } else item('sparkle', t('gemAdd'), t('aiNone'), () => aiKeySheet());
+        item('bookmark', t('vocabTitle'), t('vocabSub'), () => Vocab.sheet());
+        item('info', t('repTitle'), t('repSub'), () => this.report());
         b.append(L);
       }
     });
+  },
+  // everything read so far (previous chapters + current one up to this page), newest text kept when too long
+  async readSoFar(maxChars = 90000) {
+    let s = this.contextSoFar(maxChars);
+    for (let i = this.ch - 1; i >= 0 && s.length < maxChars; i--) { try { const tx = await this.data.text(i); s = tx.slice(-(maxChars - s.length)) + '\n\n' + s; } catch (e) { break; } }
+    return s;
+  },
+  welcomeBack(days) {
+    Sheets.open({ title: t('wbTitle'), center: true, body: b => b.append(
+      el('p', { style: { lineHeight: 1.5 }, text: t('wbText', { n: days }) }),
+      el('button', { class: 'btn primary block', text: t('recap'), onclick: () => { Sheets.close(); this.recap(); } }),
+      el('button', { class: 'btn block', style: { marginTop: '8px' }, text: t('wbNo'), onclick: () => Sheets.close() })) });
+  },
+  whoSheet() {
+    const lang = AI.langName(S.lang);
+    aiSheet(t('whoTitle'), async ({ signal, onText }) => {
+      const ctx = await this.readSoFar(90000);
+      return AI.fn('Someone is reading "' + this.rec.title + '"' + (this.rec.author ? ' by ' + this.rec.author : '') + '. Below is everything they have read so far (possibly only the most recent part).\n<text>\n' + ctx + '\n</text>\n\nIn ' + lang + ', list the main characters and places that have appeared so far, each with one short line on who or what they are and their role up to this point, then a short timeline (5-8 bullet points) of the key events so far. Use ONLY this text: never reveal or hint at anything that happens later in the book, even if you know the book. Three short sections: characters, places, timeline (titles in ' + lang + ').', { signal, onText });
+    });
+  },
+  async report() {
+    const d = this.data, rec = this.rec, wrap = this.flow.firstElementChild;
+    const rows = [[t('repFormat'), (rec.format || '').toUpperCase() + (rec.format === 'pdf' ? ' · ' + (rec.pages || '?') + ' ' + t('repPages') : '')],
+      [t('repChapters'), String(d.count)], [t('repToc'), String((d.toc || []).length)], [t('repStart'), niceLabel(this.tocLabel(d.start || 0)) || '—'],
+      [t('repLang'), (rec.lang || detectLang(this.rootText) || '?').toUpperCase()]];
+    const paras = wrap ? wrap.querySelectorAll('p').length : 0, imgs = wrap ? wrap.querySelectorAll('img').length : 0, heads = wrap ? wrap.querySelectorAll('h1,h2,h3').length : 0;
+    rows.push([t('repThis'), t('repThisV', { p: paras, i: imgs, h: heads, c: this.rootText.length.toLocaleString() })]);
+    let trDone = 0; for (let i = 0; i < Math.min(d.count, 400); i++) if (await DB.get('kv', Trans.key(rec, i)).catch(() => null)) trDone++;
+    rows.push([t('repTrans'), t('repTransV', { n: trDone, m: d.count, l: Trans.target(rec).toUpperCase() })]);
+    const warn = [];
+    if (rec.format === 'pdf' && d.wmCount) warn.push(t('repWm', { n: d.wmCount }));
+    if (!this.rootText.trim()) warn.push(t('repEmpty'));
+    const miss = wrap ? wrap.querySelectorAll('.tr-miss').length : 0; if (miss) warn.push(t('repMiss', { n: miss }));
+    const broken = wrap ? [...wrap.querySelectorAll('img')].filter(i => i.complete && !i.naturalWidth).length : 0; if (broken) warn.push(t('repBroken', { n: broken }));
+    Sheets.open({ title: t('repTitle'), body: b => {
+      b.append(el('div', { class: 'rep' }, ...rows.map(([k, v]) => el('div', { class: 'rr' }, el('span', { text: k }), el('b', { text: v })))),
+        el('div', { class: 'gl', style: { margin: '16px 0 6px' }, text: t('repWarn') }),
+        warn.length ? el('ul', { class: 'steps' }, ...warn.map(w => el('li', { text: w }))) : el('p', { class: 'muted', text: t('repOk') }),
+        el('button', { class: 'btn block', style: { marginTop: '12px' }, onclick: () => { const body = encodeURIComponent(rec.title + '\n' + rows.map(r => r.join(': ')).join('\n') + '\n' + warn.join('\n')); window.open('mailto:?subject=' + encodeURIComponent('Estante: ' + rec.title) + '&body=' + body); } }, icon('note'), t('repSend')));
+    } });
+  },
+  sayWord() {
+    try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(this.selText); u.lang = (this.flow.lang || 'en').startsWith('en') ? 'en-US' : 'pt-BR'; const v = TTS.voice && TTS.voice(); if (v && v.lang.slice(0, 2) === u.lang.slice(0, 2)) u.voice = v; u.rate = 0.9; speechSynthesis.speak(u); } catch (e) { }
+  },
+  translateSel() {
+    const tx = this.selText, o = this.selOffsets(), ctx = o ? this.rootText.slice(Math.max(0, o.s - 500), Math.min(this.rootText.length, o.e + 300)) : '';
+    const src = Trans.src(this.rec), tgt = src === 'en' ? 'pt' : 'en';
+    this.clearSel();
+    if (!AI.on) { window.open('https://translate.google.com/?sl=' + src + '&tl=' + tgt + '&op=translate&text=' + encodeURIComponent(tx), '_blank', 'noopener'); return; }
+    const short = tx.trim().split(/\s+/).length <= 3;
+    aiSheet(t('trShort') + ': ' + (tx.length > 40 ? tx.slice(0, 40) + '…' : tx), ({ signal, onText }) => AI.fn(
+      `Translate this ${short ? 'word or expression' : 'passage'} from ${Trans.name(src)} to ${Trans.name(tgt)}, as it is used in this context from the book "${this.rec.title}".\n\nSelection: "${tx.slice(0, 1500)}"\n\nContext: "${ctx}"\n\n` +
+      (short ? `Answer in ${AI.langName(S.lang)} with: 1) the best translation in this context; 2) the meaning in one sentence; 3) how to pronounce it (simple, for a Brazilian); 4) one other common meaning if there is one. Be brief, no headings.` : `Answer with the translation only, keeping tone and style; then, on a new line starting with "—", one short note in ${AI.langName(S.lang)} if an expression or reference needs explaining.`),
+      { signal, onText }), { after: short ? null : undefined });
   },
   explainSel() {
     const tx = this.selText; const o = this.selOffsets();
@@ -637,7 +701,7 @@ const Book = {
     const ctx = this.contextSoFar(60000);
     const chap = this.tocLabel(this.ch) || t('chapterN', { n: this.ch + 1, m: this.data.count });
     aiSheet(t('recap'), ({ signal, onText }) =>
-      AI.fn(`You are helping someone who is reading "${this.rec.title}"${this.rec.author ? ' by ' + this.rec.author : ''}. Below is the text of the current section ("${chap}") up to the point where they stopped. Write a recap in ${lang} of what has happened so far in this section: who is involved, the key events and anything important to remember. Use 3 to 6 short bullet points starting with "•". Only use the text given: never mention or guess anything after it.\n\n"""\n${ctx}\n"""`, { signal, onText }), { ui: true });
+      AI.fn(`You are helping someone who is reading "${this.rec.title}"${this.rec.author ? ' by ' + this.rec.author : ''}. Below is the text of the current section ("${chap}") up to the point where they stopped. Never reveal or hint at anything after this point, even if you know the book. Write a recap in ${lang} of what has happened so far in this section: who is involved, the key events and anything important to remember. Use 3 to 6 short bullet points starting with "•". Only use the text given: never mention or guess anything after it.\n\n"""\n${ctx}\n"""`, { signal, onText }), { ui: true });
   },
   askSheet() {
     const lang = AI.langName(S.lang);

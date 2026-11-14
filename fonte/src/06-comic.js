@@ -209,11 +209,20 @@ const Comic = {
   init() {
     this.stage = $('#c-stage'); this.zoomer = $('#c-zoom'); this.cam = $('#c-cam'); this.spot = $('#c-spot');
     gestures(this.stage, {
-      tap: (x) => {
-        const W = this.stage.clientWidth, zone = x / W;
-        if (zone > 0.3 && zone < 0.7) return this.toggleUI();
-        const fwd = zone >= 0.7;
-        (this.dir === 'rtl' ? !fwd : fwd) ? this.next() : this.prev();
+      tap: (x, y) => {
+        const W = this.stage.clientWidth, zone = x / W, now = performance.now();
+        // double tap on a panel while seeing the whole page: guided reading starts at that panel (like Comixology)
+        if (this.lastTap && now - this.lastTap.t < 320 && Math.hypot(x - this.lastTap.x, y - this.lastTap.y) < 40) {
+          clearTimeout(this.tapT); this.lastTap = null; this.enterPanelAt(x, y); return;
+        }
+        this.lastTap = { t: now, x, y };
+        const act = () => {
+          if (zone > 0.3 && zone < 0.7) return this.toggleUI();
+          const fwd = zone >= 0.7;
+          (this.dir === 'rtl' ? !fwd : fwd) ? this.next() : this.prev();
+        };
+        const r = this.steps[this.step];
+        if (r && r.full && this.mode === 'quadros' && this.steps.length > 1) { clearTimeout(this.tapT); this.tapT = setTimeout(act, 300); } else act();
       },
       swipe: d => { if (this.z.s > 1.05) return; const fwd = d === 'left'; (this.dir === 'rtl' ? !fwd : fwd) ? this.next() : this.prev(); },
       down: () => { this.zb = Object.assign({}, this.z); },
@@ -229,6 +238,7 @@ const Comic = {
     $('#c-mode').onclick = () => this.cycleMode();
     $('#c-set').onclick = () => this.settings();
     $('#c-grid').onclick = () => this.pagesSheet();
+    $('#c-tr').onclick = () => this.toggleTr();
     $('#c-bmk').onclick = () => this.toggleBookmark();
     const rg = $('#c-range');
     rg.oninput = () => { $('#c-label').textContent = t('pageXofY', { a: rg.value, b: this.src.count }); };
@@ -300,6 +310,7 @@ const Comic = {
       pg.img.style.width = pg.w + 'px'; pg.img.style.height = pg.h + 'px';
       pg.img.style.opacity = '0'; pg.img.style.transition = 'opacity .18s';
       this.cam.replaceChildren(pg.img);
+      this.drawTr(pg);
       requestAnimationFrame(() => { pg.img.style.opacity = '1'; });
     }
     this.steps = this.computeSteps(pg);
@@ -322,9 +333,85 @@ const Comic = {
     const trs = animate && S.anim ? 'all .42s cubic-bezier(.25,.8,.25,1)' : 'none';
     this.cam.style.transition = tr; this.spot.style.transition = trs;
     this.cam.style.transform = `translate(${q.tx}px,${q.ty}px) scale(${q.s})`;
-    Object.assign(this.spot.style, { left: q.sx + 'px', top: q.sy + 'px', width: q.sw + 'px', height: q.sh + 'px', boxShadow: `0 0 0 300vmax rgba(0,0,0,${(!r.full && !r.strip && S.cSpot) ? 0.8 : 0})` });
+    Object.assign(this.spot.style, { left: q.sx + 'px', top: q.sy + 'px', width: q.sw + 'px', height: q.sh + 'px', boxShadow: `0 0 0 300vmax rgba(0,0,0,${(!r.full && !r.strip) ? ({ off: 0, dim: 0.78, black: 1 }[S.cBox || (S.cSpot ? 'dim' : 'off')]) : 0})` });
     this.resetZoom(false);
     this.minimap(r);
+  },
+  enterPanelAt(x, y) {
+    const r = this.steps[this.step]; if (!r) return;
+    const st = this.stage.getBoundingClientRect(), q = this.rectFor(r);
+    const px = (x - st.left - q.tx) / q.s, py = (y - st.top - q.ty) / q.s;
+    const k = this.steps.findIndex(s => !s.full && px >= s.x && px <= s.x + s.w && py >= s.y && py <= s.y + s.h);
+    if (k >= 0) { this.step = k; this.apply(true); this.afterMove(); }
+    else if (!r.full) { const f = this.steps.findIndex(s => s.full); if (f >= 0) { this.step = f; this.apply(true); this.afterMove(); } }
+  },
+  // ---------- translated balloons (AI reads the page, finds each balloon and translates it) ----------
+  trLang() { return (this.rec.prefs.trTo) || (S.lang === 'en' ? 'en' : 'pt'); },
+  async toggleTr() {
+    if (!AI.fn) return aiKeySheet();
+    const on = !this.rec.prefs.tr;
+    if (on) {
+      const pick = await new Promise(res => Sheets.open({ title: t('cTrTitle'), body: b => b.append(
+        el('p', { class: 'muted', style: { lineHeight: 1.5, marginTop: 0 }, text: t('cTrIntro') }),
+        el('button', { class: 'btn primary block', text: t('cTrTo') + ' Português', onclick: () => { Sheets.close(); res('pt'); } }),
+        el('button', { class: 'btn block', style: { marginTop: '8px' }, text: t('cTrTo') + ' English', onclick: () => { Sheets.close(); res('en'); } })), onClose: () => res(null) }));
+      if (!pick) return;
+      this.rec.prefs.trTo = pick;
+    }
+    this.rec.prefs.tr = on; await saveRec(this.rec);
+    $('#c-tr').classList.toggle('on', on);
+    if (this.cur) this.drawTr(this.cur);
+  },
+  async trData(pg, force) {
+    const key = 'ctr:' + this.rec.id + ':' + pg.i + ':' + this.trLang();
+    if (!force) { const c = await DB.get('kv', key).catch(() => null); if (c) return c; }
+    const sc = Math.min(1, 1400 / Math.max(pg.w, pg.h)), cv = document.createElement('canvas');
+    cv.width = Math.round(pg.w * sc); cv.height = Math.round(pg.h * sc); cv.getContext('2d').drawImage(pg.img, 0, 0, cv.width, cv.height);
+    const blob = await canvasBlob(cv, 'image/jpeg', 0.85);
+    const lang = this.trLang() === 'en' ? 'English' : 'Brazilian Portuguese';
+    const prompt = `This is one page of a comic${this.dir === 'rtl' ? ' (manga, read right to left)' : ''}. Find every speech balloon, thought balloon, caption/narration box and meaningful sound effect with text.
+For each one give its box as [ymin, xmin, ymax, xmax] normalized 0-1000 to this image (the inside of the balloon), the exact original text, and a natural ${lang} translation that keeps tone, humour and character voice (if the text is already in ${lang}, repeat it).
+Rules: one item per balloon, never merge two balloons, never split one balloon; list items in reading order (${this.dir === 'rtl' ? 'right to left' : 'left to right'}, top to bottom, panel by panel); conf is your confidence 0-1 that the text was read correctly.
+Return only JSON: {"lang":"source language code","items":[{"box":[..],"kind":"speech|thought|caption|sfx","text":"..","tr":"..","conf":0.9}]}`;
+    const { text } = await AI.vision(blob, prompt, { json: true, temperature: 0.2 });
+    const j = JSON.parse(String(text).replace(/^```(json)?|```$/g, '').trim());
+    const items = (j.items || []).filter(it => Array.isArray(it.box) && it.box.length === 4 && (it.tr || it.text));
+    const data = { lang: j.lang || '', items };
+    DB.put('kv', key, data).catch(() => { });
+    return data;
+  },
+  async drawTr(pg) {
+    this.cam.querySelectorAll('.ctr-layer').forEach(x => x.remove());
+    if (!this.rec.prefs.tr || !AI.fn) return;
+    const layer = el('div', { class: 'ctr-layer', style: { width: pg.w + 'px', height: pg.h + 'px' } });
+    this.cam.append(layer);
+    let data;
+    try { $('#c-load').classList.remove('hide'); data = await this.trData(pg); }
+    catch (e) { toast(AI.errText(e)); return; }
+    finally { $('#c-load').classList.add('hide'); }
+    if (this.cur !== pg) return;
+    pg.tr = data;
+    for (const it of data.items) {
+      if (it.kind === 'sfx' && !S.cTrSfx) continue;
+      const [y0, x0, y1, x1] = it.box.map(Number), bx = el('div', { class: 'ctr-b' + (it.kind === 'caption' ? ' cap' : '') + ((it.conf ?? 1) < 0.6 ? ' low' : '') });
+      Object.assign(bx.style, { left: x0 / 1000 * pg.w + 'px', top: y0 / 1000 * pg.h + 'px', width: Math.max(20, (x1 - x0) / 1000 * pg.w) + 'px', height: Math.max(16, (y1 - y0) / 1000 * pg.h) + 'px' });
+      const sp = el('span', { text: it.tr || it.text }); bx.append(sp); layer.append(bx);
+      // fit the text inside the balloon
+      let lo = 6, hi = Math.max(10, (y1 - y0) / 1000 * pg.h * 0.5);
+      for (let k = 0; k < 9; k++) { const mid = (lo + hi) / 2; sp.style.fontSize = mid + 'px'; if (sp.scrollHeight <= bx.clientHeight && sp.scrollWidth <= bx.clientWidth) lo = mid; else hi = mid; }
+      sp.style.fontSize = lo + 'px';
+      bx.onclick = e => { e.stopPropagation(); bx.classList.toggle('orig'); sp.textContent = bx.classList.contains('orig') ? it.text : (it.tr || it.text); };
+    }
+  },
+  linesSheet() {
+    const pg = this.cur, d = pg && pg.tr;
+    Sheets.open({ title: t('cLines'), body: b => {
+      if (!d || !d.items.length) { b.append(el('p', { class: 'muted', text: this.rec.prefs.tr ? t('cLinesNone') : t('cLinesOff') })); return; }
+      b.append(...d.items.map((it, i) => el('div', { class: 'cline' + ((it.conf ?? 1) < 0.6 ? ' low' : '') },
+        el('small', { text: (i + 1) + ' · ' + t('cKind_' + (it.kind || 'speech')) + ((it.conf ?? 1) < 0.6 ? ' · ' + t('cLow') : '') }),
+        el('div', { class: 'co', text: it.text }), el('div', { class: 'ct', text: it.tr || '' }))),
+        el('button', { class: 'btn block', style: { marginTop: '12px' }, text: t('cRedo'), onclick: async () => { Sheets.close(); try { await this.trData(pg, true); this.drawTr(pg); } catch (e) { toast(AI.errText(e)); } } }));
+    } });
   },
   minimap(r) {
     let m = $('#c-map');
@@ -416,8 +503,10 @@ const Comic = {
           wGroup(t('direction'), wSeg([['ltr', t('western'), 'ltr'], ['rtl', t('manga'), 'rtl']], this.dir, v => this.setDir(v))),
           wGroup(t('panelView'),
             wToggle(t('fullFirst'), t('fullFirstSub'), S.cFullFirst, v => { setS('cFullFirst', v); this.relayout(); }),
-            wToggle(t('splitWide'), t('splitWideSub'), S.cSplit, v => { setS('cSplit', v); this.relayout(); }),
-            wToggle(t('spotlight'), t('spotlightSub'), S.cSpot, v => { setS('cSpot', v); this.relayout(); }),
+            wToggle(t('splitWide'), t('splitWideSub2'), S.cSplit, v => { setS('cSplit', v); this.relayout(); }),
+            el('button', { class: 'btn block', style: { margin: '10px 0' }, onclick: () => { Sheets.closeAll(); this.linesSheet(); } }, icon('translate'), t('cLines')),
+            el('div', { style: { margin: '12px 0 6px', fontSize: '14px', fontWeight: 600 }, text: t('cBoxT') }),
+            wSeg([['off', t('cBoxOff')], ['dim', t('cBoxDim')], ['black', t('cBoxBlack')]], S.cBox || (S.cSpot ? 'dim' : 'off'), v => { setS('cBox', v); this.apply(false); }),
             wToggle(t('animZoom'), null, S.anim, v => setS('anim', v)),
             wToggle(t('defaultsAll'), t('defaultsAllSub'), false, v => { if (v) { setS('cMode', this.mode); setS('cDir', this.dir); toast(t('savedDefaults')); } })),
           comfortGroup());

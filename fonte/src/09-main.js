@@ -71,6 +71,13 @@ async function settingsSheet() {
         wGroup(t('language'), wSeg([['pt', 'Português'], ['en', 'English']], S.lang, v => { setS('lang', v); applyI18n(); Sheets.closeAll(); Lib.render(); settingsSheet(); })),
         wGroup(t('theme'), themePicker()),
         comfortGroup(),
+        wGroup(t('aiGroupT'),
+          el('p', { class: 'muted', style: { fontSize: '13px', lineHeight: 1.45, margin: '0 0 10px' }, text: AI.provider === 'claude' ? t('aiViaClaude') : S.gemKey ? t('aiViaGemini') : t('aiNone') }),
+          el('button', { class: 'btn block', onclick: () => { Sheets.closeAll(); aiKeySheet(); } }, icon('sparkle'), S.gemKey ? t('gemChange') : t('gemAdd')),
+          el('button', { class: 'btn block', style: { marginTop: '8px' }, onclick: () => { Sheets.closeAll(); Vocab.sheet(); } }, icon('bookmark'), t('vocabTitle'))),
+        wGroup(t('famTitle'),
+          el('p', { class: 'muted', style: { fontSize: '13px', lineHeight: 1.45, margin: '0 0 10px' }, text: Family.on ? t('famOn', { r: S.famRepo }) : t('famOff') }),
+          el('button', { class: 'btn block', onclick: () => { Sheets.closeAll(); Family.sheet(); } }, icon('folder'), Family.on ? t('famManage') : t('famSetup'))),
         wGroup(t('homeScreen'),
           wToggle(t('showGoal'), t('showGoalSub'), S.showGoal, v => { setS('showGoal', v); Lib.render(); }),
           wToggle(t('showContinue'), null, S.showContinue, v => { setS('showContinue', v); Lib.render(); }),
@@ -113,7 +120,7 @@ const App = {
     Comic.init(); Book.init(); PdfBook.init(); TTS.init();
     // library controls
     $('#l-add').onclick = () => $('#l-file').click();
-    $('#l-file').onchange = e => { const f = [...e.target.files]; e.target.value = ''; importFiles(f); };
+    $('#l-file').onchange = async e => { const f = [...e.target.files]; e.target.value = ''; await importFiles(f); Family.afterImport(f); };
     $('#l-set').onclick = () => settingsSheet();
     $('#l-sort').onclick = () => Lib.sortSheet();
     $('#l-search').onclick = () => { $('#l-sbar').classList.add('on'); $('#l-q').focus(); };
@@ -141,7 +148,7 @@ const App = {
     await Goal.init();
     Lib.animNext = true;
     await Lib.render();
-    Splash.hide().then(() => { Tour.maybe(); Starter.run(); });
+    Splash.hide().then(async () => { Tour.maybe(); await Starter.run(); Family.sync(true); });
     // platform capabilities arrive later
     AI.init();
     Sync.init().then(async () => { if (Sync.on) { if (await Sync.pullPrefs()) { applyTheme(); applyComfort(); applyI18n(); } Lib.render(); } });

@@ -273,7 +273,7 @@ textarea.field{height:110px;padding:12px 14px;resize:none;line-height:1.4}
 .pause-card p{color:var(--muted);line-height:1.5;margin:0 0 18px;font-size:15px}
 .pause-card .count{font-size:44px;font-weight:700;font-variant-numeric:tabular-nums;margin-bottom:16px;color:var(--accent)}
 
-body.no-ai #b-ai,body.no-ai #p-ai{display:none!important}
+body.no-ai #p-ai{display:none!important}
 #b-flow p:has(br),#b-flow .poem p,#b-flow .stanza,#b-flow .poetry,#b-flow .poetry0,#b-flow .poetry2,#b-flow .verse{text-align:left!important;-webkit-hyphens:manual;hyphens:manual;text-indent:0}
 
 /* ================= design pass ================= */
@@ -485,3 +485,21 @@ canvas.peel{position:absolute;z-index:4;pointer-events:none}
 #b-frame,.pt-ghost{background-size:100vw 100dvh,600px 600px,180px 180px;background-position:calc(-1 * var(--sl,0px)) calc(-1 * (var(--st,0px) + 64px))}
 #b-flow{font-weight:var(--bk-wt,400)}
 .inp{width:100%;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--fg);padding:0 12px;font:inherit;font-size:15px}
+/* tradução e modo bilíngue */
+#b-flow .bilingual .bi-tr{color:var(--muted);font-style:normal;margin-top:-.35em;padding-left:.7em;border-left:2px solid var(--accent)}
+#b-flow .bilingual .bi-or{margin-bottom:.3em}
+#b-flow .tr-miss{position:relative}
+#b-flow .tr-miss::after{content:attr(data-miss);display:inline-block;margin-left:.4em;font:600 10px var(--ui,system-ui);color:#c0582c;border:1px solid #c0582c;border-radius:6px;padding:0 5px;vertical-align:middle}
+.steps{padding-left:20px;line-height:1.55}
+.li.vocab b{font-size:16px}.li.vocab .vtr{color:var(--accent);font-size:14px}
+/* balões traduzidos por cima da arte */
+.ctr-layer{position:absolute;left:0;top:0;pointer-events:none}
+.ctr-b{position:absolute;display:flex;align-items:center;justify-content:center;text-align:center;background:#fffdf8;border-radius:42%/48%;padding:2%;box-sizing:border-box;overflow:hidden;pointer-events:auto;box-shadow:0 0 0 2px #fffdf8;color:#1a1a1a;font-family:'Comic Neue','Atkinson Hyperlegible',system-ui,sans-serif;font-weight:700;line-height:1.12}
+.ctr-b.cap{border-radius:6px;background:#fff6dc}
+.ctr-b.low{outline:2px dashed #e0782f}
+.ctr-b.orig{background:rgba(255,253,248,.0);box-shadow:none;color:transparent}
+.ctr-b span{display:block;max-width:100%;overflow-wrap:break-word;hyphens:auto}
+#c-tr.on{color:var(--accent)}
+.cline{padding:10px 0;border-bottom:1px solid var(--line)}.cline small{color:var(--muted)}.cline .co{font-size:14px;color:var(--muted);margin:3px 0}.cline .ct{font-size:16px;font-weight:600}.cline.low small{color:#e0782f}
+#b-flow .bilingual h1.bi-tr,#b-flow .bilingual h2.bi-tr,#b-flow .bilingual h3.bi-tr{border:0;padding:0;margin-top:-.6em}
+.rep .rr{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}.rep .rr span{color:var(--muted)}.rep .rr b{text-align:right}

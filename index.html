@@ -291,7 +291,7 @@ textarea.field{height:110px;padding:12px 14px;resize:none;line-height:1.4}
 .pause-card p{color:var(--muted);line-height:1.5;margin:0 0 18px;font-size:15px}
 .pause-card .count{font-size:44px;font-weight:700;font-variant-numeric:tabular-nums;margin-bottom:16px;color:var(--accent)}
 
-body.no-ai #b-ai,body.no-ai #p-ai{display:none!important}
+body.no-ai #p-ai{display:none!important}
 #b-flow p:has(br),#b-flow .poem p,#b-flow .stanza,#b-flow .poetry,#b-flow .poetry0,#b-flow .poetry2,#b-flow .verse{text-align:left!important;-webkit-hyphens:manual;hyphens:manual;text-indent:0}
 
 /* ================= design pass ================= */
@@ -503,6 +503,24 @@ canvas.peel{position:absolute;z-index:4;pointer-events:none}
 #b-frame,.pt-ghost{background-size:100vw 100dvh,600px 600px,180px 180px;background-position:calc(-1 * var(--sl,0px)) calc(-1 * (var(--st,0px) + 64px))}
 #b-flow{font-weight:var(--bk-wt,400)}
 .inp{width:100%;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--fg);padding:0 12px;font:inherit;font-size:15px}
+/* tradução e modo bilíngue */
+#b-flow .bilingual .bi-tr{color:var(--muted);font-style:normal;margin-top:-.35em;padding-left:.7em;border-left:2px solid var(--accent)}
+#b-flow .bilingual .bi-or{margin-bottom:.3em}
+#b-flow .tr-miss{position:relative}
+#b-flow .tr-miss::after{content:attr(data-miss);display:inline-block;margin-left:.4em;font:600 10px var(--ui,system-ui);color:#c0582c;border:1px solid #c0582c;border-radius:6px;padding:0 5px;vertical-align:middle}
+.steps{padding-left:20px;line-height:1.55}
+.li.vocab b{font-size:16px}.li.vocab .vtr{color:var(--accent);font-size:14px}
+/* balões traduzidos por cima da arte */
+.ctr-layer{position:absolute;left:0;top:0;pointer-events:none}
+.ctr-b{position:absolute;display:flex;align-items:center;justify-content:center;text-align:center;background:#fffdf8;border-radius:42%/48%;padding:2%;box-sizing:border-box;overflow:hidden;pointer-events:auto;box-shadow:0 0 0 2px #fffdf8;color:#1a1a1a;font-family:'Comic Neue','Atkinson Hyperlegible',system-ui,sans-serif;font-weight:700;line-height:1.12}
+.ctr-b.cap{border-radius:6px;background:#fff6dc}
+.ctr-b.low{outline:2px dashed #e0782f}
+.ctr-b.orig{background:rgba(255,253,248,.0);box-shadow:none;color:transparent}
+.ctr-b span{display:block;max-width:100%;overflow-wrap:break-word;hyphens:auto}
+#c-tr.on{color:var(--accent)}
+.cline{padding:10px 0;border-bottom:1px solid var(--line)}.cline small{color:var(--muted)}.cline .co{font-size:14px;color:var(--muted);margin:3px 0}.cline .ct{font-size:16px;font-weight:600}.cline.low small{color:#e0782f}
+#b-flow .bilingual h1.bi-tr,#b-flow .bilingual h2.bi-tr,#b-flow .bilingual h3.bi-tr{border:0;padding:0;margin-top:-.6em}
+.rep .rr{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}.rep .rr span{color:var(--muted)}.rep .rr b{text-align:right}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
@@ -545,6 +563,7 @@ canvas.peel{position:absolute;z-index:4;pointer-events:none}
     <button class="icon r-back" data-ic="back" data-tl="back"></button>
     <div class="r-title" id="c-title"></div>
     <button class="icon" id="c-bmk" data-ic="bookmark" data-tl="bookmark"></button>
+    <button class="icon" id="c-tr" data-ic="translate" data-tl="trShort"></button>
     <button class="icon" id="c-grid" data-ic="grid" data-tl="pages"></button>
     <button class="icon" id="c-set" data-ic="sliders" data-tl="settings"></button>
   </header>
@@ -681,6 +700,8 @@ const ICONS = {
   sliders: '<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',
   sort: '<path d="M7 4v16M3.5 16.5L7 20l3.5-3.5M13 6h8M13 11h6M13 16h4"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
+  translate: '<path d="M4 5h9M8.5 3v2M6 5c.6 3 2.6 5.3 5 6.5M11 5c-.7 3.3-3 6-6.5 7.5"/><path d="M12.5 21l4-10 4 10M14 17.5h5"/>',
+  people: '<circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17" cy="9" r="2.6"/><path d="M16 14.2c2.4.1 4 1.7 4.5 4.6"/>',
   headphones: '<path d="M4 15v-3a8 8 0 0116 0v3"/><rect x="3" y="14" width="4.5" height="7" rx="1.5"/><rect x="16.5" y="14" width="4.5" height="7" rx="1.5"/>',
   playF: '<path d="M8 5.5v13l10-6.5z" fill="currentColor"/>',
   pause: '<rect x="6.5" y="5" width="3.6" height="14" rx="1" fill="currentColor"/><rect x="13.9" y="5" width="3.6" height="14" rx="1" fill="currentColor"/>',
@@ -872,6 +893,34 @@ function gestures(target, h) {
 }
 /* ================= strings (pt / en) ================= */
 const STR = {
+  whoTitle: ['Personagens e linha do tempo', 'Characters and timeline'], whoSub: ['Quem é quem até aqui, sem spoiler', 'Who is who so far, no spoilers'], vocabSub: ['Palavras que você guardou lendo', 'Words you saved while reading'],
+  repTitle: ['Relatório do livro', 'Book report'], repSub: ['Como o app entendeu este arquivo', 'How the app understood this file'], repFormat: ['Formato', 'Format'], repPages: ['páginas', 'pages'], repChapters: ['Partes lidas pelo app', 'Parts found'], repToc: ['Entradas no sumário', 'Contents entries'], repStart: ['Começa em', 'Starts at'], repLang: ['Idioma', 'Language'],
+  repThis: ['Este capítulo', 'This chapter'], repThisV: ['{p} parágrafos · {i} imagens · {h} títulos · {c} letras', '{p} paragraphs · {i} images · {h} headings · {c} characters'], repTrans: ['Tradução guardada', 'Saved translation'], repTransV: ['{n} de {m} partes ({l})', '{n} of {m} parts ({l})'],
+  repWarn: ['Avisos', 'Warnings'], repOk: ['Nenhum problema encontrado neste capítulo.', 'No problems found in this chapter.'], repWm: ['{n} linhas com marca d’água de conversor foram limpas.', '{n} lines with a converter watermark were cleaned.'], repEmpty: ['Este capítulo não tem texto (pode ser uma página só de imagem).', 'This chapter has no text (it may be an image-only page).'], repMiss: ['{n} trechos ficaram sem tradução (marcados no texto).', '{n} passages were not translated (marked in the text).'], repBroken: ['{n} imagens não carregaram.', '{n} images did not load.'], repSend: ['Relatar um problema', 'Report a problem'],
+  wbTitle: ['Bem-vindo de volta', 'Welcome back'], wbText: ['Faz {n} dias que você não lê este livro. Quer um resumo do que já aconteceu, sem spoiler?', 'It has been {n} days since you read this book. Want a spoiler-free recap?'], wbNo: ['Não, obrigado', 'No, thanks'],
+  cTrTitle: ['Traduzir os balões', 'Translate the balloons'], cTrIntro: ['A IA lê cada página, acha cada balão e escreve a tradução por cima, no mesmo lugar. Toque num balão traduzido para ver o original. Cada página é lida uma vez e fica guardada.', 'AI reads each page, finds every balloon and writes the translation on top, in the same place. Tap a translated balloon to see the original. Each page is read once and kept.'], cTrTo: ['Traduzir para', 'Translate to'],
+  cLines: ['Falas desta página', 'Lines on this page'], cLinesNone: ['Nenhuma fala encontrada nesta página.', 'No lines found on this page.'], cLinesOff: ['Ligue a tradução (botão de tradução no topo) para ver as falas.', 'Turn translation on (translate button at the top) to see the lines.'], cKind_speech: ['fala', 'speech'], cKind_thought: ['pensamento', 'thought'], cKind_caption: ['narração', 'caption'], cKind_sfx: ['som', 'sound'], cLow: ['leitura incerta, confira', 'uncertain, please check'], cRedo: ['Ler esta página de novo', 'Read this page again'],
+  famTitle: ['Biblioteca da família', 'Family library'], famOff: ['Desligada. Ligue para que tudo que você adicionar apareça também no celular da sua esposa (e de quem mais você der a chave).', 'Off. Turn it on so everything you add also appears on your family’s phones.'], famOn: ['Ligada: {r}', 'On: {r}'], famSetup: ['Configurar', 'Set up'], famManage: ['Gerenciar', 'Manage'],
+  famIntro: ['Os livros e HQs ficam num repositório privado do seu GitHub. Só quem tiver a chave de acesso vê os arquivos. Cada celular baixa sozinho o que for novo.', 'Books and comics live in a private repository on your GitHub. Only people with the access key can see them. Each phone downloads what is new by itself.'],
+  famStep1: ['No GitHub, crie um repositório novo, marque "Private" e "Add a README". Exemplo de nome: estante-familia.', 'On GitHub create a new repository, choose "Private" and tick "Add a README". Example name: estante-familia.'],
+  famStep2: ['Em Settings › Developer settings › Fine-grained tokens, crie um token só para esse repositório, com "Contents: Read and write".', 'In Settings › Developer settings › Fine-grained tokens, create a token for that repository only, with "Contents: Read and write".'],
+  famStep3: ['Cole aqui o nome do repositório (ex.: litzkow/estante-familia) e o token.', 'Paste the repository name (e.g. litzkow/estante-familia) and the token here.'],
+  famStep4: ['No celular da sua esposa, abra este mesmo painel e cole os mesmos dois dados.', "On your wife's phone open this same panel and paste the same two values."],
+  famRepoPh: ['usuario/repositorio', 'user/repository'], famTokPh: ['Token (github_pat_…)', 'Token (github_pat_…)'], famConnect: ['Conectar e testar', 'Connect and test'], famTesting: ['Testando…', 'Testing…'], famOk: ['Conectado. {n} arquivos na biblioteca da família.', 'Connected. {n} files in the family library.'],
+  famPushAll: ['Enviar os livros deste celular', 'Upload the books on this phone'], famPushed: ['Pronto: {n} enviados', 'Done: {n} uploaded'], famAuto: ['Enviar sozinho o que eu adicionar', 'Upload what I add automatically'], famAutoSub: ['Cada livro novo vai para a família', 'Every new book goes to the family'],
+  famWife: ['A chave dá acesso só a esse repositório. Guarde como uma senha. O progresso de leitura de cada pessoa continua separado.', 'The key only opens that repository. Keep it like a password. Each person keeps their own reading progress.'],
+  famDenied: ['O GitHub recusou a chave. Confira o token e se ele tem acesso ao repositório.', 'GitHub rejected the key. Check the token and its access to the repository.'], famNotFound: ['Repositório não encontrado. Confira o nome (usuario/repositorio) e se ele tem o README.', 'Repository not found. Check the name (user/repository) and that it has the README.'],
+  famTooBig: ['{f} passa de 95 MB, o limite do GitHub.', '{f} is over 95 MB, the GitHub limit.'], famUploading: ['Enviando para a família: {f}', 'Uploading to the family: {f}'], famUploaded: ['Enviado para a família', 'Uploaded to the family'], famDownloading: ['Chegou da família: {f}', 'From the family: {f}'],
+  trShort: ['Traduzir', 'Translate'], vocabAdd: ['Salvar no vocabulário', 'Save to vocabulary'], vocabSaved: ['Salvo no vocabulário', 'Saved to vocabulary'], vocabTitle: ['Meu vocabulário', 'My vocabulary'], vocabEmpty: ['Selecione uma palavra no livro e toque no marcador para guardar aqui, com a frase onde ela apareceu.', 'Select a word in a book and tap the bookmark to keep it here with its sentence.'],
+  readingLang: ['Idioma da leitura', 'Reading language'], trOrig: ['Original', 'Original'], trTrans: ['Traduzido', 'Translated'], trBi: ['Bilíngue', 'Bilingual'],
+  trNote: ['A tradução é feita uma vez por capítulo pela IA (Gemini grátis ou Claude), fica guardada no aparelho e mantém os nomes iguais no livro todo. Trechos não traduzidos aparecem marcados.', 'Each chapter is translated once by AI (free Gemini or Claude), kept on the device, with names consistent across the book. Untranslated passages are marked.'],
+  trChapter: ['Traduzindo o capítulo… {n}%', 'Translating the chapter… {n}%'], trMissing: ['não traduzido', 'not translated'],
+  aiNeedKey: ['Para isso o app precisa de uma IA. Coloque sua chave grátis do Gemini em Ajustes.', 'This needs AI. Add your free Gemini key in Settings.'], gemBadKey: ['O Google recusou a chave do Gemini. Confira em Ajustes.', 'Google rejected the Gemini key. Check it in Settings.'], gemQuota: ['O limite grátis do Gemini de hoje acabou. Ele volta amanhã.', "Today's free Gemini limit is used up. It resets tomorrow."],
+  aiGroupT: ['Inteligência artificial', 'Artificial intelligence'], aiViaClaude: ['Usando o Claude (você está no app do Claude).', 'Using Claude (you are inside the Claude app).'], aiViaGemini: ['Usando a sua chave grátis do Google Gemini.', 'Using your free Google Gemini key.'], aiNone: ['Sem IA ainda. Com uma chave grátis do Gemini o app traduz livros e balões de HQ, explica trechos, resume e responde perguntas sobre o livro.', 'No AI yet. With a free Gemini key the app translates books and comic balloons, explains passages, recaps and answers questions about the book.'],
+  gemAdd: ['Colocar chave grátis do Gemini', 'Add free Gemini key'], gemChange: ['Trocar chave do Gemini', 'Change Gemini key'], aiKeyTitle: ['IA grátis com o Google Gemini', 'Free AI with Google Gemini'],
+  aiKeyIntro: ['O Google dá uma chave grátis, sem cartão de crédito. Com ela o app traduz livros e HQs, explica trechos e responde perguntas sobre o livro.', 'Google gives a free key, no credit card. With it the app translates books and comics, explains passages and answers questions about the book.'],
+  gemStep1: ['Abra aistudio.google.com e entre com sua conta Google.', 'Open aistudio.google.com and sign in with your Google account.'], gemStep2: ['Toque em "Get API key" e depois em "Create API key".', 'Tap "Get API key" and then "Create API key".'], gemStep3: ['Copie a chave (começa com AIza…).', 'Copy the key (starts with AIza…).'], gemStep4: ['Cole aqui embaixo e toque em Salvar.', 'Paste it below and tap Save.'],
+  gemKeyPh: ['Chave do Gemini (AIza…)', 'Gemini key (AIza…)'], gemPrivacy: ['A chave fica só neste aparelho. No plano grátis o Google pode usar os textos enviados para melhorar os produtos dele, e há um limite de pedidos por dia.', 'The key stays on this device. On the free plan Google may use the text sent to improve its products, and there is a daily request limit.'], gemOk: ['IA ligada', 'AI on'], gemRemoved: ['Chave removida', 'Key removed'], save: ['Salvar', 'Save'],
   ttsEngine: ['Tipo de voz', 'Voice type'], ttsPrepare: ['Preparar o capítulo para ouvir com a tela bloqueada', 'Prepare the chapter to listen with the screen locked'], ttsPreparingCh: ['Preparando o capítulo… {n}%', 'Preparing the chapter… {n}%'], ttsPrepared: ['Capítulo pronto: pode bloquear a tela', 'Chapter ready: you can lock the screen'], ttsPrepFail: ['Não deu para juntar o áudio deste capítulo', 'Could not join this chapter audio'],
   ttsLockNoteN: ['Com o capítulo preparado, pode bloquear o iPhone: o áudio continua e aparece na tela de bloqueio. Sem preparar, ele toca os próximos minutos já gerados.', 'With the chapter prepared you can lock the iPhone: audio keeps playing and shows on the lock screen. Without preparing, it plays the next few minutes already generated.'], ttsEngNeural: ['Natural grátis', 'Natural, free'], ttsEngSystem: ['Do iPhone', 'Phone voice'],
   ttsNeuralNote: ['Vozes neurais que rodam no seu celular: grátis, sem limite e privadas. Na primeira vez o app baixa a voz (cerca de 90 MB, use Wi‑Fi). Inglês: Kokoro. Português: Piper.', 'Neural voices running on your phone: free, unlimited and private. The first time the app downloads the voice (about 90 MB, use Wi‑Fi). English: Kokoro. Portuguese: Piper.'],
@@ -881,7 +930,7 @@ const STR = {
   ttsFemale: ['Feminina', 'Female'], ttsMale: ['Masculina', 'Male'], ttsVWarm: ['calorosa', 'warm'], ttsVExpressive: ['expressiva', 'expressive'], ttsVCalm: ['calma', 'calm'], ttsVDeep: ['grave', 'deep'], ttsVBritish: ['britânica', 'British'], ttsVBritishDeep: ['britânica, grave', 'British, deep'], ttsVStory: ['contador de histórias', 'storyteller'], ttsGood: ['boa qualidade', 'good quality'], ttsLight: ['leve', 'light'],
   ttsLoadingList: ['Carregando vozes…', 'Loading voices…'], ttsDownloading: ['Baixando a voz… {n}%', 'Downloading the voice… {n}%'], ttsPreparing: ['Preparando a voz…', 'Preparing the voice…'],
   ttsFailT: ['A voz não carregou', 'The voice did not load'], ttsFailHelp: ['Confira a internet (a primeira vez precisa baixar a voz) e tente de novo. Enquanto isso, dá para ouvir com a voz do iPhone.', 'Check the internet (the first time needs to download the voice) and try again. Meanwhile you can listen with the phone voice.'], ttsUseSystem: ['Usar a voz do iPhone', 'Use the phone voice'],
-  autoTheme: ['Auto', 'Auto'], fontWeight: ['Peso da letra', 'Font weight'], wtNormal: ['Normal', 'Regular'], wtMedium: ['Médio', 'Medium'], wtBold: ['Forte', 'Bold'], paraSpace: ['Espaço entre parágrafos', 'Paragraph spacing'], colWidth: ['Largura da coluna (tablet)', 'Column width (tablet)'], thBranco: ['Branco', 'White'], thCreme: ['Creme', 'Cream'], thQuente: ['Papel quente', 'Warm paper'], thAntigo: ['Papel antigo', 'Old paper'], thEink: ['E-ink', 'E-ink'], thMeia: ['Meia-noite', 'Midnight'], pdfAsBook: ['Ler como livro (letra ajustável)', 'Read as a book (adjustable text)'], pdfAsPages: ['Ver as páginas originais do PDF', 'Show the original PDF pages'],
+  autoTheme: ['Auto', 'Auto'], splitWideSub2: ['Desligado é o jeito do Comixology: o quadro aparece sempre inteiro. Ligado divide quadros muito largos (sem cortar balões).', 'Off is the Comixology way: the panel is always shown whole. On splits very wide panels (never through balloons).'], cBoxT: ['Em volta do quadro', 'Around the panel'], cBoxOff: ['Mostrar vizinhos', 'Show neighbours'], cBoxDim: ['Escurecer', 'Dim'], cBoxBlack: ['Preto', 'Black'], fontWeight: ['Peso da letra', 'Font weight'], wtNormal: ['Normal', 'Regular'], wtMedium: ['Médio', 'Medium'], wtBold: ['Forte', 'Bold'], paraSpace: ['Espaço entre parágrafos', 'Paragraph spacing'], colWidth: ['Largura da coluna (tablet)', 'Column width (tablet)'], thBranco: ['Branco', 'White'], thCreme: ['Creme', 'Cream'], thQuente: ['Papel quente', 'Warm paper'], thAntigo: ['Papel antigo', 'Old paper'], thEink: ['E-ink', 'E-ink'], thMeia: ['Meia-noite', 'Midnight'], pdfAsBook: ['Ler como livro (letra ajustável)', 'Read as a book (adjustable text)'], pdfAsPages: ['Ver as páginas originais do PDF', 'Show the original PDF pages'],
   ttsListen: ['Ouvir', 'Listen'], ttsTitle: ['Ouvir o livro', 'Listen to the book'], ttsVoice: ['Voz', 'Voice'], ttsSpeed: ['Velocidade', 'Speed'], ttsSleep: ['Parar depois de', 'Stop after'], off: ['Não', 'Off'],
   ttsScreen: ['Tela', 'Screen'], ttsDark: ['Apagar a tela e continuar ouvindo', 'Turn the screen black and keep listening'], ttsDarkHint: ['Lendo em voz alta · toque para voltar', 'Reading aloud · tap to return'],
   ttsLockNote: ['A tela fica preta (quase não gasta bateria) e a leitura continua. Não bloqueie o iPhone: com a tela bloqueada o iOS pausa a voz de apps da internet.', 'The screen goes black (almost no battery use) and reading continues. Do not lock the iPhone: iOS pauses the voice of web apps when locked.'],
@@ -1076,7 +1125,7 @@ const DB = {
 const DEFAULTS = {
   lang: 'pt', theme: 'auto', goalMin: 15, toured: false, comfortAuto: true, showGoal: true, showContinue: true, starterGot: [], warm: 0, dim: 0, pause: true, anim: true,
   // comics
-  cMode: 'quadros', cDir: 'ltr', cFullFirst: true, cSplit: true, cSpot: true,
+  cMode: 'quadros', cDir: 'ltr', cFullFirst: true, cSplit: false, cSpot: true, cBox: 'dim', comicV: 1,
   // books
   bFont: 'literata', bSize: 18, bLh: 1.6, bMargin: 'm', bJustify: false, bIndent: false, bAnim: true, bTurn: 'slide', typoV: 1,
   // translation
@@ -1094,6 +1143,7 @@ function setS(k, v) { S[k] = v; S.updated = Date.now(); saveSettings(); }
 async function loadSettings() {
   const v = await DB.get('kv', 'settings');
   if (v) Object.assign(S, v);
+  if (v && !v.comicV) { S.cSplit = false; S.cFullFirst = true; S.comicV = 1; }
   if (v && !v.typoV) { S.bSize = 18; S.bJustify = false; S.bLh = 1.6; S.bTurn = S.bAnim === false ? 'none' : 'slide'; S.typoV = 1; }
   else { const l = (navigator.language || 'pt').toLowerCase(); S.lang = l.startsWith('pt') ? 'pt' : 'pt'; }
 }
@@ -1177,15 +1227,23 @@ const AI = {
   fn: null, imgs: false, checked: false,
   async init() {
     document.body.classList.add('no-ai');
+    this.fn = null; this.provider = '';
     try {
-      if (!window.claude || !claude.use) return;
-      const f = await claude.use('sample');
-      if (!f) return;
-      this.fn = f;
-      try { const lim = await f.limits(); this.imgs = !!(lim && lim.images); } catch (e) { }
+      if (window.claude && claude.use) {
+        const f = await claude.use('sample');
+        if (f) { this.fn = f; this.provider = 'claude'; try { const lim = await f.limits(); this.imgs = !!(lim && lim.images); } catch (e) { } }
+      }
     } catch (e) { }
+    // outside Claude: the reader's own free Google Gemini key
+    if (!this.fn && S.gemKey) { this.fn = (p, o) => Gemini.run(p, o); this.provider = 'gemini'; this.imgs = true; }
     this.checked = true;
     document.body.classList.toggle('no-ai', !this.fn);
+  },
+  // one image + instructions → text (comics, illustrations)
+  async vision(blob, prompt, opts = {}) {
+    if (this.provider === 'gemini') return Gemini.run(prompt, { ...opts, image: blob });
+    if (this.provider === 'claude') { const b64 = await blobB64(blob); return this.fn([{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: blob.type || 'image/jpeg', data: b64 } }, { type: 'text', text: prompt }] }], opts); }
+    throw Object.assign(new Error('no ai'), { code: 'no_ai' });
   },
   get on() { return !!this.fn; },
   errText(e) {
@@ -1197,6 +1255,9 @@ const AI = {
     if (c === 'images_unavailable') return t('aiNoImg');
     if (c === 'prompt_too_large') return t('aiTooLarge');
     if (c === 'session_expired') return t('aiSession');
+    if (c === 'no_ai') return t('aiNeedKey');
+    if (c === 'gem_key') return t('gemBadKey');
+    if (c === 'gem_quota') return t('gemQuota');
     return t('aiFail');
   },
   langName(code) { return code === 'en' ? 'English' : 'português do Brasil'; },
@@ -1235,6 +1296,35 @@ function aiSheet(title, run, opts = {}) {
   });
   return s;
 }
+
+function blobB64(blob) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = rej; r.readAsDataURL(blob); }); }
+/* Google Gemini with the reader's own key (free tier in Google AI Studio) */
+const Gemini = {
+  models() { return [S.gemModel, 'gemini-flash-lite-latest', 'gemini-flash-latest', 'gemini-2.5-flash-lite', 'gemini-2.5-flash'].filter(Boolean); },
+  async run(p, opts = {}) {
+    const key = S.gemKey; if (!key) throw Object.assign(new Error('no key'), { code: 'no_ai' });
+    const contents = [];
+    if (Array.isArray(p)) for (const m of p) contents.push({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: typeof m.content === 'string' ? m.content : (m.content || []).map(c => c.text || '').join('\n') }] });
+    else contents.push({ role: 'user', parts: [{ text: p }] });
+    if (opts.image) contents[contents.length - 1].parts.unshift({ inline_data: { mime_type: opts.image.type || 'image/jpeg', data: await blobB64(opts.image) } });
+    const body = { contents, generationConfig: { temperature: opts.temperature ?? 0.4, maxOutputTokens: opts.maxTokens || 8192 } };
+    if (opts.system) body.systemInstruction = { parts: [{ text: opts.system }] };
+    if (opts.json) body.generationConfig.responseMimeType = 'application/json';
+    let last;
+    for (const m of this.models()) {
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${encodeURIComponent(key)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: opts.signal }).catch(e => { if (e.name === 'AbortError') throw Object.assign(e, { code: 'cancelled' }); throw e; });
+      if (r.status === 404) { last = r; continue; }
+      if (r.status === 400 || r.status === 401 || r.status === 403) { const j = await r.json().catch(() => ({})); throw Object.assign(new Error((j.error && j.error.message) || 'key'), { code: /key/i.test(JSON.stringify(j)) ? 'gem_key' : 'refused' }); }
+      if (r.status === 429) throw Object.assign(new Error('quota'), { code: 'gem_quota' });
+      if (!r.ok) throw new Error('Gemini ' + r.status);
+      const j = await r.json(); S.gemModel = m;
+      const text = ((j.candidates || [])[0]?.content?.parts || []).map(x => x.text || '').join('');
+      if (opts.onText) opts.onText({ text });
+      return { text, truncated: (j.candidates || [])[0]?.finishReason === 'MAX_TOKENS' };
+    }
+    throw new Error('Gemini ' + (last ? last.status : '?'));
+  },
+};
 /* ================= PDF.js (lazy) ================= */
 let pdfjsP = null;
 const PDFJS_BASE = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/legacy/build/';
@@ -1902,7 +1992,7 @@ const Lib = {
     // resume from another device?
     const cloud = await Sync.pull(rec.fp);
     if (mergeCloud(rec, cloud)) toast(t('syncedPos'));
-    rec.opened = Date.now();
+    rec.prevOpened = rec.opened; rec.opened = Date.now();
     await DB.put('books', rec.id, rec);
     Pause.start();
     try {
@@ -2127,11 +2217,20 @@ const Comic = {
   init() {
     this.stage = $('#c-stage'); this.zoomer = $('#c-zoom'); this.cam = $('#c-cam'); this.spot = $('#c-spot');
     gestures(this.stage, {
-      tap: (x) => {
-        const W = this.stage.clientWidth, zone = x / W;
-        if (zone > 0.3 && zone < 0.7) return this.toggleUI();
-        const fwd = zone >= 0.7;
-        (this.dir === 'rtl' ? !fwd : fwd) ? this.next() : this.prev();
+      tap: (x, y) => {
+        const W = this.stage.clientWidth, zone = x / W, now = performance.now();
+        // double tap on a panel while seeing the whole page: guided reading starts at that panel (like Comixology)
+        if (this.lastTap && now - this.lastTap.t < 320 && Math.hypot(x - this.lastTap.x, y - this.lastTap.y) < 40) {
+          clearTimeout(this.tapT); this.lastTap = null; this.enterPanelAt(x, y); return;
+        }
+        this.lastTap = { t: now, x, y };
+        const act = () => {
+          if (zone > 0.3 && zone < 0.7) return this.toggleUI();
+          const fwd = zone >= 0.7;
+          (this.dir === 'rtl' ? !fwd : fwd) ? this.next() : this.prev();
+        };
+        const r = this.steps[this.step];
+        if (r && r.full && this.mode === 'quadros' && this.steps.length > 1) { clearTimeout(this.tapT); this.tapT = setTimeout(act, 300); } else act();
       },
       swipe: d => { if (this.z.s > 1.05) return; const fwd = d === 'left'; (this.dir === 'rtl' ? !fwd : fwd) ? this.next() : this.prev(); },
       down: () => { this.zb = Object.assign({}, this.z); },
@@ -2147,6 +2246,7 @@ const Comic = {
     $('#c-mode').onclick = () => this.cycleMode();
     $('#c-set').onclick = () => this.settings();
     $('#c-grid').onclick = () => this.pagesSheet();
+    $('#c-tr').onclick = () => this.toggleTr();
     $('#c-bmk').onclick = () => this.toggleBookmark();
     const rg = $('#c-range');
     rg.oninput = () => { $('#c-label').textContent = t('pageXofY', { a: rg.value, b: this.src.count }); };
@@ -2218,6 +2318,7 @@ const Comic = {
       pg.img.style.width = pg.w + 'px'; pg.img.style.height = pg.h + 'px';
       pg.img.style.opacity = '0'; pg.img.style.transition = 'opacity .18s';
       this.cam.replaceChildren(pg.img);
+      this.drawTr(pg);
       requestAnimationFrame(() => { pg.img.style.opacity = '1'; });
     }
     this.steps = this.computeSteps(pg);
@@ -2240,9 +2341,85 @@ const Comic = {
     const trs = animate && S.anim ? 'all .42s cubic-bezier(.25,.8,.25,1)' : 'none';
     this.cam.style.transition = tr; this.spot.style.transition = trs;
     this.cam.style.transform = `translate(${q.tx}px,${q.ty}px) scale(${q.s})`;
-    Object.assign(this.spot.style, { left: q.sx + 'px', top: q.sy + 'px', width: q.sw + 'px', height: q.sh + 'px', boxShadow: `0 0 0 300vmax rgba(0,0,0,${(!r.full && !r.strip && S.cSpot) ? 0.8 : 0})` });
+    Object.assign(this.spot.style, { left: q.sx + 'px', top: q.sy + 'px', width: q.sw + 'px', height: q.sh + 'px', boxShadow: `0 0 0 300vmax rgba(0,0,0,${(!r.full && !r.strip) ? ({ off: 0, dim: 0.78, black: 1 }[S.cBox || (S.cSpot ? 'dim' : 'off')]) : 0})` });
     this.resetZoom(false);
     this.minimap(r);
+  },
+  enterPanelAt(x, y) {
+    const r = this.steps[this.step]; if (!r) return;
+    const st = this.stage.getBoundingClientRect(), q = this.rectFor(r);
+    const px = (x - st.left - q.tx) / q.s, py = (y - st.top - q.ty) / q.s;
+    const k = this.steps.findIndex(s => !s.full && px >= s.x && px <= s.x + s.w && py >= s.y && py <= s.y + s.h);
+    if (k >= 0) { this.step = k; this.apply(true); this.afterMove(); }
+    else if (!r.full) { const f = this.steps.findIndex(s => s.full); if (f >= 0) { this.step = f; this.apply(true); this.afterMove(); } }
+  },
+  // ---------- translated balloons (AI reads the page, finds each balloon and translates it) ----------
+  trLang() { return (this.rec.prefs.trTo) || (S.lang === 'en' ? 'en' : 'pt'); },
+  async toggleTr() {
+    if (!AI.fn) return aiKeySheet();
+    const on = !this.rec.prefs.tr;
+    if (on) {
+      const pick = await new Promise(res => Sheets.open({ title: t('cTrTitle'), body: b => b.append(
+        el('p', { class: 'muted', style: { lineHeight: 1.5, marginTop: 0 }, text: t('cTrIntro') }),
+        el('button', { class: 'btn primary block', text: t('cTrTo') + ' Português', onclick: () => { Sheets.close(); res('pt'); } }),
+        el('button', { class: 'btn block', style: { marginTop: '8px' }, text: t('cTrTo') + ' English', onclick: () => { Sheets.close(); res('en'); } })), onClose: () => res(null) }));
+      if (!pick) return;
+      this.rec.prefs.trTo = pick;
+    }
+    this.rec.prefs.tr = on; await saveRec(this.rec);
+    $('#c-tr').classList.toggle('on', on);
+    if (this.cur) this.drawTr(this.cur);
+  },
+  async trData(pg, force) {
+    const key = 'ctr:' + this.rec.id + ':' + pg.i + ':' + this.trLang();
+    if (!force) { const c = await DB.get('kv', key).catch(() => null); if (c) return c; }
+    const sc = Math.min(1, 1400 / Math.max(pg.w, pg.h)), cv = document.createElement('canvas');
+    cv.width = Math.round(pg.w * sc); cv.height = Math.round(pg.h * sc); cv.getContext('2d').drawImage(pg.img, 0, 0, cv.width, cv.height);
+    const blob = await canvasBlob(cv, 'image/jpeg', 0.85);
+    const lang = this.trLang() === 'en' ? 'English' : 'Brazilian Portuguese';
+    const prompt = `This is one page of a comic${this.dir === 'rtl' ? ' (manga, read right to left)' : ''}. Find every speech balloon, thought balloon, caption/narration box and meaningful sound effect with text.
+For each one give its box as [ymin, xmin, ymax, xmax] normalized 0-1000 to this image (the inside of the balloon), the exact original text, and a natural ${lang} translation that keeps tone, humour and character voice (if the text is already in ${lang}, repeat it).
+Rules: one item per balloon, never merge two balloons, never split one balloon; list items in reading order (${this.dir === 'rtl' ? 'right to left' : 'left to right'}, top to bottom, panel by panel); conf is your confidence 0-1 that the text was read correctly.
+Return only JSON: {"lang":"source language code","items":[{"box":[..],"kind":"speech|thought|caption|sfx","text":"..","tr":"..","conf":0.9}]}`;
+    const { text } = await AI.vision(blob, prompt, { json: true, temperature: 0.2 });
+    const j = JSON.parse(String(text).replace(/^```(json)?|```$/g, '').trim());
+    const items = (j.items || []).filter(it => Array.isArray(it.box) && it.box.length === 4 && (it.tr || it.text));
+    const data = { lang: j.lang || '', items };
+    DB.put('kv', key, data).catch(() => { });
+    return data;
+  },
+  async drawTr(pg) {
+    this.cam.querySelectorAll('.ctr-layer').forEach(x => x.remove());
+    if (!this.rec.prefs.tr || !AI.fn) return;
+    const layer = el('div', { class: 'ctr-layer', style: { width: pg.w + 'px', height: pg.h + 'px' } });
+    this.cam.append(layer);
+    let data;
+    try { $('#c-load').classList.remove('hide'); data = await this.trData(pg); }
+    catch (e) { toast(AI.errText(e)); return; }
+    finally { $('#c-load').classList.add('hide'); }
+    if (this.cur !== pg) return;
+    pg.tr = data;
+    for (const it of data.items) {
+      if (it.kind === 'sfx' && !S.cTrSfx) continue;
+      const [y0, x0, y1, x1] = it.box.map(Number), bx = el('div', { class: 'ctr-b' + (it.kind === 'caption' ? ' cap' : '') + ((it.conf ?? 1) < 0.6 ? ' low' : '') });
+      Object.assign(bx.style, { left: x0 / 1000 * pg.w + 'px', top: y0 / 1000 * pg.h + 'px', width: Math.max(20, (x1 - x0) / 1000 * pg.w) + 'px', height: Math.max(16, (y1 - y0) / 1000 * pg.h) + 'px' });
+      const sp = el('span', { text: it.tr || it.text }); bx.append(sp); layer.append(bx);
+      // fit the text inside the balloon
+      let lo = 6, hi = Math.max(10, (y1 - y0) / 1000 * pg.h * 0.5);
+      for (let k = 0; k < 9; k++) { const mid = (lo + hi) / 2; sp.style.fontSize = mid + 'px'; if (sp.scrollHeight <= bx.clientHeight && sp.scrollWidth <= bx.clientWidth) lo = mid; else hi = mid; }
+      sp.style.fontSize = lo + 'px';
+      bx.onclick = e => { e.stopPropagation(); bx.classList.toggle('orig'); sp.textContent = bx.classList.contains('orig') ? it.text : (it.tr || it.text); };
+    }
+  },
+  linesSheet() {
+    const pg = this.cur, d = pg && pg.tr;
+    Sheets.open({ title: t('cLines'), body: b => {
+      if (!d || !d.items.length) { b.append(el('p', { class: 'muted', text: this.rec.prefs.tr ? t('cLinesNone') : t('cLinesOff') })); return; }
+      b.append(...d.items.map((it, i) => el('div', { class: 'cline' + ((it.conf ?? 1) < 0.6 ? ' low' : '') },
+        el('small', { text: (i + 1) + ' · ' + t('cKind_' + (it.kind || 'speech')) + ((it.conf ?? 1) < 0.6 ? ' · ' + t('cLow') : '') }),
+        el('div', { class: 'co', text: it.text }), el('div', { class: 'ct', text: it.tr || '' }))),
+        el('button', { class: 'btn block', style: { marginTop: '12px' }, text: t('cRedo'), onclick: async () => { Sheets.close(); try { await this.trData(pg, true); this.drawTr(pg); } catch (e) { toast(AI.errText(e)); } } }));
+    } });
   },
   minimap(r) {
     let m = $('#c-map');
@@ -2334,8 +2511,10 @@ const Comic = {
           wGroup(t('direction'), wSeg([['ltr', t('western'), 'ltr'], ['rtl', t('manga'), 'rtl']], this.dir, v => this.setDir(v))),
           wGroup(t('panelView'),
             wToggle(t('fullFirst'), t('fullFirstSub'), S.cFullFirst, v => { setS('cFullFirst', v); this.relayout(); }),
-            wToggle(t('splitWide'), t('splitWideSub'), S.cSplit, v => { setS('cSplit', v); this.relayout(); }),
-            wToggle(t('spotlight'), t('spotlightSub'), S.cSpot, v => { setS('cSpot', v); this.relayout(); }),
+            wToggle(t('splitWide'), t('splitWideSub2'), S.cSplit, v => { setS('cSplit', v); this.relayout(); }),
+            el('button', { class: 'btn block', style: { margin: '10px 0' }, onclick: () => { Sheets.closeAll(); this.linesSheet(); } }, icon('translate'), t('cLines')),
+            el('div', { style: { margin: '12px 0 6px', fontSize: '14px', fontWeight: 600 }, text: t('cBoxT') }),
+            wSeg([['off', t('cBoxOff')], ['dim', t('cBoxDim')], ['black', t('cBoxBlack')]], S.cBox || (S.cSpot ? 'dim' : 'off'), v => { setS('cBox', v); this.apply(false); }),
             wToggle(t('animZoom'), null, S.anim, v => setS('anim', v)),
             wToggle(t('defaultsAll'), t('defaultsAllSub'), false, v => { if (v) { setS('cMode', this.mode); setS('cDir', this.dir); toast(t('savedDefaults')); } })),
           comfortGroup());
@@ -2481,6 +2660,7 @@ const Book = {
       this.sib = Lib.sibling(rec);
       $('#b-lang').classList.toggle('hide', !this.sib);
       if (this.sib) $('#b-lang').textContent = langName(this.sib.lang);
+      if (rec.prevOpened && Date.now() - rec.prevOpened > 3 * 864e5 && (rec.pct || 0) > 0.02 && AI.on) setTimeout(() => this.welcomeBack(Math.round((Date.now() - rec.prevOpened) / 864e5)), 1200);
       if (pos.jump) { delete rec.pos; await this.jumpTo(pos.jump); }
       else if (!rec.pos) await this.render(this.data.start || 0, { frac: 0 });
       else await this.render(clamp(pos.ch || 0, 0, this.data.count - 1), pos.off != null ? { offset: pos.off } : { frac: pos.frac || 0 });
@@ -2562,6 +2742,7 @@ const Book = {
     const tok = ++this.tok;
     let node;
     try { node = await this.data.chapter(ch); } catch (e) { node = el('div', { class: 'chap' }, el('p', { text: '—' })); }
+    try { node = await Trans.apply(node, ch, this.rec); } catch (e) { console.warn('trans', e); }
     if (tok !== this.tok) return;
     this.ch = ch;
     this.flow.style.transition = 'none'; this.flow.style.transform = 'translateX(0)';
@@ -2833,6 +3014,9 @@ const Book = {
     for (const [c, col] of Object.entries(HL_COLORS)) bar.append(el('button', { class: 'sw', style: { background: col }, 'aria-label': t('highlight'), onclick: () => this.addHL(c) }));
     bar.append(...[el('span', { class: 'sep' }),
       el('button', { onclick: () => this.addNote() }, icon('note')),
+      el('button', { onclick: () => this.translateSel() }, t('trShort')),
+      el('button', { 'aria-label': t('ttsListen'), onclick: () => this.sayWord() }, icon('headphones')),
+      el('button', { 'aria-label': t('vocabAdd'), onclick: () => { const o = this.selOffsets(); Vocab.add(this.selText, o ? this.rootText.slice(Math.max(0, o.s - 120), o.e + 120) : '', this.rec); this.clearSel(); } }, icon('bookmark')),
       AI.on ? el('button', { onclick: () => this.explainSel() }, icon('sparkle'), t('explain')) : null,
       el('button', { onclick: async () => { try { await navigator.clipboard.writeText(this.selText); toast(t('copied')); } catch (e) { toast(t('copyFail')); } this.clearSel(); } }, icon('copy'))].filter(Boolean));
     bar.classList.add('on');
@@ -2911,6 +3095,7 @@ const Book = {
           fonts.append(btn);
         }
         b.append(
+          Trans.sheetGroup(this.rec, () => { Sheets.closeAll(); this.render(this.ch, { frac: this.page / Math.max(1, this.pages) }); }),
           wGroup(t('fontSize'), el('div', { class: 'stepper' }, el('button', { style: { fontSize: '15px' }, onclick: () => setSize(-1) }, 'A−'), v, el('button', { style: { fontSize: '20px' }, onclick: () => setSize(1) }, 'A+'))),
           wGroup(t('font'), fonts, el('p', { class: 'muted', style: { fontSize: '12.5px', margin: '8px 0 0', lineHeight: 1.4 }, text: t('fontHelp') })),
           wGroup(t('spacing'), wSeg([[1.4, t('compact')], [1.6, t('normal')], [1.85, t('airy')]], S.bLh, x => { setS('bLh', x); this.relayout(); })),
@@ -3001,17 +3186,75 @@ const Book = {
     return this.rootText.slice(Math.max(0, end - maxChars), end);
   },
   aiSheet() {
-    if (!AI.on) return toast(t('aiOff'));
     const s = Sheets.open({
       title: t('aiTools'), body: b => {
         const L = el('div', { class: 'list' });
         const item = (ic, label, sub, fn) => L.append(el('button', { class: 'li', onclick: () => { Sheets.close(s); fn(); } }, icon(ic), el('div', { class: 'lt' }, label, el('small', { text: sub }))));
-        item('summary', t('recap'), t('recapSub'), () => this.recap());
-        item('hand', t('askBook'), t('askBookSub'), () => this.askSheet());
-        item('sparkle', t('explainSel'), t('explainSelSub'), () => toast(t('selectFirst'), 3500));
+        if (AI.on) {
+          item('summary', t('recap'), t('recapSub'), () => this.recap());
+          item('hand', t('askBook'), t('askBookSub'), () => this.askSheet());
+          item('people', t('whoTitle'), t('whoSub'), () => this.whoSheet());
+          item('sparkle', t('explainSel'), t('explainSelSub'), () => toast(t('selectFirst'), 3500));
+        } else item('sparkle', t('gemAdd'), t('aiNone'), () => aiKeySheet());
+        item('bookmark', t('vocabTitle'), t('vocabSub'), () => Vocab.sheet());
+        item('info', t('repTitle'), t('repSub'), () => this.report());
         b.append(L);
       }
     });
+  },
+  // everything read so far (previous chapters + current one up to this page), newest text kept when too long
+  async readSoFar(maxChars = 90000) {
+    let s = this.contextSoFar(maxChars);
+    for (let i = this.ch - 1; i >= 0 && s.length < maxChars; i--) { try { const tx = await this.data.text(i); s = tx.slice(-(maxChars - s.length)) + '\n\n' + s; } catch (e) { break; } }
+    return s;
+  },
+  welcomeBack(days) {
+    Sheets.open({ title: t('wbTitle'), center: true, body: b => b.append(
+      el('p', { style: { lineHeight: 1.5 }, text: t('wbText', { n: days }) }),
+      el('button', { class: 'btn primary block', text: t('recap'), onclick: () => { Sheets.close(); this.recap(); } }),
+      el('button', { class: 'btn block', style: { marginTop: '8px' }, text: t('wbNo'), onclick: () => Sheets.close() })) });
+  },
+  whoSheet() {
+    const lang = AI.langName(S.lang);
+    aiSheet(t('whoTitle'), async ({ signal, onText }) => {
+      const ctx = await this.readSoFar(90000);
+      return AI.fn('Someone is reading "' + this.rec.title + '"' + (this.rec.author ? ' by ' + this.rec.author : '') + '. Below is everything they have read so far (possibly only the most recent part).\n<text>\n' + ctx + '\n</text>\n\nIn ' + lang + ', list the main characters and places that have appeared so far, each with one short line on who or what they are and their role up to this point, then a short timeline (5-8 bullet points) of the key events so far. Use ONLY this text: never reveal or hint at anything that happens later in the book, even if you know the book. Three short sections: characters, places, timeline (titles in ' + lang + ').', { signal, onText });
+    });
+  },
+  async report() {
+    const d = this.data, rec = this.rec, wrap = this.flow.firstElementChild;
+    const rows = [[t('repFormat'), (rec.format || '').toUpperCase() + (rec.format === 'pdf' ? ' · ' + (rec.pages || '?') + ' ' + t('repPages') : '')],
+      [t('repChapters'), String(d.count)], [t('repToc'), String((d.toc || []).length)], [t('repStart'), niceLabel(this.tocLabel(d.start || 0)) || '—'],
+      [t('repLang'), (rec.lang || detectLang(this.rootText) || '?').toUpperCase()]];
+    const paras = wrap ? wrap.querySelectorAll('p').length : 0, imgs = wrap ? wrap.querySelectorAll('img').length : 0, heads = wrap ? wrap.querySelectorAll('h1,h2,h3').length : 0;
+    rows.push([t('repThis'), t('repThisV', { p: paras, i: imgs, h: heads, c: this.rootText.length.toLocaleString() })]);
+    let trDone = 0; for (let i = 0; i < Math.min(d.count, 400); i++) if (await DB.get('kv', Trans.key(rec, i)).catch(() => null)) trDone++;
+    rows.push([t('repTrans'), t('repTransV', { n: trDone, m: d.count, l: Trans.target(rec).toUpperCase() })]);
+    const warn = [];
+    if (rec.format === 'pdf' && d.wmCount) warn.push(t('repWm', { n: d.wmCount }));
+    if (!this.rootText.trim()) warn.push(t('repEmpty'));
+    const miss = wrap ? wrap.querySelectorAll('.tr-miss').length : 0; if (miss) warn.push(t('repMiss', { n: miss }));
+    const broken = wrap ? [...wrap.querySelectorAll('img')].filter(i => i.complete && !i.naturalWidth).length : 0; if (broken) warn.push(t('repBroken', { n: broken }));
+    Sheets.open({ title: t('repTitle'), body: b => {
+      b.append(el('div', { class: 'rep' }, ...rows.map(([k, v]) => el('div', { class: 'rr' }, el('span', { text: k }), el('b', { text: v })))),
+        el('div', { class: 'gl', style: { margin: '16px 0 6px' }, text: t('repWarn') }),
+        warn.length ? el('ul', { class: 'steps' }, ...warn.map(w => el('li', { text: w }))) : el('p', { class: 'muted', text: t('repOk') }),
+        el('button', { class: 'btn block', style: { marginTop: '12px' }, onclick: () => { const body = encodeURIComponent(rec.title + '\n' + rows.map(r => r.join(': ')).join('\n') + '\n' + warn.join('\n')); window.open('mailto:?subject=' + encodeURIComponent('Estante: ' + rec.title) + '&body=' + body); } }, icon('note'), t('repSend')));
+    } });
+  },
+  sayWord() {
+    try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(this.selText); u.lang = (this.flow.lang || 'en').startsWith('en') ? 'en-US' : 'pt-BR'; const v = TTS.voice && TTS.voice(); if (v && v.lang.slice(0, 2) === u.lang.slice(0, 2)) u.voice = v; u.rate = 0.9; speechSynthesis.speak(u); } catch (e) { }
+  },
+  translateSel() {
+    const tx = this.selText, o = this.selOffsets(), ctx = o ? this.rootText.slice(Math.max(0, o.s - 500), Math.min(this.rootText.length, o.e + 300)) : '';
+    const src = Trans.src(this.rec), tgt = src === 'en' ? 'pt' : 'en';
+    this.clearSel();
+    if (!AI.on) { window.open('https://translate.google.com/?sl=' + src + '&tl=' + tgt + '&op=translate&text=' + encodeURIComponent(tx), '_blank', 'noopener'); return; }
+    const short = tx.trim().split(/\s+/).length <= 3;
+    aiSheet(t('trShort') + ': ' + (tx.length > 40 ? tx.slice(0, 40) + '…' : tx), ({ signal, onText }) => AI.fn(
+      `Translate this ${short ? 'word or expression' : 'passage'} from ${Trans.name(src)} to ${Trans.name(tgt)}, as it is used in this context from the book "${this.rec.title}".\n\nSelection: "${tx.slice(0, 1500)}"\n\nContext: "${ctx}"\n\n` +
+      (short ? `Answer in ${AI.langName(S.lang)} with: 1) the best translation in this context; 2) the meaning in one sentence; 3) how to pronounce it (simple, for a Brazilian); 4) one other common meaning if there is one. Be brief, no headings.` : `Answer with the translation only, keeping tone and style; then, on a new line starting with "—", one short note in ${AI.langName(S.lang)} if an expression or reference needs explaining.`),
+      { signal, onText }), { after: short ? null : undefined });
   },
   explainSel() {
     const tx = this.selText; const o = this.selOffsets();
@@ -3028,7 +3271,7 @@ const Book = {
     const ctx = this.contextSoFar(60000);
     const chap = this.tocLabel(this.ch) || t('chapterN', { n: this.ch + 1, m: this.data.count });
     aiSheet(t('recap'), ({ signal, onText }) =>
-      AI.fn(`You are helping someone who is reading "${this.rec.title}"${this.rec.author ? ' by ' + this.rec.author : ''}. Below is the text of the current section ("${chap}") up to the point where they stopped. Write a recap in ${lang} of what has happened so far in this section: who is involved, the key events and anything important to remember. Use 3 to 6 short bullet points starting with "•". Only use the text given: never mention or guess anything after it.\n\n"""\n${ctx}\n"""`, { signal, onText }), { ui: true });
+      AI.fn(`You are helping someone who is reading "${this.rec.title}"${this.rec.author ? ' by ' + this.rec.author : ''}. Below is the text of the current section ("${chap}") up to the point where they stopped. Never reveal or hint at anything after this point, even if you know the book. Write a recap in ${lang} of what has happened so far in this section: who is involved, the key events and anything important to remember. Use 3 to 6 short bullet points starting with "•". Only use the text given: never mention or guess anything after it.\n\n"""\n${ctx}\n"""`, { signal, onText }), { ui: true });
   },
   askSheet() {
     const lang = AI.langName(S.lang);
@@ -3324,6 +3567,13 @@ async function settingsSheet() {
         wGroup(t('language'), wSeg([['pt', 'Português'], ['en', 'English']], S.lang, v => { setS('lang', v); applyI18n(); Sheets.closeAll(); Lib.render(); settingsSheet(); })),
         wGroup(t('theme'), themePicker()),
         comfortGroup(),
+        wGroup(t('aiGroupT'),
+          el('p', { class: 'muted', style: { fontSize: '13px', lineHeight: 1.45, margin: '0 0 10px' }, text: AI.provider === 'claude' ? t('aiViaClaude') : S.gemKey ? t('aiViaGemini') : t('aiNone') }),
+          el('button', { class: 'btn block', onclick: () => { Sheets.closeAll(); aiKeySheet(); } }, icon('sparkle'), S.gemKey ? t('gemChange') : t('gemAdd')),
+          el('button', { class: 'btn block', style: { marginTop: '8px' }, onclick: () => { Sheets.closeAll(); Vocab.sheet(); } }, icon('bookmark'), t('vocabTitle'))),
+        wGroup(t('famTitle'),
+          el('p', { class: 'muted', style: { fontSize: '13px', lineHeight: 1.45, margin: '0 0 10px' }, text: Family.on ? t('famOn', { r: S.famRepo }) : t('famOff') }),
+          el('button', { class: 'btn block', onclick: () => { Sheets.closeAll(); Family.sheet(); } }, icon('folder'), Family.on ? t('famManage') : t('famSetup'))),
         wGroup(t('homeScreen'),
           wToggle(t('showGoal'), t('showGoalSub'), S.showGoal, v => { setS('showGoal', v); Lib.render(); }),
           wToggle(t('showContinue'), null, S.showContinue, v => { setS('showContinue', v); Lib.render(); }),
@@ -3366,7 +3616,7 @@ const App = {
     Comic.init(); Book.init(); PdfBook.init(); TTS.init();
     // library controls
     $('#l-add').onclick = () => $('#l-file').click();
-    $('#l-file').onchange = e => { const f = [...e.target.files]; e.target.value = ''; importFiles(f); };
+    $('#l-file').onchange = async e => { const f = [...e.target.files]; e.target.value = ''; await importFiles(f); Family.afterImport(f); };
     $('#l-set').onclick = () => settingsSheet();
     $('#l-sort').onclick = () => Lib.sortSheet();
     $('#l-search').onclick = () => { $('#l-sbar').classList.add('on'); $('#l-q').focus(); };
@@ -3394,7 +3644,7 @@ const App = {
     await Goal.init();
     Lib.animNext = true;
     await Lib.render();
-    Splash.hide().then(() => { Tour.maybe(); Starter.run(); });
+    Splash.hide().then(async () => { Tour.maybe(); await Starter.run(); Family.sync(true); });
     // platform capabilities arrive later
     AI.init();
     Sync.init().then(async () => { if (Sync.on) { if (await Sync.pullPrefs()) { applyTheme(); applyComfort(); applyI18n(); } Lib.render(); } });
@@ -3971,6 +4221,7 @@ class PdfFlow {
         if (end != null && it.x - end > it.fs * 0.18 && !/\s$/.test(s) && !/^\s/.test(it.s)) s += ' ';
         s += it.s; end = it.x + it.w;
       }
+      if (s.replace(PdfFlow.WM, '') !== s) this.wmCount = (this.wmCount || 0) + 1;
       L.text = s.replace(PdfFlow.WM, ' ').replace(/\s+/g, ' ').trim(); L.x = L.items[0].x; L.r = end; L.page = p;
       // the line's size is that of most of its letters (not of one big initial)
       const ws = L.items.map(it => [it.fs, it.s.length]).sort((a, b) => a[0] - b[0]); let hh = ws.reduce((a, q) => a + q[1], 0) / 2; for (const [f, n] of ws) { hh -= n; if (hh <= 0) { L.fs = f; break; } }
@@ -4306,5 +4557,240 @@ async function wavConcat(blobs) {
   h.setUint32(24, rate, true); h.setUint32(28, rate * ch * bits / 8, true); h.setUint16(32, ch * bits / 8, true); h.setUint16(34, bits, true); w(36, 'data'); h.setUint32(40, total, true);
   return { blob: new Blob([h.buffer, ...parts], { type: 'audio/wav' }), starts };
 }
+/* ================= translation: original / translated / bilingual, English ↔ Portuguese =================
+   Each chapter is translated once (in passages, keeping paragraph structure), cached on the device,
+   with a per-book glossary so names and recurring expressions stay the same across the book.
+   A paragraph that could not be translated keeps the original and is marked, never dropped. */
+function detectLang(text) {
+  const s = ' ' + (text || '').slice(0, 6000).toLowerCase().replace(/[^a-zà-ÿ\s]/g, ' ') + ' ';
+  const count = ws => ws.reduce((a, w) => a + (s.split(' ' + w + ' ').length - 1), 0);
+  const en = count(['the', 'and', 'of', 'to', 'was', 'he', 'it', 'that', 'his', 'with', 'you', 'had', 'her']);
+  const pt = count(['de', 'que', 'não', 'uma', 'os', 'para', 'com', 'ele', 'ela', 'mas', 'se', 'como', 'era', 'você']);
+  return en > pt * 1.2 ? 'en' : pt > en * 1.2 ? 'pt' : '';
+}
+const Trans = {
+  BLOCK: 'p,h1,h2,h3,h4,h5,h6,li,figcaption,blockquote,dt,dd,td,th',
+  mode(rec) { return (rec && rec.trMode) || 'orig'; },
+  src(rec) { return (rec.lang || '').slice(0, 2) || rec.srcLang || 'en'; },
+  target(rec) { return rec.trTo || (this.src(rec) === 'en' ? 'pt' : 'en'); },
+  name(l) { return l === 'en' ? 'English' : 'Brazilian Portuguese (português do Brasil)'; },
+  blocks(wrap) { return [...wrap.querySelectorAll(this.BLOCK)].filter(e => !e.querySelector(this.BLOCK) && e.textContent.trim().length > 0); },
+  key(rec, ch) { return 'tr:' + rec.id + ':' + this.target(rec) + ':' + ch; },
+  async glossary(rec) { return (await DB.get('kv', 'gl:' + rec.id + ':' + this.target(rec)).catch(() => null)) || {}; },
+  async translateTexts(rec, texts, onProgress, signal) {
+    const out = new Array(texts.length).fill(null);
+    let gl = await this.glossary(rec);
+    // passages of ~4500 characters, never splitting a paragraph
+    const batches = []; let cur = [], len = 0;
+    texts.forEach((tx, i) => { if (cur.length && len + tx.length > 4500) { batches.push(cur); cur = []; len = 0; } cur.push(i); len += tx.length; });
+    if (cur.length) batches.push(cur);
+    let done = 0;
+    for (const b of batches) {
+      const items = b.map(i => texts[i]);
+      const sys = `You are an award-winning literary translator. Translate from ${this.name(this.src(rec))} to ${this.name(this.target(rec))}.
+Rules: keep the meaning, tone, humour, rhythm and style of the original; translate idioms by meaning, never word for word; keep dialogue punctuation natural for the target language (Brazilian Portuguese uses em-dash dialogue when the source does); keep character and place names consistent with the glossary; keep every item as its own item (same count, same order); do not add notes, do not summarise, do not skip anything.
+Book: "${rec.title}"${rec.author ? ' by ' + rec.author : ''}.
+Glossary already decided (source → target), follow it: ${JSON.stringify(gl).slice(0, 3000)}
+Return JSON: {"t": [translated strings, one per input item], "g": {new important names or recurring terms you decided: source → target}}`;
+      let tries = 0;
+      while (tries < 2) {
+        tries++;
+        try {
+          const { text } = await AI.fn(JSON.stringify(items), { system: sys, json: true, temperature: 0.3, signal, cache: false });
+          const j = JSON.parse(String(text).replace(/^```(json)?|```$/g, '').trim());
+          const arr = Array.isArray(j) ? j : j.t;
+          if (Array.isArray(arr) && arr.length === items.length) {
+            b.forEach((i, k) => { out[i] = typeof arr[k] === 'string' && arr[k].trim() ? arr[k] : null; });
+            if (j.g && typeof j.g === 'object') { gl = Object.assign({}, gl, j.g); DB.put('kv', 'gl:' + rec.id + ':' + this.target(rec), gl).catch(() => { }); }
+            break;
+          }
+        } catch (e) { if (e.code === 'cancelled' || e.code === 'gem_quota' || e.code === 'gem_key' || e.code === 'no_ai') throw e; }
+      }
+      done += b.length; onProgress && onProgress(Math.round(done / texts.length * 100));
+    }
+    return out;
+  },
+  // called by the reader for every chapter before it is laid out
+  async apply(wrap, ch, rec) {
+    const mode = this.mode(rec); if (mode === 'orig') return wrap;
+    const bl = this.blocks(wrap), texts = bl.map(e => e.textContent.replace(/\s+/g, ' ').trim());
+    let tr = await DB.get('kv', this.key(rec, ch)).catch(() => null);
+    if (!Array.isArray(tr) || tr.length !== texts.length || tr.some(x => x === null)) {
+      if (!AI.fn) { toast(t('aiNeedKey')); return wrap; }
+      const prev = Array.isArray(tr) && tr.length === texts.length ? tr : null;
+      const need = texts.map((x, i) => prev && prev[i] ? null : i).filter(i => i !== null);
+      busy(t('trChapter', { n: 0 }));
+      try {
+        const got = await this.translateTexts(rec, need.map(i => texts[i]), p => busy(t('trChapter', { n: p })));
+        tr = prev || new Array(texts.length).fill(null);
+        need.forEach((i, k) => { tr[i] = got[k]; });
+        DB.put('kv', this.key(rec, ch), tr).catch(() => { });
+      } catch (e) { busy(null); toast(AI.errText(e)); if (!prev) return wrap; tr = prev; }
+      busy(null);
+    }
+    bl.forEach((e, i) => {
+      const x = tr[i];
+      if (!x) { e.classList.add('tr-miss'); e.setAttribute('data-miss', t('trMissing')); return; }
+      if (mode === 'tr') { e.textContent = x; e.setAttribute('lang', this.target(rec)); }
+      else {
+        const c = document.createElement(e.tagName === 'LI' ? 'div' : e.tagName); c.className = 'bi-tr'; c.textContent = x; c.setAttribute('lang', this.target(rec));
+        e.classList.add('bi-or'); e.after(c);
+      }
+    });
+    wrap.classList.toggle('bilingual', mode === 'bi');
+    return wrap;
+  },
+  sheetGroup(rec, after) {
+    const src = this.src(rec), tgt = this.target(rec);
+    return wGroup(t('readingLang'),
+      wSeg([['orig', t('trOrig') + ' (' + (src === 'en' ? 'EN' : 'PT') + ')'], ['tr', t('trTrans') + ' (' + (tgt === 'en' ? 'EN' : 'PT') + ')'], ['bi', t('trBi')]], this.mode(rec), async x => {
+        if (x !== 'orig' && !AI.fn) { Sheets.closeAll(); return aiKeySheet(); }
+        rec.trMode = x; await saveRec(rec); after && after();
+      }, 'wrap'),
+      el('p', { class: 'muted', style: { fontSize: '12.5px', lineHeight: 1.45, margin: '8px 2px 0' }, text: t('trNote') }));
+  },
+};
+
+/* how to get the free Gemini key, and where to paste it */
+function aiKeySheet() {
+  Sheets.open({
+    title: t('aiKeyTitle'), body: b => {
+      const inp = el('input', { class: 'inp', placeholder: t('gemKeyPh'), value: S.gemKey || '' });
+      b.append(
+        el('p', { style: { lineHeight: 1.5, marginTop: 0 }, text: t('aiKeyIntro') }),
+        el('ol', { class: 'steps' }, ...[t('gemStep1'), t('gemStep2'), t('gemStep3'), t('gemStep4')].map(s => el('li', { text: s }))),
+        inp,
+        el('p', { class: 'muted', style: { fontSize: '12.5px', lineHeight: 1.45 }, text: t('gemPrivacy') }),
+        el('button', { class: 'btn primary block', text: t('save'), onclick: async () => { setS('gemKey', inp.value.trim()); await AI.init(); Sheets.close(); toast(AI.fn ? t('gemOk') : t('gemRemoved')); } }));
+    },
+  });
+}
+
+/* words saved while reading, with the sentence they came from */
+const Vocab = {
+  async all() { return (await DB.get('kv', 'vocab').catch(() => null)) || []; },
+  async add(w, ctx, rec, tr) {
+    const list = await this.all(); w = w.trim(); if (!w) return;
+    if (!list.some(x => x.w.toLowerCase() === w.toLowerCase())) list.unshift({ w, ctx: (ctx || '').slice(0, 300), tr: tr || '', book: rec ? rec.title : '', lang: rec ? Trans.src(rec) : '', at: Date.now() });
+    await DB.put('kv', 'vocab', list); toast(t('vocabSaved'));
+  },
+  async sheet() {
+    const list = await this.all();
+    Sheets.open({
+      title: t('vocabTitle'), body: b => {
+        if (!list.length) { b.append(el('p', { class: 'muted', text: t('vocabEmpty') })); return; }
+        const L = el('div', { class: 'list' });
+        const draw = () => { L.replaceChildren(...list.map((x, i) => el('div', { class: 'li vocab' },
+          el('div', { class: 'lt' }, el('b', { text: x.w }), x.tr ? el('div', { class: 'vtr', text: x.tr }) : '', el('small', { text: '“' + x.ctx + '” · ' + x.book })),
+          el('button', { class: 'icon', onclick: async () => { list.splice(i, 1); await DB.put('kv', 'vocab', list); draw(); } }, icon('trash'))))); };
+        draw(); b.append(L);
+      },
+    });
+  },
+};
+/* ================= family library: a private GitHub repository shared by the household =================
+   Every book or comic added on one phone is uploaded to the private repo; the other phones download it.
+   Only people with the access key (a GitHub token for that one private repo) can see the files. */
+const Family = {
+  get on() { return !!(S.famRepo && S.famToken); },
+  async api(path, opts = {}) {
+    const r = await fetch('https://api.github.com' + path, {
+      ...opts, headers: { Authorization: 'Bearer ' + S.famToken, Accept: opts.raw ? 'application/vnd.github.raw+json' : 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', ...(opts.body ? { 'Content-Type': 'application/json' } : {}) },
+    });
+    if (r.status === 401 || r.status === 403) throw new Error(t('famDenied'));
+    if (r.status === 404 && !opts.ok404) throw new Error(t('famNotFound'));
+    return r;
+  },
+  repo() { return '/repos/' + S.famRepo.replace(/^https?:\/\/github\.com\//, '').replace(/\.git$/, '').replace(/\/+$/, ''); },
+  async list() {
+    const r = await this.api(this.repo() + '/contents/livros', { ok404: true });
+    if (r.status === 404) return [];
+    const j = await r.json(); return Array.isArray(j) ? j.filter(f => f.type === 'file') : [];
+  },
+  safe(name) { return name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w.\- ]+/g, '').replace(/\s+/g, ' ').trim() || 'livro'; },
+  b64(buf) {
+    const u = new Uint8Array(buf); let s = '';
+    for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000));
+    return btoa(s);
+  },
+  async upload(blob, name) {
+    if (blob.size > 95 * 1024 * 1024) throw new Error(t('famTooBig', { f: name }));
+    const R = this.repo();
+    const ref = await (await this.api(R + '/git/ref/heads/main')).json();
+    const head = ref.object.sha;
+    const cm = await (await this.api(R + '/git/commits/' + head)).json();
+    const bl = await (await this.api(R + '/git/blobs', { method: 'POST', body: JSON.stringify({ content: this.b64(await blob.arrayBuffer()), encoding: 'base64' }) })).json();
+    const tr = await (await this.api(R + '/git/trees', { method: 'POST', body: JSON.stringify({ base_tree: cm.tree.sha, tree: [{ path: 'livros/' + this.safe(name), mode: '100644', type: 'blob', sha: bl.sha }] }) })).json();
+    const nc = await (await this.api(R + '/git/commits', { method: 'POST', body: JSON.stringify({ message: 'Estante: ' + this.safe(name), tree: tr.sha, parents: [head] }) })).json();
+    await this.api(R + '/git/refs/heads/main', { method: 'PATCH', body: JSON.stringify({ sha: nc.sha }) });
+  },
+  // everything on this phone that the family library does not have yet (the free books come from the site)
+  async pushAll(onProgress) {
+    const remote = new Set((await this.list()).map(f => f.name));
+    const books = (await DB.all('books')).filter(b => !(S.starterGot || []).includes(b.fname));
+    let n = 0;
+    for (const b of books) {
+      const nm = this.safe(b.fname || b.title + '.' + b.format);
+      if (remote.has(nm)) continue;
+      const blob = await DB.get('files', b.id); if (!blob) continue;
+      onProgress && onProgress(b.title);
+      await this.upload(blob, nm); remote.add(nm); n++;
+    }
+    return n;
+  },
+  // new files from the family library → this phone
+  async sync(quiet) {
+    if (!this.on || this.syncing) return;
+    this.syncing = true;
+    try {
+      const remote = await this.list();
+      const have = new Set((await DB.all('books')).map(b => this.safe(b.fname || '')));
+      const got = new Set(S.famGot || []);
+      const todo = remote.filter(f => !have.has(f.name) && !got.has(f.sha));
+      for (const f of todo) {
+        if (!quiet) toast(t('famDownloading', { f: f.name }));
+        const r = await this.api(this.repo() + '/contents/' + f.path.split('/').map(encodeURIComponent).join('/'), { raw: true });
+        const blob = await r.blob();
+        this.importing = true;
+        try { await importFiles([new File([blob], f.name)]); } finally { this.importing = false; }
+        got.add(f.sha); setS('famGot', [...got]);
+      }
+    } catch (e) { if (!quiet) toast(e.message || String(e)); console.warn('family', e); }
+    finally { this.syncing = false; }
+  },
+  // called after the reader adds files on this phone
+  async afterImport(files) {
+    if (!this.on || this.importing || S.famAuto === false) return;
+    for (const f of files) {
+      try { toast(t('famUploading', { f: f.name })); await this.upload(f, f.name); toast(t('famUploaded')); }
+      catch (e) { toast(e.message || String(e)); }
+    }
+  },
+  sheet() {
+    Sheets.open({
+      title: t('famTitle'), body: b => {
+        const repo = el('input', { class: 'inp', placeholder: t('famRepoPh'), value: S.famRepo || '' });
+        const tok = el('input', { class: 'inp', style: { marginTop: '8px' }, placeholder: t('famTokPh'), value: S.famToken || '', type: 'password' });
+        const status = el('p', { class: 'muted', style: { fontSize: '13px', lineHeight: 1.45 } });
+        b.append(
+          el('p', { style: { lineHeight: 1.5, marginTop: 0 }, text: t('famIntro') }),
+          el('ol', { class: 'steps' }, ...[t('famStep1'), t('famStep2'), t('famStep3'), t('famStep4')].map(s => el('li', { text: s }))),
+          repo, tok, status,
+          el('button', { class: 'btn primary block', text: t('famConnect'), onclick: async () => {
+            setS('famRepo', repo.value.trim()); setS('famToken', tok.value.trim()); status.textContent = t('famTesting');
+            try { const n = (await this.list()).length; status.textContent = t('famOk', { n }); this.sync(); }
+            catch (e) { status.textContent = e.message || String(e); }
+          } }),
+          el('button', { class: 'btn block', style: { marginTop: '8px' }, text: t('famPushAll'), onclick: async e => {
+            const btn = e.currentTarget; btn.disabled = true;
+            try { const n = await this.pushAll(name => { btn.textContent = t('famUploading', { f: name }); }); btn.textContent = t('famPushed', { n }); }
+            catch (err) { btn.disabled = false; btn.textContent = t('famPushAll'); status.textContent = err.message || String(err); }
+          } }),
+          wToggle(t('famAuto'), t('famAutoSub'), S.famAuto !== false, v => setS('famAuto', v)),
+          el('p', { class: 'muted', style: { fontSize: '12.5px', lineHeight: 1.45 }, text: t('famWife') }));
+      },
+    });
+  },
+};
 </script>
 </body></html>

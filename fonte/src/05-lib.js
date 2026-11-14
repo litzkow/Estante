@@ -251,7 +251,7 @@ const Lib = {
     // resume from another device?
     const cloud = await Sync.pull(rec.fp);
     if (mergeCloud(rec, cloud)) toast(t('syncedPos'));
-    rec.opened = Date.now();
+    rec.prevOpened = rec.opened; rec.opened = Date.now();
     await DB.put('books', rec.id, rec);
     Pause.start();
     try {

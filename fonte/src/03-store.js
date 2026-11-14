@@ -60,7 +60,7 @@ const DB = {
 const DEFAULTS = {
   lang: 'pt', theme: 'auto', goalMin: 15, toured: false, comfortAuto: true, showGoal: true, showContinue: true, starterGot: [], warm: 0, dim: 0, pause: true, anim: true,
   // comics
-  cMode: 'quadros', cDir: 'ltr', cFullFirst: true, cSplit: true, cSpot: true,
+  cMode: 'quadros', cDir: 'ltr', cFullFirst: true, cSplit: false, cSpot: true, cBox: 'dim', comicV: 1,
   // books
   bFont: 'literata', bSize: 18, bLh: 1.6, bMargin: 'm', bJustify: false, bIndent: false, bAnim: true, bTurn: 'slide', typoV: 1,
   // translation
@@ -78,6 +78,7 @@ function setS(k, v) { S[k] = v; S.updated = Date.now(); saveSettings(); }
 async function loadSettings() {
   const v = await DB.get('kv', 'settings');
   if (v) Object.assign(S, v);
+  if (v && !v.comicV) { S.cSplit = false; S.cFullFirst = true; S.comicV = 1; }
   if (v && !v.typoV) { S.bSize = 18; S.bJustify = false; S.bLh = 1.6; S.bTurn = S.bAnim === false ? 'none' : 'slide'; S.typoV = 1; }
   else { const l = (navigator.language || 'pt').toLowerCase(); S.lang = l.startsWith('pt') ? 'pt' : 'pt'; }
 }
@@ -161,15 +162,23 @@ const AI = {
   fn: null, imgs: false, checked: false,
   async init() {
     document.body.classList.add('no-ai');
+    this.fn = null; this.provider = '';
     try {
-      if (!window.claude || !claude.use) return;
-      const f = await claude.use('sample');
-      if (!f) return;
-      this.fn = f;
-      try { const lim = await f.limits(); this.imgs = !!(lim && lim.images); } catch (e) { }
+      if (window.claude && claude.use) {
+        const f = await claude.use('sample');
+        if (f) { this.fn = f; this.provider = 'claude'; try { const lim = await f.limits(); this.imgs = !!(lim && lim.images); } catch (e) { } }
+      }
     } catch (e) { }
+    // outside Claude: the reader's own free Google Gemini key
+    if (!this.fn && S.gemKey) { this.fn = (p, o) => Gemini.run(p, o); this.provider = 'gemini'; this.imgs = true; }
     this.checked = true;
     document.body.classList.toggle('no-ai', !this.fn);
+  },
+  // one image + instructions → text (comics, illustrations)
+  async vision(blob, prompt, opts = {}) {
+    if (this.provider === 'gemini') return Gemini.run(prompt, { ...opts, image: blob });
+    if (this.provider === 'claude') { const b64 = await blobB64(blob); return this.fn([{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: blob.type || 'image/jpeg', data: b64 } }, { type: 'text', text: prompt }] }], opts); }
+    throw Object.assign(new Error('no ai'), { code: 'no_ai' });
   },
   get on() { return !!this.fn; },
   errText(e) {
@@ -181,6 +190,9 @@ const AI = {
     if (c === 'images_unavailable') return t('aiNoImg');
     if (c === 'prompt_too_large') return t('aiTooLarge');
     if (c === 'session_expired') return t('aiSession');
+    if (c === 'no_ai') return t('aiNeedKey');
+    if (c === 'gem_key') return t('gemBadKey');
+    if (c === 'gem_quota') return t('gemQuota');
     return t('aiFail');
   },
   langName(code) { return code === 'en' ? 'English' : 'português do Brasil'; },
@@ -219,3 +231,32 @@ function aiSheet(title, run, opts = {}) {
   });
   return s;
 }
+
+function blobB64(blob) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = rej; r.readAsDataURL(blob); }); }
+/* Google Gemini with the reader's own key (free tier in Google AI Studio) */
+const Gemini = {
+  models() { return [S.gemModel, 'gemini-flash-lite-latest', 'gemini-flash-latest', 'gemini-2.5-flash-lite', 'gemini-2.5-flash'].filter(Boolean); },
+  async run(p, opts = {}) {
+    const key = S.gemKey; if (!key) throw Object.assign(new Error('no key'), { code: 'no_ai' });
+    const contents = [];
+    if (Array.isArray(p)) for (const m of p) contents.push({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: typeof m.content === 'string' ? m.content : (m.content || []).map(c => c.text || '').join('\n') }] });
+    else contents.push({ role: 'user', parts: [{ text: p }] });
+    if (opts.image) contents[contents.length - 1].parts.unshift({ inline_data: { mime_type: opts.image.type || 'image/jpeg', data: await blobB64(opts.image) } });
+    const body = { contents, generationConfig: { temperature: opts.temperature ?? 0.4, maxOutputTokens: opts.maxTokens || 8192 } };
+    if (opts.system) body.systemInstruction = { parts: [{ text: opts.system }] };
+    if (opts.json) body.generationConfig.responseMimeType = 'application/json';
+    let last;
+    for (const m of this.models()) {
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${encodeURIComponent(key)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: opts.signal }).catch(e => { if (e.name === 'AbortError') throw Object.assign(e, { code: 'cancelled' }); throw e; });
+      if (r.status === 404) { last = r; continue; }
+      if (r.status === 400 || r.status === 401 || r.status === 403) { const j = await r.json().catch(() => ({})); throw Object.assign(new Error((j.error && j.error.message) || 'key'), { code: /key/i.test(JSON.stringify(j)) ? 'gem_key' : 'refused' }); }
+      if (r.status === 429) throw Object.assign(new Error('quota'), { code: 'gem_quota' });
+      if (!r.ok) throw new Error('Gemini ' + r.status);
+      const j = await r.json(); S.gemModel = m;
+      const text = ((j.candidates || [])[0]?.content?.parts || []).map(x => x.text || '').join('');
+      if (opts.onText) opts.onText({ text });
+      return { text, truncated: (j.candidates || [])[0]?.finishReason === 'MAX_TOKENS' };
+    }
+    throw new Error('Gemini ' + (last ? last.status : '?'));
+  },
+};

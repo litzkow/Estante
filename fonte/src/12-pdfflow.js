@@ -82,6 +82,7 @@ class PdfFlow {
         if (end != null && it.x - end > it.fs * 0.18 && !/\s$/.test(s) && !/^\s/.test(it.s)) s += ' ';
         s += it.s; end = it.x + it.w;
       }
+      if (s.replace(PdfFlow.WM, '') !== s) this.wmCount = (this.wmCount || 0) + 1;
       L.text = s.replace(PdfFlow.WM, ' ').replace(/\s+/g, ' ').trim(); L.x = L.items[0].x; L.r = end; L.page = p;
       // the line's size is that of most of its letters (not of one big initial)
       const ws = L.items.map(it => [it.fs, it.s.length]).sort((a, b) => a[0] - b[0]); let hh = ws.reduce((a, q) => a + q[1], 0) / 2; for (const [f, n] of ws) { hh -= n; if (hh <= 0) { L.fs = f; break; } }
