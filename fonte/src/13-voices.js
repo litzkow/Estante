@@ -38,13 +38,9 @@ const Voices = {
   },
   current(lang, list) {
     const want = S['ttsN_' + this.engine() + '_' + lang];
-    // a book with a narrated audiobook plays it, unless a live voice was picked on purpose for this language
-    if ((list || []).some(v => v.id.startsWith('a:')) && !(want && S['ttsLive_' + lang])) {
-      const hd = list.find(v => v.id.startsWith('a:') && /Chirp3-HD/.test(v.id));
-      const w = list.find(v => v.id === want);
-      if (w && (!hd || /Chirp3-HD/.test(w.id) || S['ttsPicked_' + lang])) return w;
-      return hd || w || list.find(v => v.id.startsWith('a:'));
-    }
+    // a book with a ready audiobook always plays it (the most natural one first); a picked audiobook voice is kept
+    const abs = (list || []).filter(v => v.id.startsWith('a:'));
+    if (abs.length) return abs.find(v => v.id === want) || abs.find(v => /Chirp3-HD/.test(v.id)) || abs[0];
     return (list || []).find(v => v.id === want) || (list || [])[0] || null;
   },
   // text → audio blob (wav or mp3)
@@ -93,7 +89,7 @@ const NeuralPlayer = {
     const a = this.audio = new Audio(); a.preload = 'auto'; a.setAttribute('playsinline', ''); a.preservesPitch = true;
     const done = () => { if (this.silent) { this.silent = false; return; } if (TTS.playing && TTS.engineAudio() && !this.loadingNow) this.next(); };
     a.addEventListener('ended', done);
-    a.addEventListener('error', () => { if (this.silent || !a.getAttribute('src')) { this.silent = false; return; } if (this.ab && TTS.playing) { TTS.fail(new Error(t('abNet'))); return; } done(); });
+    a.addEventListener('error', () => { if (this.silent || !a.getAttribute('src')) { this.silent = false; return; } this.lastErr = 'media ' + (a.error && a.error.code); if (this.ab && TTS.playing) { TTS.fail(new Error(t('abNet'))); return; } done(); });
     if ('mediaSession' in navigator) {
       const ms = navigator.mediaSession;
       try {
@@ -197,7 +193,7 @@ const NeuralPlayer = {
     }
     let m;
     try { TTS.loading(0); m = await AudioBook.chapter(rec, voice.slice(2), ch); }
-    catch (e) { TTS.loading(null); if (tok === this.token) TTS.fail(new Error(t('abNet'))); return; }
+    catch (e) { this.lastErr = 'download ' + (e && e.message); TTS.loading(null); if (tok === this.token) TTS.fail(new Error(t('abNet'))); return; }
     TTS.loading(null);
     if (tok !== this.token || !TTS.playing) return;
     this.ab = Object.assign({}, m, { ch, sync: !m.len || m.len === (Book.rootText || '').length });
@@ -207,7 +203,7 @@ const NeuralPlayer = {
       if (st) { await new Promise(r => { if (a.readyState >= 1) r(); else a.addEventListener('loadedmetadata', r, { once: true }); }); a.currentTime = st; }
       await a.play();
       this.unlocked = true;
-    } catch (e) { if (tok === this.token) { TTS.pause(); if (e && e.name === 'NotAllowedError') toast(t('tapToPlay'), 5000); } return; }
+    } catch (e) { this.lastErr = 'play ' + (e && e.name); if (tok === this.token) { TTS.pause(); if (e && e.name === 'NotAllowedError') toast(t('tapToPlay'), 5000); } return; }
     a.ontimeupdate = () => this.abTick();
     this.meta();
     AudioBook.prefetch(rec, voice.slice(2), ch + 1);

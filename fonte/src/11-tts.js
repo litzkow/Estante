@@ -122,10 +122,22 @@ const TTS = {
     Sheets.open({ title: t('ttsFailT'), center: true, body: b => b.append(
       el('p', { style: { lineHeight: 1.5 }, text: ((e && e.message) || String(e)) }),
       ((e && e.message) || '') === t('vozNet') ? '' : el('p', { class: 'muted', style: { lineHeight: 1.5, fontSize: '13.5px' }, text: t('ttsFailHelp') }),
+      this.diagEl(),
       el('button', { class: 'btn primary block', text: t('vozRetry'), onclick: () => { Sheets.close(); this.ui(); this.play(); } }),
       el('button', { class: 'btn block', style: { marginTop: '8px' }, text: 'OK', onclick: () => Sheets.close() })) });
   },
   toggle() { this.playing ? this.pause() : this.play(); },
+  // a small technical line (helps find what's wrong from a screenshot)
+  diagEl() {
+    const p = el('p', { class: 'muted', style: { fontSize: '11px', lineHeight: 1.4, margin: '10px 2px', opacity: .7, wordBreak: 'break-all' }, text: '…' });
+    (async () => {
+      const rec = Book.rec, key = AudioBook.key(rec); let idx = {}, n = '?';
+      try { AudioBook.idxAt = 0; idx = await AudioBook.index(); n = Object.keys(idx).length; } catch (e) { n = 'erro ' + e.message; }
+      const e = idx[key], vs = e ? Object.keys(e.voices || {}).map(v => v.replace('-Chirp3-HD', '') + ':' + (e.voices[v].chapters || []).length).join(',') : '-';
+      p.textContent = ['fam ' + (Family.on ? 'sim' : 'não'), 'índice ' + n, 'chave ' + key, 'cap ' + Book.ch, 'vozes ' + vs, 'voz ' + (NeuralPlayer.voice || '-'), 'erro ' + (NeuralPlayer.lastErr || '-')].join(' · ');
+    })();
+    return p;
+  },
   skip(d) {
     if (this.engineAudio()) return NeuralPlayer.seek(d);
     this.i = clamp(this.i + d, 0, Math.max(0, this.segs.length - 1));
@@ -237,7 +249,8 @@ const TTS = {
               catch (err) { btn.disabled = false; btn.textContent = t('ttsPrepare'); this.fail(err); }
             } }, icon('download'), t('ttsPrepare')) : '',
             el('button', { class: 'btn block', onclick: () => { Sheets.close(s); this.dark(true); } }, icon('moon'), t('ttsDark')),
-            el('p', { class: 'muted', style: { fontSize: '12.5px', lineHeight: 1.45, margin: '8px 2px 0' }, text: this.engineAudio() ? t('ttsLockNoteN') : t('ttsLockNote') })));
+            el('p', { class: 'muted', style: { fontSize: '12.5px', lineHeight: 1.45, margin: '8px 2px 0' }, text: this.engineAudio() ? t('ttsLockNoteN') : t('ttsLockNote') }),
+            this.diagEl()));
       },
       onClose: () => { if (wasPlaying && !this.playing && this.open) this.play(); },
     });

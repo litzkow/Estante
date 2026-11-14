@@ -45,7 +45,8 @@ const AudioBook = {
     if ((await this.src(rec)) === 'priv') {
       const r = await Family.api(Family.repo() + '/contents/audio/' + path, { raw: true });
       if (!r.ok) throw new Error('HTTP ' + r.status);
-      return asJson ? r.json() : URL.createObjectURL(await r.blob());
+      // the iPhone only plays a downloaded file when it's labeled as MP3
+      return asJson ? r.json() : URL.createObjectURL(new Blob([await r.arrayBuffer()], { type: 'audio/mpeg' }));
     }
     if (!asJson) return this.base() + path;
     const r = await fetch(this.base() + path); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json();
