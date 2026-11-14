@@ -157,7 +157,7 @@ const NeuralPlayer = {
     if (wasAhead && this.k > 0 && Date.now() - waitFrom > 2500 && ++this.behind === 2 && !this.toldBehind) { this.toldBehind = true; toast(t('vozBehind'), 7000); }
     if (tok !== this.token || !TTS.playing) return;
     const u = URL.createObjectURL(b); this.urls.push(u); if (this.urls.length > 6) URL.revokeObjectURL(this.urls.shift());
-    const a = this.audio; a.src = u; a.playbackRate = S.ttsRate || 1;
+    const a = this.audio; this.silent = false; a.src = u; a.playbackRate = S.ttsRate || 1;
     try { await a.play(); } catch (e) { TTS.pause(); return; }
     this.meta();
     // generate the next passages while this one plays (one at a time: the phone does the work)
@@ -176,7 +176,7 @@ const NeuralPlayer = {
   },
   async playLong(tok) {
     const L = this.long, a = this.audio;
-    if (a.src !== L.url) { a.src = L.url; }
+    if (a.src !== L.url) { this.silent = false; a.src = L.url; }
     const k0 = Math.max(0, this.k - L.from); a.currentTime = L.starts[k0] || 0; a.playbackRate = S.ttsRate || 1;
     a.ontimeupdate = () => { if (!this.long) return; let j = 0; while (j + 1 < L.starts.length && L.starts[j + 1] <= a.currentTime) j++; if (L.from + j !== this.k) { this.k = L.from + j; const c = this.chunks[this.k]; if (c) { TTS.i = c.first; if (document.visibilityState === 'visible') TTS.follow(c); } } };
     try { await a.play(); } catch (e) { TTS.pause(); return; }
@@ -198,7 +198,7 @@ const NeuralPlayer = {
     TTS.loading(null);
     if (tok !== this.token || !TTS.playing) return;
     this.ab = Object.assign({}, m, { ch, sync: !m.len || m.len === (Book.rootText || '').length });
-    const a = this.audio; a.ontimeupdate = null; a.src = m.url; a.playbackRate = S.ttsRate || 1;
+    const a = this.audio; a.ontimeupdate = null; this.silent = false; a.src = m.url; a.playbackRate = S.ttsRate || 1;
     let st = 0; if (this.ab.sync && fromSeg > 0) { const x = m.times.find(x => x[1] >= fromSeg); if (x) st = x[0]; }
     try {
       if (st) { await new Promise(r => { if (a.readyState >= 1) r(); else a.addEventListener('loadedmetadata', r, { once: true }); }); a.currentTime = st; }
@@ -206,6 +206,7 @@ const NeuralPlayer = {
     } catch (e) { if (tok === this.token) TTS.pause(); return; }
     a.ontimeupdate = () => this.abTick();
     this.meta();
+    AudioBook.prefetch(rec, voice.slice(2), ch + 1);
   },
   abTick() {
     const A = this.ab; if (!A || !A.sync || !A.times.length) return;

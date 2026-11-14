@@ -15,6 +15,7 @@
   "size": 222127,
   "big": false,
   "lang": "pt",
+  "work": "lusiadas",
   "cover": "capas/Os-Lusiadas.jpg",
   "cv": 3
  },
@@ -105,6 +106,16 @@
   "big": false,
   "lang": "en",
   "cover": "capas/Tarzan-of-the-Apes.jpg",
+  "cv": 3
+ },
+ {
+  "file": "The-Lusiads.epub",
+  "title": "The Lusiads",
+  "size": 877872,
+  "big": false,
+  "lang": "en",
+  "work": "lusiadas",
+  "cover": "capas/The-Lusiads.jpg",
   "cv": 3
  },
  {

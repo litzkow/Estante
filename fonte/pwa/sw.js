@@ -25,6 +25,7 @@ self.addEventListener('fetch', e => {
   if (url.origin !== location.origin) return;
   // o próprio app: tenta a rede primeiro (pega versão nova), cai no cache sem internet
   if (url.pathname.includes('/livros/')) return; // livros vão para a estante, não para o cache
+  if (url.pathname.includes('/audio/')) return; // audiolivros tocam direto da internet
   // vozes: baixadas uma vez pelo app e guardadas; nunca passam pelo cache do app
   if (url.pathname.includes('/vozes/')) {
     if (req.headers.has('range')) return;

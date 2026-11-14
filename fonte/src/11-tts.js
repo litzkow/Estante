@@ -238,9 +238,9 @@ const TTS = {
   },
   async previewN(v, lang, onPct) {
     NeuralPlayer.init(); this.unlock();
-    if (v.id.startsWith('a:')) { try { const m = await AudioBook.chapter(Book.rec, v.id.slice(2), Book.ch); const a = NeuralPlayer.audio; a.src = m.url; a.playbackRate = S.ttsRate || 1; a.play().catch(() => { }); setTimeout(() => { if (!TTS.playing) a.pause(); }, 9000); } catch (e) { this.fail(new Error(t('abNet'))); } return; }
+    if (v.id.startsWith('a:')) { try { const m = await AudioBook.chapter(Book.rec, v.id.slice(2), Book.ch); const a = NeuralPlayer.audio; NeuralPlayer.silent = false; a.src = m.url; a.playbackRate = S.ttsRate || 1; a.play().catch(() => { }); setTimeout(() => { if (!TTS.playing) a.pause(); }, 9000); } catch (e) { this.fail(new Error(t('abNet'))); } return; }
     const tx = lang === 'en' ? 'Hello! This is the voice that will read your books.' : 'Olá! Esta é a voz que vai ler os seus livros.';
-    try { this.loading(0); const b = await Voices.synth(tx, v.id, lang, pc => { this.loading(pc); onPct && onPct(pc); }); this.loading(null); const a = NeuralPlayer.audio; a.src = URL.createObjectURL(b); a.playbackRate = S.ttsRate || 1; a.play().catch(() => { }); }
+    try { this.loading(0); const b = await Voices.synth(tx, v.id, lang, pc => { this.loading(pc); onPct && onPct(pc); }); this.loading(null); const a = NeuralPlayer.audio; NeuralPlayer.silent = false; a.src = URL.createObjectURL(b); a.playbackRate = S.ttsRate || 1; a.play().catch(() => { }); }
     catch (e) { this.loading(null); this.fail(e); }
   },
   preview(v) {

@@ -1,5 +1,5 @@
 // Estante: funciona sem internet e se atualiza sozinho
-const VERSION = 'estante-202611140203';
+const VERSION = 'estante-202611140235';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'lib/icon-180.png', 'lib/icon-192.png', 'lib/icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -25,6 +25,7 @@ self.addEventListener('fetch', e => {
   if (url.origin !== location.origin) return;
   // o próprio app: tenta a rede primeiro (pega versão nova), cai no cache sem internet
   if (url.pathname.includes('/livros/')) return; // livros vão para a estante, não para o cache
+  if (url.pathname.includes('/audio/')) return; // audiolivros tocam direto da internet
   // vozes: baixadas uma vez pelo app e guardadas; nunca passam pelo cache do app
   if (url.pathname.includes('/vozes/')) {
     if (req.headers.has('range')) return;

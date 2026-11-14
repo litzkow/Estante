@@ -27,8 +27,8 @@ for f in [x for x in os.listdir(d) if x.endswith(('.epub','.cbz'))]:
     if f.endswith('.epub'):
         z=zipfile.ZipFile(p); opf=[n for n in z.namelist() if n.endswith('.opf')][0]; m=re.search(r'<dc:title[^>]*>(.*?)</dc:title>', z.read(opf).decode('utf-8','ignore'), re.S)
         if m: t=html.unescape(m.group(1).strip())
-    lang = 'en' if f in ('Alices-Adventures-in-Wonderland.epub','Dracula.epub','Frankenstein.epub','Tarzan-of-the-Apes.epub','The-Time-Machine.epub','Grimms-Fairy-Tales.epub','Don-Quixote.epub') else 'pt'
-    work = {'The-Time-Machine.epub':'time-machine','A-Maquina-do-Tempo.epub':'time-machine'}.get(f)
+    lang = 'en' if f in ('Alices-Adventures-in-Wonderland.epub','Dracula.epub','Frankenstein.epub','Tarzan-of-the-Apes.epub','The-Time-Machine.epub','Grimms-Fairy-Tales.epub','Don-Quixote.epub','The-Lusiads.epub') else 'pt'
+    work = {'The-Time-Machine.epub':'time-machine','A-Maquina-do-Tempo.epub':'time-machine','The-Lusiads.epub':'lusiadas','Os-Lusiadas.epub':'lusiadas'}.get(f)
     e={'file':f,'title':t,'size':sz,'big':sz>5_000_000,'lang':lang}
     if work: e['work']=work
     m=re.match(r'Pepper-and-Carrot-(\d+)', f)
