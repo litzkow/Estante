@@ -29,9 +29,10 @@ jobs:
           L=vozes/lib; mkdir -p $L
           cp -r /tmp/n/node_modules/kokoro-js/dist $L/kokoro
           cp -r /tmp/n/node_modules/@diffusionstudio/vits-web/dist $L/vits
-          ORT=$(dirname $(node -e "console.log(require.resolve('onnxruntime-web/package.json',{paths:['/tmp/n/node_modules/@huggingface/transformers']}))"))
+          ORT=$(find /tmp/n/node_modules -type d -name onnxruntime-web -path "*node_modules/onnxruntime-web" | head -1)
+          echo "ORT em $ORT"
           mkdir -p $L/ort && cp $ORT/dist/*.wasm $ORT/dist/*.mjs $L/ort/ 2>/dev/null || true
-          node -e "console.log(require('$ORT/package.json').version)" > $L/ort/VERSION
+          node -e "console.log(require('$ORT/package.json').version)" > $L/ort/VERSION || true
           ls /tmp/n/node_modules/@diffusionstudio/ > $L/vits-deps.txt; ls /tmp/n/node_modules > $L/all-deps.txt
           du -ah vozes | sort -h | tail -40
       - name: Guardar no repositório
