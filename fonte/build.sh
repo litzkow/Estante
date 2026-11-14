@@ -18,7 +18,7 @@ cat <<'H'
 <title>Estante</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&family=Inter:wght@400;500;600;700&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;0,7..72,700;1,7..72,400&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&family=Inter:wght@400;500;600;700&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600;0,7..72,700;1,7..72,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400&family=Merriweather:ital,opsz,wght@0,18..144,400;0,18..144,500;0,18..144,700;1,18..144,400&display=swap">
 <style>
 H
 cat src/style.css
@@ -28,7 +28,7 @@ echo '</head>'
 echo '<body class="t-escuro">'
 cat src/body.html
 echo '<script>'
-cat src/01-util.js src/02-i18n.js src/03-store.js src/04-formats.js src/05-lib.js src/06-comic.js src/07-book.js src/08-pdf.js src/09-main.js src/10-design.js src/11-tts.js
+cat src/01-util.js src/02-i18n.js src/03-store.js src/04-formats.js src/05-lib.js src/06-comic.js src/07-book.js src/08-pdf.js src/09-main.js src/10-design.js src/11-tts.js src/12-pdfflow.js src/13-voices.js
 echo '</script>'
 echo '</body></html>'
 } > dist/index.html

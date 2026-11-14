@@ -62,22 +62,52 @@ const TTS = {
     const r = this.range(seg.s, seg.e); if (r) CSS.highlights.set('tts', new Highlight(r));
   },
   // ---------- controls ----------
+  engineAudio() { return Voices.engine() !== 'system'; },
   start() {
-    if (!this.supported()) { toast(t('ttsNo')); return; }
+    if (!this.engineAudio() && !this.supported()) { toast(t('ttsNo')); return; }
+    if (this.engineAudio()) { NeuralPlayer.init(); this.unlock(); }
     this.open = true; $('#v-book').classList.add('tts-on'); this.ui();
     this.build();
     const off = Book.curOff || 0;
     this.i = Math.max(0, this.segs.findIndex(s => s.e > off));
+    if (this.engineAudio()) NeuralPlayer.build();
     this.play();
   },
-  play() {
-    this.playing = true; this.keepAwake(true); this.ui(); this.speak();
+  // iPhone only lets audio start from a tap: start the player silently right now, inside the tap
+  unlock() {
+    try { const a = NeuralPlayer.audio; if (!a.src) { a.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA='; a.play().catch(() => { }); } } catch (e) { }
+  },
+  async play() {
+    this.playing = true; this.keepAwake(true); this.ui();
+    if (!this.engineAudio()) return this.speak();
+    this.unlock();
+    if (NeuralPlayer.resume()) return;
+    const lang = this.lang(), list = await Voices.list(lang), v = Voices.current(lang, list);
+    if (!v) { this.fail(new Error(t('ttsNoVoices'))); return; }
+    this.vname = v.name; this.ui();
+    NeuralPlayer.play(this.i, v.id, lang);
   },
   pause() {
-    this.playing = false; this.u = null; speechSynthesis.cancel(); this.keepAwake(false); this.ui();
+    this.playing = false; this.u = null;
+    if (this.engineAudio()) NeuralPlayer.pause(); else speechSynthesis.cancel();
+    this.keepAwake(false); this.ui();
+  },
+  loading(pc) {
+    const tv = $('#tts-bar .tvoice'); if (!tv) return;
+    if (pc == null) { this.ui(); return; }
+    tv.textContent = pc > 0 && pc < 100 ? t('ttsDownloading', { n: pc }) : t('ttsPreparing');
+  },
+  fail(e) {
+    this.pause(); this.loading(null);
+    Sheets.open({ title: t('ttsFailT'), center: true, body: b => b.append(
+      el('p', { style: { lineHeight: 1.5 }, text: ((e && e.message) || String(e)) }),
+      el('p', { class: 'muted', style: { lineHeight: 1.5, fontSize: '13.5px' }, text: t('ttsFailHelp') }),
+      el('button', { class: 'btn primary block', text: t('ttsUseSystem'), onclick: () => { setS('ttsEngine', 'system'); Sheets.close(); this.ui(); this.play(); } }),
+      el('button', { class: 'btn block', style: { marginTop: '8px' }, text: 'OK', onclick: () => Sheets.close() })) });
   },
   toggle() { this.playing ? this.pause() : this.play(); },
   skip(d) {
+    if (this.engineAudio()) return NeuralPlayer.seek(d);
     this.i = clamp(this.i + d, 0, Math.max(0, this.segs.length - 1));
     if (this.playing) this.speak(); else this.follow();
   },
@@ -85,11 +115,12 @@ const TTS = {
     if (!this.open) return;
     this.playing = false; this.open = false; this.u = null;
     try { speechSynthesis.cancel(); } catch (e) { }
+    try { NeuralPlayer.stop(); } catch (e) { }
     this.mark(null); this.keepAwake(false); this.dark(false); this.sleepAt = 0;
     $('#v-book').classList.remove('tts-on');
   },
-  follow() {
-    const seg = this.segs[this.i]; this.mark(seg);
+  follow(range) {
+    const seg = range || this.segs[this.i]; this.mark(seg);
     if (seg) { const p = Book.pageOfOffset(seg.s); if (p !== Book.page) Book.showPage(p, true, 1); }
   },
   speak() {
@@ -111,6 +142,7 @@ const TTS = {
     if (Book.ch >= Book.data.count - 1) { this.pause(); toast(t('ttsEnd')); return; }
     await Book.turnChapter(Book.ch + 1, { frac: 0 }, 1);
     this.build(); this.i = 0;
+    if (this.engineAudio()) { NeuralPlayer.build(); if (this.playing) { const lang = this.lang(), list = await Voices.list(lang), v = Voices.current(lang, list); if (v) NeuralPlayer.play(0, v.id, lang); } return; }
     if (this.playing) this.speak();
   },
   // ---------- screen ----------
@@ -132,41 +164,67 @@ const TTS = {
     const bar = $('#tts-bar'); if (!bar) return;
     bar.querySelector('.tplay').replaceChildren(icon(this.playing ? 'pause' : 'playF'));
     bar.querySelector('.trate').textContent = (S.ttsRate || 1).toFixed(S.ttsRate % 1 ? (S.ttsRate * 10 % 1 ? 2 : 1) : 0).replace('.', ',') + '×';
-    const v = this.voice(); bar.querySelector('.tvoice').textContent = v ? v.name.replace(/\s*\(.*\)$/, '') : t('ttsVoice');
+    const v = this.engineAudio() ? null : this.voice(); bar.querySelector('.tvoice').textContent = this.engineAudio() ? (this.vname || t('ttsVoice')) : (v ? v.name.replace(/\s*\(.*\)$/, '') : t('ttsVoice'));
   },
   rateNext() {
-    const R = [0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2];
+    const R = [0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3];
     const k = R.indexOf(S.ttsRate || 1); setS('ttsRate', R[(k + 1) % R.length]); this.ui();
-    if (this.playing) this.speak();
+    if (this.engineAudio()) NeuralPlayer.rate(S.ttsRate); else if (this.playing) this.speak();
   },
   sheet() {
     const wasPlaying = this.playing;
     const s = Sheets.open({
       title: t('ttsTitle'), body: b => {
-        const vs = this.voices(), cur = this.voice();
-        const L = el('div', { class: 'list' });
-        const draw = () => {
-          L.replaceChildren();
+        const L = el('div', { class: 'list' }), lang = this.lang();
+        const engSeg = wSeg([['neural', t('ttsEngNeural')], ['azure', 'Microsoft'], ['system', t('ttsEngSystem')]], Voices.engine(), x => { setS('ttsEngine', x); NeuralPlayer.stop(); azBox.classList.toggle('hide', x !== 'azure'); draw(); this.ui(); }, 'wrap');
+        const azBox = el('div', { class: Voices.engine() === 'azure' ? '' : 'hide', style: { marginTop: '10px' } },
+          el('input', { class: 'inp', placeholder: t('azKeyPh'), value: S.azKey || '', oninput: e => setS('azKey', e.target.value.trim()) }),
+          el('input', { class: 'inp', style: { marginTop: '6px' }, placeholder: t('azRegionPh'), value: S.azRegion || '', oninput: e => setS('azRegion', e.target.value.trim().toLowerCase()) }),
+          el('p', { class: 'muted', style: { fontSize: '12.5px', lineHeight: 1.45, margin: '6px 2px 0' }, text: t('azHelp') }));
+        const note = el('p', { class: 'muted', style: { fontSize: '12.5px', lineHeight: 1.45, margin: '8px 2px 0' } });
+        const draw = async () => {
+          L.replaceChildren(el('p', { class: 'muted', text: t('ttsLoadingList') }));
+          note.textContent = { neural: t('ttsNeuralNote'), azure: t('ttsAzureNote'), system: t('ttsTip') }[Voices.engine()];
+          if (Voices.engine() === 'system') {
+            const vs = this.voices(), cur = this.voice(); L.replaceChildren();
+            if (!vs.length) L.append(el('p', { class: 'muted', text: t('ttsNoVoices') }));
+            for (const v of vs) {
+              const on = cur && v.voiceURI === cur.voiceURI;
+              L.append(el('button', { class: 'li' + (on ? ' cur' : ''), onclick: () => { setS('ttsVoice_' + lang, v.voiceURI); this.preview(v); draw(); this.ui(); } },
+                icon(on ? 'check' : 'headphones'), el('div', { class: 'lt' }, v.name.replace(/\s*\(.*\)$/, ''), el('small', { text: v.lang }))));
+            }
+            return;
+          }
+          const vs = await Voices.list(lang), cur = Voices.current(lang, vs); L.replaceChildren();
           if (!vs.length) L.append(el('p', { class: 'muted', text: t('ttsNoVoices') }));
           for (const v of vs) {
-            const on = cur2() && v.voiceURI === cur2().voiceURI;
-            const q = /premium/i.test(v.name) ? 'Premium' : /enhanced|aprimorad|melhorad|natural|neural/i.test(v.name) ? t('ttsEnh') : '';
-            L.append(el('button', { class: 'li' + (on ? ' cur' : ''), onclick: () => { setS('ttsVoice_' + this.lang(), v.voiceURI); this.preview(v); draw(); this.ui(); } },
-              icon(on ? 'check' : 'headphones'), el('div', { class: 'lt' }, v.name.replace(/\s*\(.*\)$/, ''), el('small', { text: [v.lang, q].filter(Boolean).join(' · ') }))));
+            const on = cur && v.id === cur.id;
+            L.append(el('button', { class: 'li' + (on ? ' cur' : ''), onclick: () => { setS('ttsN_' + Voices.engine() + '_' + lang, v.id); this.vname = v.name; NeuralPlayer.stop(); this.previewN(v, lang); draw(); this.ui(); } },
+              icon(on ? 'check' : 'headphones'), el('div', { class: 'lt' }, v.name, el('small', { text: v.desc }))));
           }
         };
-        const cur2 = () => this.voice();
         draw();
-        b.append(wGroup(t('ttsVoice'), L,
-          el('div', { class: 'banner', style: { marginTop: '10px' } }, icon('info'), el('div', { text: t('ttsTip') }))),
-          wGroup(t('ttsSpeed'), wSlider(0.6, 2, 0.05, S.ttsRate || 1, v => { setS('ttsRate', Math.round(v * 100) / 100); this.ui(); }, v => (+v).toFixed(2).replace('.', ',') + '×', 'speed')),
+        b.append(wGroup(t('ttsEngine'), engSeg, azBox), wGroup(t('ttsVoice') + ' · ' + (lang === 'en' ? 'English' : 'Português'), L, note),
+          wGroup(t('ttsSpeed'), wSlider(0.75, 3, 0.05, S.ttsRate || 1, v => { setS('ttsRate', Math.round(v * 100) / 100); NeuralPlayer.rate(S.ttsRate); this.ui(); }, v => (+v).toFixed(2).replace('.', ',') + '×', 'speed')),
           wGroup(t('ttsSleep'), wSeg([[0, t('off')], [15, '15 min'], [30, '30 min'], [60, '60 min']], this.sleepMin || 0, m => { this.sleepMin = m; this.sleepAt = m ? Date.now() + m * 60000 : 0; if (m) toast(t('ttsSleepSet', { n: m })); })),
-          wGroup(t('ttsScreen'), el('button', { class: 'btn block', onclick: () => { Sheets.close(s); this.dark(true); } }, icon('moon'), t('ttsDark')),
-            el('p', { class: 'muted', style: { fontSize: '12.5px', lineHeight: 1.45, margin: '8px 2px 0' }, text: t('ttsLockNote') })));
+          wGroup(t('ttsScreen'),
+            this.engineAudio() ? el('button', { class: 'btn block primary', style: { marginBottom: '8px' }, onclick: async e => {
+              const btn = e.currentTarget; btn.disabled = true;
+              try { if (!NeuralPlayer.chunks.length) { this.build(); NeuralPlayer.build(); } const ok = await NeuralPlayer.prepare(p => { btn.textContent = t('ttsPreparingCh', { n: p }); }); btn.textContent = ok ? t('ttsPrepared') : t('ttsPrepFail'); }
+              catch (err) { btn.disabled = false; btn.textContent = t('ttsPrepare'); this.fail(err); }
+            } }, icon('download'), t('ttsPrepare')) : '',
+            el('button', { class: 'btn block', onclick: () => { Sheets.close(s); this.dark(true); } }, icon('moon'), t('ttsDark')),
+            el('p', { class: 'muted', style: { fontSize: '12.5px', lineHeight: 1.45, margin: '8px 2px 0' }, text: this.engineAudio() ? t('ttsLockNoteN') : t('ttsLockNote') })));
       },
       onClose: () => { if (wasPlaying && !this.playing && this.open) this.play(); },
     });
     if (this.playing) this.pause();
+  },
+  async previewN(v, lang) {
+    NeuralPlayer.init(); this.unlock();
+    const tx = lang === 'en' ? 'Hello! This is the voice that will read your books.' : 'Olá! Esta é a voz que vai ler os seus livros.';
+    try { this.loading(0); const b = await Voices.synth(tx, v.id, lang, pc => this.loading(pc)); this.loading(null); const a = NeuralPlayer.audio; a.src = URL.createObjectURL(b); a.playbackRate = S.ttsRate || 1; a.play().catch(() => { }); }
+    catch (e) { this.loading(null); this.fail(e); }
   },
   preview(v) {
     speechSynthesis.cancel();
@@ -174,9 +232,10 @@ const TTS = {
     u.voice = v; u.lang = v.lang; u.rate = S.ttsRate || 1; speechSynthesis.speak(u);
   },
   init() {
-    if (!this.supported()) { $('#b-tts').classList.add('hide'); return; }
-    speechSynthesis.getVoices();
-    speechSynthesis.addEventListener && speechSynthesis.addEventListener('voiceschanged', () => this.ui());
+    if (this.supported()) {
+      speechSynthesis.getVoices();
+      speechSynthesis.addEventListener && speechSynthesis.addEventListener('voiceschanged', () => this.ui());
+    }
     $('#b-tts').onclick = () => this.open ? this.toggle() : this.start();
     const bar = $('#tts-bar');
     bar.querySelector('.tback').onclick = () => this.skip(-1);

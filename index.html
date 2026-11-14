@@ -14,7 +14,7 @@
 <title>Estante</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&family=Inter:wght@400;500;600;700&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;0,7..72,700;1,7..72,400&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&family=Inter:wght@400;500;600;700&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600;0,7..72,700;1,7..72,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400&family=Merriweather:ital,opsz,wght@0,18..144,400;0,18..144,500;0,18..144,700;1,18..144,400&display=swap">
 <style>
 :root{
   --st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px);
@@ -476,6 +476,33 @@ html[data-view=v-comic],html[data-view=v-comic] body{background:#000}
 #b-foot{bottom:calc(var(--sb) + 18px)}
 .b-x{top:calc(var(--st) + 12px)}
 canvas.peel{position:absolute;z-index:4;pointer-events:none}
+/* mapa da página no modo quadro a quadro */
+#c-map{position:absolute;z-index:6;right:12px;bottom:calc(var(--sb) + 14px);border-radius:5px;overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,.5);outline:1px solid rgba(255,255,255,.25);opacity:0;transition:opacity .3s;pointer-events:none}
+#c-map.on{opacity:.9}
+#c-map img{width:100%;height:100%;display:block;filter:brightness(.55)}
+#c-map i{position:absolute;border:2px solid var(--accent);border-radius:2px;box-shadow:0 0 0 999px rgba(0,0,0,.15);transition:all .35s cubic-bezier(.25,.8,.25,1)}
+#v-comic:not(.ui-off) #c-map{bottom:calc(var(--sb) + 96px)}
+/* PDF virando livro */
+#b-flow .pdfflow figure{margin:1.1em 0;text-align:center;break-inside:avoid}
+#b-flow .pdfflow figure img{max-width:100%;max-height:calc(var(--bk-h) * .92);border-radius:3px}
+#b-flow .pdfflow figure.pf-full img{max-height:calc(var(--bk-h) * .96)}
+#b-flow .pdfflow .pf-center{text-align:center;text-indent:0}
+/* papéis e temas novos */
+.t-branco{--bg:#f7f7f5;--fg:#141414;--muted:#6e6e6a;--card:#ffffff;--card2:#efefeb;--line:#e2e2de;--bar:rgba(247,247,245,.94);--shadow:0 6px 20px rgba(0,0,0,.10);--paper:#ffffff;--ink:#151515}
+.t-creme{--bg:#f5eedd;--fg:#2f281d;--muted:#7d7360;--card:#fbf6ea;--card2:#ece2cb;--line:#e1d5ba;--bar:rgba(245,238,221,.95);--shadow:0 6px 20px rgba(70,50,10,.12);--paper:#f8f1e1;--ink:#2f281d}
+.t-quente{--bg:#efe0c2;--fg:#3a2c18;--muted:#7e6a48;--card:#f6ead2;--card2:#e5d2ad;--line:#d8c39b;--bar:rgba(239,224,194,.95);--shadow:0 6px 20px rgba(80,50,10,.15);--paper:#f2e2c0;--ink:#3a2c18}
+.t-antigo{--bg:#e2cfa8;--fg:#3b2a14;--muted:#7a6237;--card:#ecdcb9;--card2:#d9c193;--line:#cdb382;--bar:rgba(226,207,168,.95);--shadow:0 6px 20px rgba(80,50,10,.2);--paper:#ead6ad;--ink:#3b2a14;
+  --paper-img:radial-gradient(ellipse at 50% 45%,rgba(255,248,225,.45) 0%,rgba(255,248,225,0) 55%,rgba(120,75,20,.30) 100%),url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600'%3E%3Cfilter id='s'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.012' numOctaves='3' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .28 0 0 0 0 .08 0 0 0 .9 -.35'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23s)'/%3E%3C/svg%3E"),url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .3 0 0 0 0 .2 0 0 0 0 .08 0 0 0 .14 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+.t-eink{--bg:#e7e7e2;--fg:#262626;--muted:#6b6b66;--card:#efefea;--card2:#dcdcd6;--line:#d2d2cc;--bar:rgba(231,231,226,.95);--shadow:0 4px 14px rgba(0,0,0,.08);--paper:#e9e9e4;--ink:#272727}
+.t-meianoite{--bg:#0d1320;--fg:#c9cfda;--muted:#7a8496;--card:#151d2d;--card2:#1d2738;--line:#232d40;--bar:rgba(13,19,32,.94);--shadow:0 8px 24px rgba(0,0,0,.5);--paper:#101828;--ink:#c3cad6}
+#v-book,#b-frame{background-image:var(--paper-img,none);background-size:cover,600px 600px,180px 180px;background-attachment:local}
+.t-eink #b-flow{-webkit-font-smoothing:auto;font-weight:450}
+.themes{display:grid!important;grid-template-columns:repeat(4,1fr);gap:8px}
+.themes button{height:52px;font-size:11.5px}
+#v-book{background-size:100vw 100dvh,600px 600px,180px 180px;background-position:0 0}
+#b-frame,.pt-ghost{background-size:100vw 100dvh,600px 600px,180px 180px;background-position:calc(-1 * var(--sl,0px)) calc(-1 * (var(--st,0px) + 64px))}
+#b-flow{font-weight:var(--bk-wt,400)}
+.inp{width:100%;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--fg);padding:0 12px;font:inherit;font-size:15px}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
@@ -845,7 +872,16 @@ function gestures(target, h) {
 }
 /* ================= strings (pt / en) ================= */
 const STR = {
-  autoTheme: ['Auto', 'Auto'],
+  ttsEngine: ['Tipo de voz', 'Voice type'], ttsPrepare: ['Preparar o capítulo para ouvir com a tela bloqueada', 'Prepare the chapter to listen with the screen locked'], ttsPreparingCh: ['Preparando o capítulo… {n}%', 'Preparing the chapter… {n}%'], ttsPrepared: ['Capítulo pronto: pode bloquear a tela', 'Chapter ready: you can lock the screen'], ttsPrepFail: ['Não deu para juntar o áudio deste capítulo', 'Could not join this chapter audio'],
+  ttsLockNoteN: ['Com o capítulo preparado, pode bloquear o iPhone: o áudio continua e aparece na tela de bloqueio. Sem preparar, ele toca os próximos minutos já gerados.', 'With the chapter prepared you can lock the iPhone: audio keeps playing and shows on the lock screen. Without preparing, it plays the next few minutes already generated.'], ttsEngNeural: ['Natural grátis', 'Natural, free'], ttsEngSystem: ['Do iPhone', 'Phone voice'],
+  ttsNeuralNote: ['Vozes neurais que rodam no seu celular: grátis, sem limite e privadas. Na primeira vez o app baixa a voz (cerca de 90 MB, use Wi‑Fi). Inglês: Kokoro. Português: Piper.', 'Neural voices running on your phone: free, unlimited and private. The first time the app downloads the voice (about 90 MB, use Wi‑Fi). English: Kokoro. Portuguese: Piper.'],
+  ttsAzureNote: ['Vozes da Microsoft (Azure Speech) com a sua chave. A Microsoft dá 500 mil caracteres grátis por mês; depois disso cobra pelo uso.', 'Microsoft voices (Azure Speech) with your key. Microsoft gives 500,000 free characters a month; after that it charges for use.'],
+  azKeyPh: ['Chave do Azure Speech', 'Azure Speech key'], azRegionPh: ['Região (ex.: eastus)', 'Region (e.g. eastus)'], azHelp: ['Fica guardada só neste aparelho.', 'Stored only on this device.'],
+  azNoKey: ['Coloque a chave da Microsoft para usar essas vozes.', 'Add your Microsoft key to use these voices.'], azBadKey: ['A Microsoft recusou a chave. Confira a chave e a região.', 'Microsoft rejected the key. Check the key and region.'], azQuota: ['O limite da Microsoft acabou por agora.', 'The Microsoft limit is used up for now.'],
+  ttsFemale: ['Feminina', 'Female'], ttsMale: ['Masculina', 'Male'], ttsVWarm: ['calorosa', 'warm'], ttsVExpressive: ['expressiva', 'expressive'], ttsVCalm: ['calma', 'calm'], ttsVDeep: ['grave', 'deep'], ttsVBritish: ['britânica', 'British'], ttsVBritishDeep: ['britânica, grave', 'British, deep'], ttsVStory: ['contador de histórias', 'storyteller'], ttsGood: ['boa qualidade', 'good quality'], ttsLight: ['leve', 'light'],
+  ttsLoadingList: ['Carregando vozes…', 'Loading voices…'], ttsDownloading: ['Baixando a voz… {n}%', 'Downloading the voice… {n}%'], ttsPreparing: ['Preparando a voz…', 'Preparing the voice…'],
+  ttsFailT: ['A voz não carregou', 'The voice did not load'], ttsFailHelp: ['Confira a internet (a primeira vez precisa baixar a voz) e tente de novo. Enquanto isso, dá para ouvir com a voz do iPhone.', 'Check the internet (the first time needs to download the voice) and try again. Meanwhile you can listen with the phone voice.'], ttsUseSystem: ['Usar a voz do iPhone', 'Use the phone voice'],
+  autoTheme: ['Auto', 'Auto'], fontWeight: ['Peso da letra', 'Font weight'], wtNormal: ['Normal', 'Regular'], wtMedium: ['Médio', 'Medium'], wtBold: ['Forte', 'Bold'], paraSpace: ['Espaço entre parágrafos', 'Paragraph spacing'], colWidth: ['Largura da coluna (tablet)', 'Column width (tablet)'], thBranco: ['Branco', 'White'], thCreme: ['Creme', 'Cream'], thQuente: ['Papel quente', 'Warm paper'], thAntigo: ['Papel antigo', 'Old paper'], thEink: ['E-ink', 'E-ink'], thMeia: ['Meia-noite', 'Midnight'], pdfAsBook: ['Ler como livro (letra ajustável)', 'Read as a book (adjustable text)'], pdfAsPages: ['Ver as páginas originais do PDF', 'Show the original PDF pages'],
   ttsListen: ['Ouvir', 'Listen'], ttsTitle: ['Ouvir o livro', 'Listen to the book'], ttsVoice: ['Voz', 'Voice'], ttsSpeed: ['Velocidade', 'Speed'], ttsSleep: ['Parar depois de', 'Stop after'], off: ['Não', 'Off'],
   ttsScreen: ['Tela', 'Screen'], ttsDark: ['Apagar a tela e continuar ouvindo', 'Turn the screen black and keep listening'], ttsDarkHint: ['Lendo em voz alta · toque para voltar', 'Reading aloud · tap to return'],
   ttsLockNote: ['A tela fica preta (quase não gasta bateria) e a leitura continua. Não bloqueie o iPhone: com a tela bloqueada o iOS pausa a voz de apps da internet.', 'The screen goes black (almost no battery use) and reading continues. Do not lock the iPhone: iOS pauses the voice of web apps when locked.'],
@@ -855,7 +891,7 @@ const STR = {
   comfortAuto: ['Automático (recomendado)', 'Automatic (recommended)'], comfortAutoSub: ['Deixa a tela mais quente e um pouco mais escura à noite, como o Night Shift', 'Makes the screen warmer and slightly dimmer at night, like Night Shift'],
   homeScreen: ['Tela inicial e leitura', 'Home screen and reading'], showGoal: ['Mostrar meta de leitura', 'Show reading goal'], showGoalSub: ['Minutos lidos hoje e dias seguidos', 'Minutes read today and day streak'], showContinue: ['Mostrar "Continuar lendo"', 'Show "Continue reading"'],
   pagesLeft: ['{n} páginas até o fim do capítulo', '{n} pages left in chapter'], pageLeft1: ['1 página até o fim do capítulo', '1 page left in chapter'], lastPageCh: ['Última página do capítulo', 'Last page in chapter'],
-  pageTurn: ['Virar a página', 'Page turn'], ptSlide: ['Deslizar', 'Slide'], ptVertical: ['De baixo para cima', 'Bottom to top'], ptCurl: ['Folha de papel', 'Paper sheet'], ptFade: ['Esmaecer', 'Fade'], ptNone: ['Nenhuma', 'None'],
+  pageTurn: ['Virar a página', 'Page turn'], ptSlide: ['Deslizar', 'Slide'], ptVertical: ['De baixo para cima', 'Bottom to top'], ptCurl: ['Folha leve', 'Soft page'], ptHard: ['Folha dura', 'Hard page'], ptFade: ['Esmaecer', 'Fade'], ptNone: ['Direto', 'Instant'],
   readIn: ['Ler em', 'Read in'], bothLangs: ['Português e inglês', 'Portuguese and English'], dlBooks: ['Adicionando livros grátis {n} de {t}', 'Adding free books {n} of {t}'],
   gMorning: ['Bom dia', 'Good morning'], gAfternoon: ['Boa tarde', 'Good afternoon'], gNight: ['Boa noite', 'Good evening'], nItems: ['{n} na estante', '{n} on your shelf'],
   today: ['Hoje', 'Today'], goalOf: ['{n} de {g} min de leitura', '{n} of {g} min read'], goalMet: ['Meta do dia cumprida', 'Daily goal reached'], goalDone: ['Meta do dia cumprida! 🎉', 'Daily goal reached! 🎉'],
@@ -1210,7 +1246,7 @@ function getPdfjs() {
       const u = URL.createObjectURL(new Blob(['import "' + wsrc + '";'], { type: 'text/javascript' }));
       m.GlobalWorkerOptions.workerPort = new Worker(u, { type: 'module' });
     } catch (e) { m.GlobalWorkerOptions.workerSrc = wsrc; }
-    return m;
+    window.__pdfjs = m; return m;
   }).catch(e => { pdfjsP = null; throw new Error(t('pdfLibFail')); });
   return pdfjsP;
 }
@@ -1219,6 +1255,7 @@ async function openPdf(blob) {
   const data = new Uint8Array(await blob.arrayBuffer());
   return pdfjs.getDocument({ data, isEvalSupported: false, useSystemFonts: true }).promise;
 }
+function pdfjsMod() { return window.__pdfjs || {}; }
 function closePdf(pdf) { try { if (!pdf) return; const lt = pdf.loadingTask; if (lt && lt.destroy) lt.destroy(); else if (pdf.destroy) pdf.destroy(); } catch (e) { } }
 async function renderPdfPage(pdf, n, targetW, maxH = 4200) {
   const pg = await pdf.getPage(n);
@@ -1564,9 +1601,12 @@ async function importPdf(file) {
   let cover = null, kind = 'comic';
   try { const cv = await renderPdfPage(pdf, 1, 360); cover = await canvasBlob(cv, 'image/jpeg', 0.82); } catch (e) { }
   try {
-    let chars = 0; const n = Math.min(pdf.numPages, 4);
-    for (let i = 1; i <= n; i++) { const tc = await (await pdf.getPage(i)).getTextContent(); chars += tc.items.reduce((s, it) => s + (it.str || '').length, 0); }
-    if (chars / n > 350) kind = 'book';
+    // look at pages spread through the whole file (the first ones are often cover and pictures)
+    const N = pdf.numPages, picks = [...new Set(Array.from({ length: Math.min(N, 8) }, (_, k) => Math.max(1, Math.min(N, Math.round(1 + (N - 1) * (0.1 + 0.8 * k / Math.max(1, Math.min(N, 8) - 1)))))))];
+    const per = [];
+    for (const i of picks) { const tc = await (await pdf.getPage(i)).getTextContent(); per.push(tc.items.reduce((s, it) => s + (it.str || '').length, 0)); }
+    per.sort((a, b) => a - b);
+    if ((per[per.length >> 1] || 0) > 350) kind = 'book';
   } catch (e) { }
   let title = cleanTitle(file.name), author = '';
   try { const md = await pdf.getMetadata(); const inf = md && md.info || {}; if (inf.Title && inf.Title.trim().length > 2 && !/^untitled|microsoft word|^\(?anonymous/i.test(inf.Title)) title = inf.Title.trim(); author = (inf.Author || '').trim(); if (/^\(?(anonymous|unknown)\)?$/i.test(author)) author = ''; } catch (e) { }
@@ -1785,6 +1825,7 @@ const Lib = {
         item('info', t('details'), () => this.info(b));
         item('edit', t('editDetails'), () => this.edit(b));
         item('folder', t('collections'), () => this.collectionsFor(b), '', (b.collections || []).join(', ') || null);
+        if (b.format === 'pdf' && b.kind !== 'comic') item('book', b.pdfView === 'page' ? t('pdfAsBook') : t('pdfAsPages'), async () => { b.pdfView = b.pdfView === 'page' ? 'book' : 'page'; b.pos = null; await saveRec(b); this.render(); });
         if (b.format === 'pdf') item('flip', b.kind === 'comic' ? t('openAsBook') : t('openAsComic'), async () => { b.kind = b.kind === 'comic' ? 'book' : 'comic'; b.pos = null; await saveRec(b); this.render(); toast(b.kind === 'comic' ? t('nowComic') : t('nowBook')); });
         item('check', b.finished ? t('markUnread') : t('markRead'), async () => { b.finished = !b.finished; if (b.finished) b.pct = 1; else if (b.pct >= 1) b.pct = 0.99; await saveRec(b); this.render(); });
         item('trash', t('remove'), async () => {
@@ -1866,6 +1907,7 @@ const Lib = {
     Pause.start();
     try {
       if (rec.kind === 'comic') await Comic.open(rec, blob);
+      else if (rec.format === 'pdf' && rec.pdfView !== 'page') await Book.open(rec, blob);
       else if (rec.format === 'pdf') await PdfBook.open(rec, blob);
       else await Book.open(rec, blob);
     } catch (e) {
@@ -1952,13 +1994,70 @@ function detectPanels(img, W, H, dir) {
   };
   rec({ x0: 0, y0: 0, x1: w, y1: h }, 0);
   const area = w * h;
-  const ps = leaves.filter(r => (r.x1 - r.x0) * (r.y1 - r.y0) >= area * 0.008);
+  let ps = leaves.filter(r => (r.x1 - r.x0) * (r.y1 - r.y0) >= area * 0.008);
   if (ps.length > 26 || !ps.length) return [];
+  const white = r => { let ink = 0; for (let y = r.y0; y < r.y1; y += 2) ink += rowInk(y, r.x0, r.x1); return 100 - ink * 2 / Math.max(1, (r.x1 - r.x0) * (r.y1 - r.y0)) * 100; };
+  const uni = (a, b) => ({ x0: Math.min(a.x0, b.x0), y0: Math.min(a.y0, b.y0), x1: Math.max(a.x1, b.x1), y1: Math.max(a.y1, b.y1) });
+  const dist = (a, b) => Math.hypot(Math.max(0, a.x0 - b.x1, b.x0 - a.x1), Math.max(0, a.y0 - b.y1, b.y0 - a.y1));
+  // logo / title / caption strips (mostly page colour, short): they belong with the nearest panel, never on their own
+  for (let guard = 0; guard < 6 && ps.length > 1; guard++) {
+    const k = ps.findIndex(r => (r.y1 - r.y0) < h * 0.22 && white(r) > 40);
+    if (k < 0) break;
+    const s = ps[k]; ps.splice(k, 1);
+    let bi = 0, bd = Infinity; ps.forEach((r, i) => { const d = dist(r, s); if (d < bd) { bd = d; bi = i; } });
+    ps[bi] = uni(ps[bi], s);
+  }
+  // balloons that spill out of a panel into the gutter: their text is ink outside every panel.
+  // group that ink and give it to the nearest panel, so a balloon is never cut or shown empty
+  {
+    const G = Math.max(4, Math.round(Math.min(w, h) / 140)), gw = Math.ceil(w / G), gh = Math.ceil(h / G);
+    const inside = (x, y) => ps.some(r => x >= r.x0 - 2 && x < r.x1 + 2 && y >= r.y0 - 2 && y < r.y1 + 2);
+    const cell = new Uint8Array(gw * gh);
+    for (let cy = 0; cy < gh; cy++) for (let cx = 0; cx < gw; cx++) {
+      let n = 0;
+      for (let y = cy * G; y < Math.min(h, cy * G + G); y++) for (let x = cx * G; x < Math.min(w, cx * G + G); x++) if (ink[y * w + x] && !inside(x, y)) n++;
+      if (n >= 2) cell[cy * gw + cx] = 1;
+    }
+    const seen = new Uint8Array(gw * gh), R = 2;
+    for (let i = 0; i < gw * gh; i++) {
+      if (!cell[i] || seen[i]) continue;
+      const st = [i]; seen[i] = 1; let x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1, cnt = 0;
+      while (st.length) {
+        const c = st.pop(), cx = c % gw, cy = (c / gw) | 0; cnt++;
+        x0 = Math.min(x0, cx); y0 = Math.min(y0, cy); x1 = Math.max(x1, cx); y1 = Math.max(y1, cy);
+        for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
+          const nx = cx + dx, ny = cy + dy; if (nx < 0 || ny < 0 || nx >= gw || ny >= gh) continue;
+          const j = ny * gw + nx; if (cell[j] && !seen[j]) { seen[j] = 1; st.push(j); }
+        }
+      }
+      if (cnt < 3) continue;
+      const pad = G * 2, blob = { x0: Math.max(0, x0 * G - pad), y0: Math.max(0, y0 * G - pad), x1: Math.min(w, (x1 + 1) * G + pad), y1: Math.min(h, (y1 + 1) * G + pad) };
+      let bi = -1, bd = Infinity; ps.forEach((r, k) => { const d = dist(r, blob); if (d < bd) { bd = d; bi = k; } });
+      if (bi >= 0 && bd < Math.min(w, h) * 0.12) ps[bi] = uni(ps[bi], blob);
+    }
+  }
   if (ps.length === 1 && (ps[0].x1 - ps[0].x0) * (ps[0].y1 - ps[0].y0) > area * 0.55) return [];
-  const px = w * 0.006, py = h * 0.006;
+  // title / logo pages: the gaps between big letters look like gutters -> show the whole page
+  const small = ps.filter(r => (r.x1 - r.x0) * (r.y1 - r.y0) < area * 0.04);
+  if (small.length >= 3 && small.length >= ps.length / 2) return [];
+  // panels must cover most of the page; otherwise it is an illustration, not a grid
+  const cover = ps.reduce((a, r) => a + (r.x1 - r.x0) * (r.y1 - r.y0), 0);
+  if (cover < area * 0.35) return [];
+  const px = w * 0.006, py = h * 0.006, BINS = 48;
+  // whiteness profile across each panel: balloons are page-coloured, art is not.
+  // a wide panel is only ever split where the line runs through art (never through a balloon)
+  const prof = (r, horiz) => {
+    const out = [], L = horiz ? r.x1 - r.x0 : r.y1 - r.y0, M = horiz ? r.y1 - r.y0 : r.x1 - r.x0;
+    for (let b = 0; b < BINS; b++) {
+      const a = Math.floor(b * L / BINS), e = Math.max(a + 1, Math.floor((b + 1) * L / BINS)); let ink = 0, tot = 0;
+      for (let p = a; p < e; p++) { const v = horiz ? colInk(r.x0 + p, r.y0, r.y1) : rowInk(r.y0 + p, r.x0, r.x1); ink += v; tot += M; }
+      out.push(Math.round(100 - ink / Math.max(1, tot) * 100));
+    }
+    return out;
+  };
   return ps.map(r => {
     const x0 = Math.max(0, r.x0 - px), y0 = Math.max(0, r.y0 - py), x1 = Math.min(w, r.x1 + px), y1 = Math.min(h, r.y1 + py);
-    return { x: x0 / w, y: y0 / h, w: (x1 - x0) / w, h: (y1 - y0) / h };
+    return { x: x0 / w, y: y0 / h, w: (x1 - x0) / w, h: (y1 - y0) / h, cx: prof(r, true), cy: prof(r, false) };
   });
 }
 
@@ -1967,10 +2066,28 @@ function splitPanel(p, sa, dir) {
   if (!S.cSplit) return [p];
   const r = (p.w / p.h) / sa, ov = 0.12;
   const mk = (n, horiz) => {
-    const out = [];
-    if (horiz) { const sw = p.w / (n - (n - 1) * ov), st = sw * (1 - ov); for (let k = 0; k < n; k++) out.push({ x: p.x + k * st, y: p.y, w: sw, h: p.h }); if (dir === 'rtl') out.reverse(); }
-    else { const sh = p.h / (n - (n - 1) * ov), st = sh * (1 - ov); for (let k = 0; k < n; k++) out.push({ x: p.x, y: p.y + k * st, w: p.w, h: sh }); }
-    return out;
+    const prof = horiz ? p.cx : p.cy;
+    // older cached pages have no profile: keep the whole panel rather than risk cutting a balloon
+    if (!prof || !prof.length) return [p];
+    const B = prof.length, cuts = [];
+    for (let k = 1; k < n; k++) {
+      const ideal = k / n * B, win = Math.round(B * 0.2);
+      let best = -1, bs = Infinity;
+      for (let b = Math.max(1, Math.round(ideal - win)); b <= Math.min(B - 2, Math.round(ideal + win)); b++) {
+        const sc = (prof[b - 1] + prof[b] * 2 + prof[b + 1]) / 4 + Math.abs(b - ideal) * 0.8;
+        if (sc < bs) { bs = sc; best = b; }
+      }
+      // the best line still crosses a lot of white (a balloon): do not split at all
+      if (best < 0 || (prof[best - 1] + prof[best] * 2 + prof[best + 1]) / 4 > 40) return [p];
+      cuts.push((best + 0.5) / B);
+    }
+    const L = horiz ? p.w : p.h, o = L * 0.05, out = [], edges = [0, ...cuts, 1];
+    for (let k = 0; k < edges.length - 1; k++) {
+      const a = Math.max(0, edges[k] * L - (k ? o : 0)), b = Math.min(L, edges[k + 1] * L + (k < edges.length - 2 ? o : 0));
+      out.push(horiz ? { x: p.x + a, y: p.y, w: b - a, h: p.h } : { x: p.x, y: p.y + a, w: p.w, h: b - a });
+    }
+    if (horiz && dir === 'rtl') out.reverse();
+    void ov; return out;
   };
   if (r > 2.3) return mk(Math.min(3, Math.max(2, Math.round(Math.sqrt(r)))), true);
   if (1 / r > 2.3) return mk(Math.min(3, Math.max(2, Math.round(Math.sqrt(1 / r)))), false);
@@ -2055,7 +2172,7 @@ const Comic = {
     $('#v-comic').append(h); setTimeout(() => h.remove(), 3200);
   },
   size() { return { SW: this.stage.clientWidth || innerWidth, SH: this.stage.clientHeight || innerHeight }; },
-  key(i) { return 'pn:' + this.rec.id + ':' + i + ':' + this.dir; },
+  key(i) { return 'pn:' + this.rec.id + ':' + i + ':' + this.dir + ':v2'; },
   load(i) {
     if (this.cache.has(i)) return this.cache.get(i);
     const p = (async () => {
@@ -2080,7 +2197,7 @@ const Comic = {
       const n = Math.max(2, Math.ceil((H - vis * 0.1) / (vis * 0.9))), st = (H - vis) / (n - 1);
       return Array.from({ length: n }, (_, k) => ({ x: 0, y: k * st, w: W, h: vis, strip: true }));
     }
-    const ps = pg.panels.map(p => ({ x: p.x * W, y: p.y * H, w: p.w * W, h: p.h * H }));
+    const ps = pg.panels.map(p => ({ x: p.x * W, y: p.y * H, w: p.w * W, h: p.h * H, cx: p.cx, cy: p.cy }));
     if (ps.length <= 1) return [full];
     const out = S.cFullFirst ? [full] : [];
     const sa = SW / SH;
@@ -2125,6 +2242,17 @@ const Comic = {
     this.cam.style.transform = `translate(${q.tx}px,${q.ty}px) scale(${q.s})`;
     Object.assign(this.spot.style, { left: q.sx + 'px', top: q.sy + 'px', width: q.sw + 'px', height: q.sh + 'px', boxShadow: `0 0 0 300vmax rgba(0,0,0,${(!r.full && !r.strip && S.cSpot) ? 0.8 : 0})` });
     this.resetZoom(false);
+    this.minimap(r);
+  },
+  minimap(r) {
+    let m = $('#c-map');
+    if (!m) { m = el('div', { id: 'c-map' }, el('img'), el('i')); $('#v-comic').append(m); }
+    const pg = this.cur; if (!pg) return;
+    const show = this.mode === 'quadros' && !r.full && this.steps.length > 1;
+    m.classList.toggle('on', show); if (!show) return;
+    const img = m.firstChild; if (img.src !== pg.url) img.src = pg.url;
+    const MW = 58, MH = MW * pg.h / pg.w; m.style.width = MW + 'px'; m.style.height = MH + 'px';
+    Object.assign(m.lastChild.style, { left: (r.x / pg.w * MW) + 'px', top: (r.y / pg.h * MH) + 'px', width: (r.w / pg.w * MW) + 'px', height: (r.h / pg.h * MH) + 'px' });
   },
   applyZoom(anim) {
     this.zoomer.style.transition = anim ? 'transform .25s ease' : 'none';
@@ -2267,6 +2395,8 @@ const FONTS = {
   atkinson: "'Atkinson Hyperlegible', Verdana, sans-serif",
   inter: "'Inter', system-ui, -apple-system, sans-serif",
   georgia: "Georgia, 'Times New Roman', serif",
+  source: "'Source Serif 4', Georgia, serif",
+  merri: "'Merriweather', Georgia, serif",
 };
 const HL_COLORS = { y: '#ffd640', g: '#78d278', b: '#6eaaff', p: '#ff82b4' };
 function textOffset(root, node, off) {
@@ -2336,6 +2466,7 @@ const Book = {
     try {
       this.rec = rec; rec.highlights = rec.highlights || []; rec.bookmarks = rec.bookmarks || [];
       if (rec.format === 'epub') this.data = await EpubBook.open(blob);
+      else if (rec.format === 'pdf') this.data = await PdfFlow.open(blob, rec);
       else this.data = new TxtBook(decodeText(await blob.arrayBuffer()), rec.title);
       const sz = this.data.spine.map(s => s.size);
       this.cum = [0]; for (const s of sz) this.cum.push(this.cum[this.cum.length - 1] + s);
@@ -2361,7 +2492,8 @@ const Book = {
     f.style.setProperty('--bk-font', FONTS[S.bFont] || FONTS.literata);
     f.style.setProperty('--bk-size', S.bSize + 'px');
     f.style.setProperty('--bk-lh', S.bLh);
-    f.style.setProperty('--bk-ps', S.bIndent ? '0' : '0.65em');
+    f.style.setProperty('--bk-ps', S.bIndent ? '0' : ({ 0: '0.25em', 1: '0.65em', 2: '1.1em' }[S.bPara ?? 1]));
+    f.style.setProperty('--bk-wt', S.bWeight || 400);
     f.classList.toggle('just', !!S.bJustify);
     f.classList.toggle('indent', !!S.bIndent);
     this.layout();
@@ -2373,7 +2505,7 @@ const Book = {
     if (FW > 600) mx += 12;
     let cpp = (FW >= 900 && FW > FH * 1.15) ? 2 : 1;
     let col = cpp === 2 ? (FW - 4 * mx) / 2 : FW - 2 * mx;
-    const maxCol = S.bSize * 36;
+    const maxCol = S.bSize * ({ n: 28, m: 36, w: 48 }[S.bCol] || 36);
     if (col > maxCol) { mx = cpp === 2 ? (FW - 2 * maxCol) / 4 : (FW - maxCol) / 2; col = maxCol; }
     this.mx = mx; this.col = col; this.G = 2 * mx; this.cpp = cpp;
     const f = this.flow;
@@ -2496,7 +2628,7 @@ const Book = {
       this.fx = a;
       Promise.all(a.map(x => x.finished)).catch(() => { }).then(() => { if (this.ghost === g) { g.remove(); this.ghost = null; } F.style.zIndex = ''; F.style.clipPath = F.style.webkitClipPath = ''; });
       return;
-    } else if (mode === 'curlHard') {
+    } else if (mode === 'hard') {
       const out = [{ transform: 'perspective(1800px) rotateY(0)', filter: 'brightness(1)', boxShadow: '0 0 0 rgba(0,0,0,0)' }, { transform: 'perspective(1800px) rotateY(-30deg)', filter: 'brightness(.95)', boxShadow: '20px 0 40px rgba(0,0,0,.3)', offset: .35 }, { transform: 'perspective(1800px) rotateY(-100deg)', filter: 'brightness(.7)', boxShadow: '40px 0 60px rgba(0,0,0,0)' }];
       if (dir > 0) { on(g, F); g.style.transformOrigin = '0 50%'; a = [g.animate(out, { duration: D, easing: 'ease-in-out' }), F.animate([{ filter: 'brightness(.8)' }, { filter: 'brightness(1)' }], { duration: D })]; }
       else { on(F, g); F.style.transformOrigin = '0 50%'; a = [F.animate(out.slice().reverse().map((k, i) => ({ ...k, offset: [0, .65, 1][i] })), { duration: D, easing: 'ease-in-out' }), g.animate([{ filter: 'brightness(1)' }, { filter: 'brightness(.8)' }], { duration: D })]; }
@@ -2518,7 +2650,7 @@ const Book = {
     this.frame.parentNode.append(cv);
     const ctx = cv.getContext('2d'); ctx.scale(dpr, dpr);
     const paper = getComputedStyle(this.frame).backgroundColor || '#fbfaf7';
-    const C = { x: W, y: H }, D = { x: -1.2 * W, y: -2.2 * H };
+    const C = { x: W, y: H }, D = { x: -2.4 * W, y: -2.0 * H };
     const clipHalf = (poly, M, n, keepPos) => {
       const out = [], side = p => ((p.x - M.x) * n.x + (p.y - M.y) * n.y) * (keepPos ? 1 : -1);
       for (let i = 0; i < poly.length; i++) {
@@ -2774,7 +2906,7 @@ const Book = {
         const v = el('div', { class: 'v', text: S.bSize });
         const setSize = d => { setS('bSize', clamp(S.bSize + d, 13, 34)); v.textContent = S.bSize; this.relayout(); };
         const fonts = el('div', { class: 'fonts' });
-        for (const [k, label] of [['literata', 'Literata'], ['atkinson', 'Atkinson'], ['inter', 'Inter'], ['georgia', 'Georgia']]) {
+        for (const [k, label] of [['literata', 'Literata'], ['source', 'Source Serif'], ['merri', 'Merriweather'], ['georgia', 'Georgia'], ['inter', 'Inter'], ['atkinson', 'Atkinson']]) {
           const btn = el('button', { class: S.bFont === k ? 'on' : '', style: { fontFamily: FONTS[k] }, text: label, onclick: () => { setS('bFont', k); fonts.querySelectorAll('button').forEach(x => x.classList.remove('on')); btn.classList.add('on'); this.relayout(); } });
           fonts.append(btn);
         }
@@ -2783,12 +2915,15 @@ const Book = {
           wGroup(t('font'), fonts, el('p', { class: 'muted', style: { fontSize: '12.5px', margin: '8px 0 0', lineHeight: 1.4 }, text: t('fontHelp') })),
           wGroup(t('spacing'), wSeg([[1.4, t('compact')], [1.6, t('normal')], [1.85, t('airy')]], S.bLh, x => { setS('bLh', x); this.relayout(); })),
           wGroup(t('margins'), wSeg([['s', t('narrow')], ['m', t('medium')], ['l', t('wide')]], S.bMargin, x => { setS('bMargin', x); this.relayout(); })),
+          wGroup(t('fontWeight'), wSeg([[400, t('wtNormal')], [450, t('wtMedium')], [550, t('wtBold')]], S.bWeight || 400, x => { setS('bWeight', x); this.relayout(); })),
+          wGroup(t('paraSpace'), wSeg([[0, t('compact')], [1, t('normal')], [2, t('airy')]], S.bPara ?? 1, x => { setS('bPara', x); this.relayout(); })),
+          wGroup(t('colWidth'), wSeg([['n', t('narrow')], ['m', t('medium')], ['w', t('wide')]], S.bCol || 'm', x => { setS('bCol', x); this.relayout(); })),
           wGroup(t('theme'), themePicker(() => this.relayout())),
           wGroup(t('layout'),
             wToggle(t('justify'), null, S.bJustify, x => { setS('bJustify', x); this.relayout(); }),
             wToggle(t('indent'), t('indentSub'), S.bIndent, x => { setS('bIndent', x); this.relayout(); }),
             ),
-          wGroup(t('pageTurn'), wSeg([['slide', t('ptSlide')], ['vertical', t('ptVertical')], ['curl', t('ptCurl')], ['fade', t('ptFade')], ['none', t('ptNone')]], S.bTurn || 'slide', x => { setS('bTurn', x); setS('bAnim', x !== 'none'); }, 'wrap')),
+          wGroup(t('pageTurn'), wSeg([['curl', t('ptCurl')], ['hard', t('ptHard')], ['slide', t('ptSlide')], ['vertical', t('ptVertical')], ['fade', t('ptFade')], ['none', t('ptNone')]], S.bTurn || 'slide', x => { setS('bTurn', x); setS('bAnim', x !== 'none'); }, 'wrap')),
           comfortGroup());
       }
     });
@@ -2959,7 +3094,7 @@ function niceLabel(l) {
   const M = { 'titlepage': 'Folha de rosto', 'title page': 'Folha de rosto', 'imprint': 'Créditos', 'dedication': 'Dedicatória', 'colophon': 'Colofão', 'uncopyright': 'Licença', 'epigraph': 'Epígrafe', 'preface': 'Prefácio', "translator’s preface": 'Prefácio do tradutor', "translator's preface": 'Prefácio do tradutor', 'introduction': 'Introdução', 'contents': 'Sumário', 'endnotes': 'Notas', 'epilogue': 'Epílogo', 'halftitle': 'Folha de rosto' };
   const k = (l || '').trim().toLowerCase();
   if (M[k]) return M[k];
-  return l.replace(/^Part\s+/i, 'Parte ').replace(/^Book\s+/i, 'Livro ').replace(/^Chapter\s+/i, 'Capítulo ');
+  return l;
 }
 function langName(l) { return (l || '').toLowerCase().startsWith('en') ? 'English' : 'Português'; }
 /* ================= PDF book reader (scroll) ================= */
@@ -3134,12 +3269,12 @@ setInterval(() => { if (S.comfortAuto) applyComfort(); }, 5 * 60 * 1000);
 function applyTheme() {
   document.body.className = document.body.className.replace(/\bt-\w+/g, '').trim() + ' t-' + effTheme();
   document.documentElement.className = 't-' + effTheme();
-  const c = { claro: '#f6f4ef', sepia: '#efe3c8', escuro: '#141518', noite: '#000000' }[effTheme()];
+  const c = { claro: '#f6f4ef', sepia: '#efe3c8', escuro: '#141518', noite: '#000000', branco: '#f7f7f5', creme: '#f5eedd', quente: '#efe0c2', antigo: '#e2cfa8', eink: '#e7e7e2', meianoite: '#0d1320' }[effTheme()];
   const m = $('meta[name=theme-color]'); if (m) m.content = c;
 }
 function themePicker(after) {
   const box = el('div', { class: 'themes' });
-  const defs = [['auto', t('autoTheme'), 'linear-gradient(135deg,#fbfaf7 50%,#1e1f22 50%)', '#e8a33d'], ['claro', t('light'), '#fbfaf7', '#1d1c1a'], ['sepia', t('sepia'), '#f3e7cf', '#4a3b27'], ['escuro', t('dark'), '#1e1f22', '#d9d4cb'], ['noite', t('night'), '#000', '#9d968a']];
+  const defs = [['auto', t('autoTheme'), 'linear-gradient(135deg,#fbfaf7 50%,#1e1f22 50%)', '#e8a33d'], ['claro', t('light'), '#fbfaf7', '#1d1c1a'], ['branco', t('thBranco'), '#ffffff', '#141414'], ['creme', t('thCreme'), '#f8f1e1', '#2f281d'], ['quente', t('thQuente'), '#f2e2c0', '#3a2c18'], ['sepia', t('sepia'), '#f3e7cf', '#4a3b27'], ['antigo', t('thAntigo'), 'radial-gradient(circle,#f0e0bd 30%,#c9a86e)', '#3b2a14'], ['eink', t('thEink'), '#e9e9e4', '#2a2a2a'], ['escuro', t('dark'), '#1e1f22', '#d9d4cb'], ['meianoite', t('thMeia'), '#101828', '#c3cad6'], ['noite', t('night'), '#000', '#9d968a']];
   const btns = defs.map(([k, label, bg, fg]) => el('button', { class: S.theme === k ? 'on' : '', style: { background: bg, color: fg, borderColor: S.theme === k ? 'var(--accent)' : (k === 'noite' ? '#333' : 'transparent') }, onclick: () => { setS('theme', k); applyTheme(); btns.forEach(x => { x.classList.remove('on'); x.style.borderColor = 'transparent'; }); const b = btns[defs.findIndex(d => d[0] === k)]; b.classList.add('on'); b.style.borderColor = 'var(--accent)'; after && after(); } }, el('b', { text: 'Aa' }), label));
   box.append(...btns); return box;
 }
@@ -3193,7 +3328,7 @@ async function settingsSheet() {
           wToggle(t('showGoal'), t('showGoalSub'), S.showGoal, v => { setS('showGoal', v); Lib.render(); }),
           wToggle(t('showContinue'), null, S.showContinue, v => { setS('showContinue', v); Lib.render(); }),
           el('div', { style: { margin: '12px 0 6px', fontSize: '14px', fontWeight: 600 }, text: t('pageTurn') }),
-          wSeg([['slide', t('ptSlide')], ['vertical', t('ptVertical')], ['curl', t('ptCurl')], ['fade', t('ptFade')], ['none', t('ptNone')]], S.bTurn || 'slide', x => { setS('bTurn', x); setS('bAnim', x !== 'none'); }, 'wrap')),
+          wSeg([['curl', t('ptCurl')], ['hard', t('ptHard')], ['slide', t('ptSlide')], ['vertical', t('ptVertical')], ['fade', t('ptFade')], ['none', t('ptNone')]], S.bTurn || 'slide', x => { setS('bTurn', x); setS('bAnim', x !== 'none'); }, 'wrap')),
         wGroup(t('comicsDefault'),
           wSeg([['quadros', t('mode_quadros'), 'panels'], ['largura', t('mode_largura'), 'width'], ['pagina', t('mode_pagina'), 'page']], S.cMode, v => setS('cMode', v)),
           el('div', { style: { height: '8px' } }),
@@ -3566,22 +3701,52 @@ const TTS = {
     const r = this.range(seg.s, seg.e); if (r) CSS.highlights.set('tts', new Highlight(r));
   },
   // ---------- controls ----------
+  engineAudio() { return Voices.engine() !== 'system'; },
   start() {
-    if (!this.supported()) { toast(t('ttsNo')); return; }
+    if (!this.engineAudio() && !this.supported()) { toast(t('ttsNo')); return; }
+    if (this.engineAudio()) { NeuralPlayer.init(); this.unlock(); }
     this.open = true; $('#v-book').classList.add('tts-on'); this.ui();
     this.build();
     const off = Book.curOff || 0;
     this.i = Math.max(0, this.segs.findIndex(s => s.e > off));
+    if (this.engineAudio()) NeuralPlayer.build();
     this.play();
   },
-  play() {
-    this.playing = true; this.keepAwake(true); this.ui(); this.speak();
+  // iPhone only lets audio start from a tap: start the player silently right now, inside the tap
+  unlock() {
+    try { const a = NeuralPlayer.audio; if (!a.src) { a.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA='; a.play().catch(() => { }); } } catch (e) { }
+  },
+  async play() {
+    this.playing = true; this.keepAwake(true); this.ui();
+    if (!this.engineAudio()) return this.speak();
+    this.unlock();
+    if (NeuralPlayer.resume()) return;
+    const lang = this.lang(), list = await Voices.list(lang), v = Voices.current(lang, list);
+    if (!v) { this.fail(new Error(t('ttsNoVoices'))); return; }
+    this.vname = v.name; this.ui();
+    NeuralPlayer.play(this.i, v.id, lang);
   },
   pause() {
-    this.playing = false; this.u = null; speechSynthesis.cancel(); this.keepAwake(false); this.ui();
+    this.playing = false; this.u = null;
+    if (this.engineAudio()) NeuralPlayer.pause(); else speechSynthesis.cancel();
+    this.keepAwake(false); this.ui();
+  },
+  loading(pc) {
+    const tv = $('#tts-bar .tvoice'); if (!tv) return;
+    if (pc == null) { this.ui(); return; }
+    tv.textContent = pc > 0 && pc < 100 ? t('ttsDownloading', { n: pc }) : t('ttsPreparing');
+  },
+  fail(e) {
+    this.pause(); this.loading(null);
+    Sheets.open({ title: t('ttsFailT'), center: true, body: b => b.append(
+      el('p', { style: { lineHeight: 1.5 }, text: ((e && e.message) || String(e)) }),
+      el('p', { class: 'muted', style: { lineHeight: 1.5, fontSize: '13.5px' }, text: t('ttsFailHelp') }),
+      el('button', { class: 'btn primary block', text: t('ttsUseSystem'), onclick: () => { setS('ttsEngine', 'system'); Sheets.close(); this.ui(); this.play(); } }),
+      el('button', { class: 'btn block', style: { marginTop: '8px' }, text: 'OK', onclick: () => Sheets.close() })) });
   },
   toggle() { this.playing ? this.pause() : this.play(); },
   skip(d) {
+    if (this.engineAudio()) return NeuralPlayer.seek(d);
     this.i = clamp(this.i + d, 0, Math.max(0, this.segs.length - 1));
     if (this.playing) this.speak(); else this.follow();
   },
@@ -3589,11 +3754,12 @@ const TTS = {
     if (!this.open) return;
     this.playing = false; this.open = false; this.u = null;
     try { speechSynthesis.cancel(); } catch (e) { }
+    try { NeuralPlayer.stop(); } catch (e) { }
     this.mark(null); this.keepAwake(false); this.dark(false); this.sleepAt = 0;
     $('#v-book').classList.remove('tts-on');
   },
-  follow() {
-    const seg = this.segs[this.i]; this.mark(seg);
+  follow(range) {
+    const seg = range || this.segs[this.i]; this.mark(seg);
     if (seg) { const p = Book.pageOfOffset(seg.s); if (p !== Book.page) Book.showPage(p, true, 1); }
   },
   speak() {
@@ -3615,6 +3781,7 @@ const TTS = {
     if (Book.ch >= Book.data.count - 1) { this.pause(); toast(t('ttsEnd')); return; }
     await Book.turnChapter(Book.ch + 1, { frac: 0 }, 1);
     this.build(); this.i = 0;
+    if (this.engineAudio()) { NeuralPlayer.build(); if (this.playing) { const lang = this.lang(), list = await Voices.list(lang), v = Voices.current(lang, list); if (v) NeuralPlayer.play(0, v.id, lang); } return; }
     if (this.playing) this.speak();
   },
   // ---------- screen ----------
@@ -3636,41 +3803,67 @@ const TTS = {
     const bar = $('#tts-bar'); if (!bar) return;
     bar.querySelector('.tplay').replaceChildren(icon(this.playing ? 'pause' : 'playF'));
     bar.querySelector('.trate').textContent = (S.ttsRate || 1).toFixed(S.ttsRate % 1 ? (S.ttsRate * 10 % 1 ? 2 : 1) : 0).replace('.', ',') + '×';
-    const v = this.voice(); bar.querySelector('.tvoice').textContent = v ? v.name.replace(/\s*\(.*\)$/, '') : t('ttsVoice');
+    const v = this.engineAudio() ? null : this.voice(); bar.querySelector('.tvoice').textContent = this.engineAudio() ? (this.vname || t('ttsVoice')) : (v ? v.name.replace(/\s*\(.*\)$/, '') : t('ttsVoice'));
   },
   rateNext() {
-    const R = [0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2];
+    const R = [0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3];
     const k = R.indexOf(S.ttsRate || 1); setS('ttsRate', R[(k + 1) % R.length]); this.ui();
-    if (this.playing) this.speak();
+    if (this.engineAudio()) NeuralPlayer.rate(S.ttsRate); else if (this.playing) this.speak();
   },
   sheet() {
     const wasPlaying = this.playing;
     const s = Sheets.open({
       title: t('ttsTitle'), body: b => {
-        const vs = this.voices(), cur = this.voice();
-        const L = el('div', { class: 'list' });
-        const draw = () => {
-          L.replaceChildren();
+        const L = el('div', { class: 'list' }), lang = this.lang();
+        const engSeg = wSeg([['neural', t('ttsEngNeural')], ['azure', 'Microsoft'], ['system', t('ttsEngSystem')]], Voices.engine(), x => { setS('ttsEngine', x); NeuralPlayer.stop(); azBox.classList.toggle('hide', x !== 'azure'); draw(); this.ui(); }, 'wrap');
+        const azBox = el('div', { class: Voices.engine() === 'azure' ? '' : 'hide', style: { marginTop: '10px' } },
+          el('input', { class: 'inp', placeholder: t('azKeyPh'), value: S.azKey || '', oninput: e => setS('azKey', e.target.value.trim()) }),
+          el('input', { class: 'inp', style: { marginTop: '6px' }, placeholder: t('azRegionPh'), value: S.azRegion || '', oninput: e => setS('azRegion', e.target.value.trim().toLowerCase()) }),
+          el('p', { class: 'muted', style: { fontSize: '12.5px', lineHeight: 1.45, margin: '6px 2px 0' }, text: t('azHelp') }));
+        const note = el('p', { class: 'muted', style: { fontSize: '12.5px', lineHeight: 1.45, margin: '8px 2px 0' } });
+        const draw = async () => {
+          L.replaceChildren(el('p', { class: 'muted', text: t('ttsLoadingList') }));
+          note.textContent = { neural: t('ttsNeuralNote'), azure: t('ttsAzureNote'), system: t('ttsTip') }[Voices.engine()];
+          if (Voices.engine() === 'system') {
+            const vs = this.voices(), cur = this.voice(); L.replaceChildren();
+            if (!vs.length) L.append(el('p', { class: 'muted', text: t('ttsNoVoices') }));
+            for (const v of vs) {
+              const on = cur && v.voiceURI === cur.voiceURI;
+              L.append(el('button', { class: 'li' + (on ? ' cur' : ''), onclick: () => { setS('ttsVoice_' + lang, v.voiceURI); this.preview(v); draw(); this.ui(); } },
+                icon(on ? 'check' : 'headphones'), el('div', { class: 'lt' }, v.name.replace(/\s*\(.*\)$/, ''), el('small', { text: v.lang }))));
+            }
+            return;
+          }
+          const vs = await Voices.list(lang), cur = Voices.current(lang, vs); L.replaceChildren();
           if (!vs.length) L.append(el('p', { class: 'muted', text: t('ttsNoVoices') }));
           for (const v of vs) {
-            const on = cur2() && v.voiceURI === cur2().voiceURI;
-            const q = /premium/i.test(v.name) ? 'Premium' : /enhanced|aprimorad|melhorad|natural|neural/i.test(v.name) ? t('ttsEnh') : '';
-            L.append(el('button', { class: 'li' + (on ? ' cur' : ''), onclick: () => { setS('ttsVoice_' + this.lang(), v.voiceURI); this.preview(v); draw(); this.ui(); } },
-              icon(on ? 'check' : 'headphones'), el('div', { class: 'lt' }, v.name.replace(/\s*\(.*\)$/, ''), el('small', { text: [v.lang, q].filter(Boolean).join(' · ') }))));
+            const on = cur && v.id === cur.id;
+            L.append(el('button', { class: 'li' + (on ? ' cur' : ''), onclick: () => { setS('ttsN_' + Voices.engine() + '_' + lang, v.id); this.vname = v.name; NeuralPlayer.stop(); this.previewN(v, lang); draw(); this.ui(); } },
+              icon(on ? 'check' : 'headphones'), el('div', { class: 'lt' }, v.name, el('small', { text: v.desc }))));
           }
         };
-        const cur2 = () => this.voice();
         draw();
-        b.append(wGroup(t('ttsVoice'), L,
-          el('div', { class: 'banner', style: { marginTop: '10px' } }, icon('info'), el('div', { text: t('ttsTip') }))),
-          wGroup(t('ttsSpeed'), wSlider(0.6, 2, 0.05, S.ttsRate || 1, v => { setS('ttsRate', Math.round(v * 100) / 100); this.ui(); }, v => (+v).toFixed(2).replace('.', ',') + '×', 'speed')),
+        b.append(wGroup(t('ttsEngine'), engSeg, azBox), wGroup(t('ttsVoice') + ' · ' + (lang === 'en' ? 'English' : 'Português'), L, note),
+          wGroup(t('ttsSpeed'), wSlider(0.75, 3, 0.05, S.ttsRate || 1, v => { setS('ttsRate', Math.round(v * 100) / 100); NeuralPlayer.rate(S.ttsRate); this.ui(); }, v => (+v).toFixed(2).replace('.', ',') + '×', 'speed')),
           wGroup(t('ttsSleep'), wSeg([[0, t('off')], [15, '15 min'], [30, '30 min'], [60, '60 min']], this.sleepMin || 0, m => { this.sleepMin = m; this.sleepAt = m ? Date.now() + m * 60000 : 0; if (m) toast(t('ttsSleepSet', { n: m })); })),
-          wGroup(t('ttsScreen'), el('button', { class: 'btn block', onclick: () => { Sheets.close(s); this.dark(true); } }, icon('moon'), t('ttsDark')),
-            el('p', { class: 'muted', style: { fontSize: '12.5px', lineHeight: 1.45, margin: '8px 2px 0' }, text: t('ttsLockNote') })));
+          wGroup(t('ttsScreen'),
+            this.engineAudio() ? el('button', { class: 'btn block primary', style: { marginBottom: '8px' }, onclick: async e => {
+              const btn = e.currentTarget; btn.disabled = true;
+              try { if (!NeuralPlayer.chunks.length) { this.build(); NeuralPlayer.build(); } const ok = await NeuralPlayer.prepare(p => { btn.textContent = t('ttsPreparingCh', { n: p }); }); btn.textContent = ok ? t('ttsPrepared') : t('ttsPrepFail'); }
+              catch (err) { btn.disabled = false; btn.textContent = t('ttsPrepare'); this.fail(err); }
+            } }, icon('download'), t('ttsPrepare')) : '',
+            el('button', { class: 'btn block', onclick: () => { Sheets.close(s); this.dark(true); } }, icon('moon'), t('ttsDark')),
+            el('p', { class: 'muted', style: { fontSize: '12.5px', lineHeight: 1.45, margin: '8px 2px 0' }, text: this.engineAudio() ? t('ttsLockNoteN') : t('ttsLockNote') })));
       },
       onClose: () => { if (wasPlaying && !this.playing && this.open) this.play(); },
     });
     if (this.playing) this.pause();
+  },
+  async previewN(v, lang) {
+    NeuralPlayer.init(); this.unlock();
+    const tx = lang === 'en' ? 'Hello! This is the voice that will read your books.' : 'Olá! Esta é a voz que vai ler os seus livros.';
+    try { this.loading(0); const b = await Voices.synth(tx, v.id, lang, pc => this.loading(pc)); this.loading(null); const a = NeuralPlayer.audio; a.src = URL.createObjectURL(b); a.playbackRate = S.ttsRate || 1; a.play().catch(() => { }); }
+    catch (e) { this.loading(null); this.fail(e); }
   },
   preview(v) {
     speechSynthesis.cancel();
@@ -3678,9 +3871,10 @@ const TTS = {
     u.voice = v; u.lang = v.lang; u.rate = S.ttsRate || 1; speechSynthesis.speak(u);
   },
   init() {
-    if (!this.supported()) { $('#b-tts').classList.add('hide'); return; }
-    speechSynthesis.getVoices();
-    speechSynthesis.addEventListener && speechSynthesis.addEventListener('voiceschanged', () => this.ui());
+    if (this.supported()) {
+      speechSynthesis.getVoices();
+      speechSynthesis.addEventListener && speechSynthesis.addEventListener('voiceschanged', () => this.ui());
+    }
     $('#b-tts').onclick = () => this.open ? this.toggle() : this.start();
     const bar = $('#tts-bar');
     bar.querySelector('.tback').onclick = () => this.skip(-1);
@@ -3693,5 +3887,424 @@ const TTS = {
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && this.playing) { this.keepAwake(true); if (!speechSynthesis.speaking) this.speak(); } });
   },
 };
+/* ================= PDF → book: ebook-style PDFs become a real reflowable book =================
+   Text is rebuilt into lines and paragraphs; headings come from bigger type; running headers and
+   page numbers are dropped; pictures are cut out of the page and kept where they were. */
+class PdfFlow {
+  // stamps that PDF converters print over every page (not part of the book)
+  static WM = /\*{2,}\s*[^*]{0,40}(demo|watermark|evaluation|trial|unregistered)[^*]{0,40}\*{2,}|ebook converter demo watermarks|evaluation (only|copy|version)\.?|created (with|by) .{0,30}(trial|demo|unregistered).{0,20}/gi;
+  constructor(pdf, rec) { this.pdf = pdf; this.rec = rec; this.urls = []; this.plain = new Map(); this.lang = rec.lang || ''; this.title = rec.title; this.author = rec.author || ''; }
+  static async open(blob, rec) {
+    const pdf = await openPdf(blob);
+    const f = new PdfFlow(pdf, rec);
+    await f.structure();
+    return f;
+  }
+  get count() { return this.spine.length; }
+  async structure() {
+    const n = this.pdf.numPages;
+    // chapters from the PDF outline (bookmarks); otherwise every ~12 pages
+    let marks = [];
+    try {
+      const walk = async (items, depth) => {
+        for (const it of items || []) {
+          let p = null;
+          try {
+            let d = it.dest; if (typeof d === 'string') d = await this.pdf.getDestination(d);
+            if (Array.isArray(d) && d[0]) p = (await this.pdf.getPageIndex(d[0])) + 1;
+          } catch (e) { }
+          if (p) marks.push({ label: (it.title || '').trim(), page: p, depth });
+          if (depth < 2 && it.items && it.items.length) await walk(it.items, depth + 1);
+        }
+      };
+      await walk(await this.pdf.getOutline(), 0);
+    } catch (e) { }
+    marks = marks.filter(m => m.label).sort((a, b) => a.page - b.page || a.depth - b.depth);
+    const starts = [];
+    for (const m of marks) if (!starts.length || m.page > starts[starts.length - 1].page) starts.push(m);
+    if (!starts.length || starts[0].page > 1) starts.unshift({ label: this.title || t('part') + ' 1', page: 1, depth: 0, front: true });
+    // very long sections are cut into parts of at most 40 pages (keeps each piece light on a phone)
+    this.spine = []; this.toc = [];
+    starts.forEach((s, k) => {
+      const end = k + 1 < starts.length ? starts[k + 1].page - 1 : n;
+      if (end < s.page) return;
+      this.toc.push({ label: s.label, depth: s.depth, idx: this.spine.length, frag: '' });
+      for (let a = s.page; a <= end; a += 40) this.spine.push({ from: a, to: Math.min(end, a + 39), href: 'p' + a, size: Math.max(400, (Math.min(end, a + 39) - a + 1) * 1800), head: a === s.page && !s.front ? s.label : '' });
+    });
+    if (!marks.length) { this.toc = []; this.spine = []; for (let a = 1; a <= n; a += 12) { this.spine.push({ from: a, to: Math.min(n, a + 11), href: 'p' + a, size: (Math.min(n, a + 11) - a + 1) * 1800 }); this.toc.push({ label: t('pageN', { n: a }), depth: 0, idx: this.spine.length - 1, frag: '' }); } }
+    // start at the first real chapter (skip cover, contents, copyright…)
+    const FRONT = /^(cover|capa|title|contents|sum[aá]rio|[ií]ndice|copyright|dedica|also by|praise|table of)/i;
+    const CH = /^(chapter|cap[ií]tulo|prologue|pr[oó]logo|one\b|um\b|1\b|i\b|part (one|1)|parte (um|1))/i;
+    const st = this.toc.find(e => CH.test(e.label.trim())) || this.toc.find(e => e.idx > 0 && !FRONT.test(e.label) && !/\.(com|org|net)\b/i.test(e.label) && e.label.toLowerCase() !== (this.title || '').toLowerCase());
+    this.start = st ? st.idx : 0;
+    // running headers: text that repeats at the top/bottom of many pages
+    this.repeat = new Map();
+  }
+  async pageData(p) {
+    const page = await this.pdf.getPage(p);
+    const vp = page.getViewport({ scale: 1 });
+    const tc = await page.getTextContent();
+    const items = [];
+    for (const it of tc.items) {
+      if (!it.str) continue;
+      const tr = it.transform, x = tr[4], y = vp.height - tr[5], fs = Math.hypot(tr[2], tr[3]) || it.height || 10;
+      items.push({ s: it.str, x, y, w: it.width, fs, eol: it.hasEOL });
+    }
+    // body size of this page (weighted by text length)
+    const fsw = items.map(it => [it.fs, it.s.length]).sort((a, b) => a[0] - b[0]);
+    let half = fsw.reduce((a, q) => a + q[1], 0) / 2, pbody = 11; for (const [f, n] of fsw) { half -= n; if (half <= 0) { pbody = f; break; } }
+    // drop caps: one big letter at the start of a chapter belongs to the first line next to it
+    const caps = [];
+    for (let k = items.length - 1; k >= 0; k--) { const it = items[k]; if (it.s.trim().length <= 2 && /[A-Za-zÀ-ÿ]/.test(it.s) && it.fs > pbody * 1.8) { caps.push(it); items.splice(k, 1); } }
+    // lines: same baseline (tolerance relative to font size), left to right
+    items.sort((a, b) => a.y - b.y || a.x - b.x);
+    const lines = [];
+    for (const it of items) {
+      const L = lines[lines.length - 1];
+      if (L && Math.abs(L.y - it.y) < Math.max(2, it.fs * 0.45)) { L.items.push(it); L.fs = Math.max(L.fs, it.fs); }
+      else lines.push({ y: it.y, fs: it.fs, items: [it] });
+    }
+    for (const L of lines) {
+      L.items.sort((a, b) => a.x - b.x);
+      let s = '', end = null;
+      for (const it of L.items) {
+        if (end != null && it.x - end > it.fs * 0.18 && !/\s$/.test(s) && !/^\s/.test(it.s)) s += ' ';
+        s += it.s; end = it.x + it.w;
+      }
+      L.text = s.replace(PdfFlow.WM, ' ').replace(/\s+/g, ' ').trim(); L.x = L.items[0].x; L.r = end; L.page = p;
+      // the line's size is that of most of its letters (not of one big initial)
+      const ws = L.items.map(it => [it.fs, it.s.length]).sort((a, b) => a[0] - b[0]); let hh = ws.reduce((a, q) => a + q[1], 0) / 2; for (const [f, n] of ws) { hh -= n; if (hh <= 0) { L.fs = f; break; } }
+    }
+    for (const c of caps) {
+      const L = lines.filter(L => L.x >= c.x - 2 && L.y >= c.y - c.fs * 1.15 && L.y <= c.y + pbody).sort((a, b) => a.y - b.y)[0];
+      if (L) { L.text = c.s.trim() + L.text; L.x = c.x; }
+    }
+    // pictures: where the page paints images, and how big
+    const figs = [];
+    try {
+      const ops = await page.getOperatorList(), O = pdfjsMod().OPS;
+      let ctm = [1, 0, 0, 1, 0, 0]; const stack = [];
+      const mul = (m, n) => [m[0] * n[0] + m[2] * n[1], m[1] * n[0] + m[3] * n[1], m[0] * n[2] + m[2] * n[3], m[1] * n[2] + m[3] * n[3], m[0] * n[4] + m[2] * n[5] + m[4], m[1] * n[4] + m[3] * n[5] + m[5]];
+      for (let k = 0; k < ops.fnArray.length; k++) {
+        const fn = ops.fnArray[k], a = ops.argsArray[k];
+        if (fn === O.save) stack.push(ctm.slice());
+        else if (fn === O.restore) ctm = stack.pop() || [1, 0, 0, 1, 0, 0];
+        else if (fn === O.transform) ctm = mul(ctm, a);
+        else if (fn === O.paintFormXObjectBegin) { stack.push(ctm.slice()); if (a && Array.isArray(a[0]) && a[0].length === 6) ctm = mul(ctm, a[0]); }
+        else if (fn === O.paintFormXObjectEnd) ctm = stack.pop() || [1, 0, 0, 1, 0, 0];
+        else if (fn === O.paintImageXObject || fn === O.paintInlineImageXObject || fn === O.paintJpegXObject || fn === O.paintImageXObjectRepeat) {
+          const pts = [[0, 0], [1, 0], [0, 1], [1, 1]].map(([u, v]) => [ctm[0] * u + ctm[2] * v + ctm[4], ctm[1] * u + ctm[3] * v + ctm[5]]);
+          const xs = pts.map(q => q[0]), ys = pts.map(q => vp.height - q[1]);
+          const r = { x0: Math.max(0, Math.min(...xs)), x1: Math.min(vp.width, Math.max(...xs)), y0: Math.max(0, Math.min(...ys)), y1: Math.min(vp.height, Math.max(...ys)) };
+          const area = (r.x1 - r.x0) * (r.y1 - r.y0);
+          if (area > vp.width * vp.height * 0.015 && r.x1 - r.x0 > 30 && r.y1 - r.y0 > 30) figs.push(r);
+        }
+      }
+    } catch (e) { }
+    return { page, vp, lines, figs };
+  }
+  async crop(pd, r) {
+    const sc = Math.min(3, Math.max(1.5, 1400 / pd.vp.width));
+    const vp = pd.page.getViewport({ scale: sc });
+    const cv = document.createElement('canvas'); cv.width = Math.ceil(vp.width); cv.height = Math.ceil(vp.height);
+    await pd.page.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
+    const out = document.createElement('canvas');
+    const w = Math.max(1, Math.round((r.x1 - r.x0) * sc)), h = Math.max(1, Math.round((r.y1 - r.y0) * sc));
+    out.width = w; out.height = h;
+    out.getContext('2d').drawImage(cv, Math.round(r.x0 * sc), Math.round(r.y0 * sc), w, h, 0, 0, w, h);
+    const b = await canvasBlob(out, 'image/jpeg', 0.88);
+    const u = URL.createObjectURL(b); this.urls.push(u); return u;
+  }
+  async chapter(i) {
+    const sp = this.spine[i], wrap = document.createElement('div'); wrap.className = 'chap pdfflow';
+    const pages = [];
+    for (let p = sp.from; p <= sp.to; p++) pages.push(await this.pageData(p));
+    // typical body size and left edge
+    const sizes = []; for (const pd of pages) for (const L of pd.lines) if (L.text.length > 30) sizes.push(Math.round(L.fs * 2) / 2);
+    sizes.sort((a, b) => a - b); const body = sizes[sizes.length >> 1] || 11;
+    // running headers / page numbers: short lines in the top or bottom margin that are numbers or repeat
+    const edgeTxt = new Map();
+    for (const pd of pages) for (const L of pd.lines) if (L.y < pd.vp.height * 0.08 || L.y > pd.vp.height * 0.93) { const k = L.text.replace(/\d+/g, '#').toLowerCase(); edgeTxt.set(k, (edgeTxt.get(k) || 0) + 1); }
+    const isFurniture = (pd, L) => {
+      if (!(L.y < pd.vp.height * 0.08 || L.y > pd.vp.height * 0.93)) return false;
+      if (/^[\divxlc\s.\-–—|]+$/i.test(L.text)) return true;
+      const k = L.text.replace(/\d+/g, '#').toLowerCase();
+      return pages.length > 3 && (edgeTxt.get(k) || 0) >= Math.max(3, pages.length * 0.3);
+    };
+    let para = null, lastL = null, lineGap = body * 1.25;
+    const flush = () => { if (para && para.text.trim()) wrap.append(para.el); para = null; };
+    const textLines = [];
+    for (const pd of pages) {
+      const W = pd.vp.width, lefts = pd.lines.filter(L => L.text.length > 30).map(L => L.x).sort((a, b) => a - b);
+      const left = lefts.length ? lefts[Math.floor(lefts.length * 0.2)] : W * 0.1;
+      const widths = pd.lines.filter(L => L.text.length > 30).map(L => L.r - L.x).sort((a, b) => a - b);
+      const full = widths.length ? widths[Math.floor(widths.length * 0.8)] : W * 0.7;
+      const txtChars = pd.lines.reduce((a, L) => a + L.text.length, 0);
+      // a page that is a picture (no real text): keep the whole page as an illustration
+      if (txtChars < 40 && pd.figs.length) {
+        flush(); const fig = el('figure', { class: 'pf-full' }); const img = el('img', { alt: '' }); fig.append(img); wrap.append(fig);
+        const r = pd.figs.reduce((a, f) => ({ x0: Math.min(a.x0, f.x0), y0: Math.min(a.y0, f.y0), x1: Math.max(a.x1, f.x1), y1: Math.max(a.y1, f.y1) }));
+        img.src = await this.crop(pd, r); lastL = null; continue;
+      }
+      // pictures placed by their vertical position among the lines
+      const queue = pd.figs.slice().sort((a, b) => a.y0 - b.y0);
+      for (const L of pd.lines) {
+        while (queue.length && queue[0].y0 <= L.y - L.fs) {
+          flush(); const f = queue.shift(), fig = el('figure'), img = el('img', { alt: '' }); fig.append(img); wrap.append(fig);
+          img.src = await this.crop(pd, f); lastL = null;
+        }
+        if (isFurniture(pd, L) || !L.text) continue;
+        // lines that sit inside a picture are its labels, already in the image
+        if (pd.figs.some(f => L.y > f.y0 + 2 && L.y < f.y1 - 2 && L.x >= f.x0 - 2 && L.r <= f.x1 + 2)) continue;
+        const big = L.fs > body * 1.22, center = Math.abs((L.x + L.r) / 2 - W / 2) < W * 0.06 && L.r - L.x < full * 0.75;
+        const gap = lastL && lastL.page === pd.page && !lastL.fig ? L.y - lastL.y : lineGap;
+        const indent = L.x > left + body * 0.9 && L.x < left + body * 4;
+        const prevShort = lastL && (lastL.r - lastL.x) < full * 0.82 && /[.!?:;”"’)\]…—]$/.test(lastL.text);
+        const startsPara = !para || big !== para.big || gap > lineGap * 1.6 || indent || prevShort || (center && !para.center);
+        if (startsPara) {
+          flush();
+          const tag = big ? (L.fs > body * 1.6 ? 'h1' : 'h2') : 'p';
+          para = { el: el(tag), text: '', big, center };
+          if (center && !big) para.el.className = 'pf-center';
+        }
+        // join: hyphenated word at the end of the line is glued back together
+        if (para.text && /[A-Za-zÀ-ÿ]-$/.test(para.text) && /^[a-zà-ÿ]/.test(L.text)) para.text = para.text.slice(0, -1) + '\u2060' + L.text;
+        else para.text += (para.text ? ' ' : '') + L.text;
+        para.el.textContent = para.text;
+        if (lastL && lastL.page === pd.page && !big && gap > 0 && gap < body * 2.2) lineGap = lineGap * 0.9 + gap * 0.1;
+        lastL = L; textLines.push(L.text);
+      }
+      while (queue.length) { flush(); const f = queue.shift(), fig = el('figure'), img = el('img', { alt: '' }); fig.append(img); wrap.append(fig); img.src = await this.crop(pd, f); lastL = null; }
+    }
+    flush();
+    // resolve line-end hyphens: "some-thing" becomes "something" only if that word appears elsewhere
+    const words = new Set((wrap.textContent.replace(/\u2060/g, '-').match(/[A-Za-zÀ-ÿ]+/g) || []).map(w => w.toLowerCase()));
+    for (const n of wrap.querySelectorAll('p,h1,h2')) if (n.textContent.includes('\u2060')) n.textContent = n.textContent.replace(/([A-Za-zÀ-ÿ]+)\u2060([a-zà-ÿ]+)/g, (m, a, b) => words.has((a + b).toLowerCase()) && !/-/.test(a) ? a + b : a + '-' + b).replace(/\u2060/g, '-');
+    if (!wrap.childNodes.length) wrap.append(el('p', { class: 'pf-center', text: '—' }));
+    this.plain.set(i, wrap.textContent);
+    return wrap;
+  }
+  async text(i) {
+    if (this.plain.has(i)) return this.plain.get(i);
+    const sp = this.spine[i]; let s = '';
+    for (let p = sp.from; p <= sp.to; p++) { const tc = await (await this.pdf.getPage(p)).getTextContent(); s += tc.items.map(x => x.str).join(' ') + '\n'; }
+    this.plain.set(i, s); return s;
+  }
+  locate(href) { const m = /^p(\d+)/.exec(href || ''); const p = m ? +m[1] : 1; return { idx: Math.max(0, this.spine.findIndex(s => p >= s.from && p <= s.to)), frag: '' }; }
+  close() { for (const u of this.urls) URL.revokeObjectURL(u); this.urls = []; closePdf(this.pdf); }
+}
+/* ================= natural voices: free neural voices that run on the phone, or Microsoft with a key =================
+   neural  → English: Kokoro (kokoro-js), Portuguese: Piper (vits-web). Both run on the device, free, no limit.
+   azure   → Microsoft Azure Speech with the user's own key (official free tier, then paid).
+   system  → the phone's built-in voice (works everywhere, sounds robotic).
+   Audio is generated per passage, cached on the device and played through an <audio> element,
+   so it keeps playing with the screen locked and shows on the lock screen. */
+const KOKORO_VOICES = [
+  ['af_heart', 'Heart', 'f', 'ttsVWarm'], ['af_bella', 'Bella', 'f', 'ttsVExpressive'], ['af_nicole', 'Nicole', 'f', 'ttsVCalm'],
+  ['am_michael', 'Michael', 'm', 'ttsVCalm'], ['am_fenrir', 'Fenrir', 'm', 'ttsVDeep'], ['am_puck', 'Puck', 'm', 'ttsVExpressive'],
+  ['bf_emma', 'Emma', 'f', 'ttsVBritish'], ['bm_george', 'George', 'm', 'ttsVBritishDeep'], ['bm_fable', 'Fable', 'm', 'ttsVStory'],
+];
+const AZURE_VOICES = {
+  pt: [['pt-BR-FranciscaNeural', 'Francisca', 'f'], ['pt-BR-AntonioNeural', 'Antonio', 'm'], ['pt-BR-ThalitaMultilingualNeural', 'Thalita', 'f']],
+  en: [['en-US-AvaNeural', 'Ava', 'f'], ['en-US-AndrewNeural', 'Andrew', 'm'], ['en-US-JennyNeural', 'Jenny', 'f'], ['en-US-GuyNeural', 'Guy', 'm'], ['en-GB-SoniaNeural', 'Sonia', 'f'], ['en-GB-RyanNeural', 'Ryan', 'm']],
+};
+const Voices = {
+  kokoro: null, piper: null, piperList: null,
+  engine() { return S.ttsEngine || 'neural'; },
+  async loadKokoro(progress) {
+    if (this.kokoro) return this.kokoro;
+    const m = await import('https://cdn.jsdelivr.net/npm/kokoro-js@1.2.1/+esm');
+    const gpu = !!navigator.gpu;
+    this.kokoro = await m.KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', {
+      dtype: gpu ? 'fp32' : 'q8', device: gpu ? 'webgpu' : 'wasm',
+      progress_callback: p => { if (p && p.status === 'progress' && progress) progress(Math.round(p.progress || 0)); },
+    }).catch(async e => { if (!gpu) throw e; return m.KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', { dtype: 'q8', device: 'wasm' }); });
+    return this.kokoro;
+  },
+  async loadPiper() {
+    if (this.piper) return this.piper;
+    this.piper = await import('https://cdn.jsdelivr.net/npm/@diffusionstudio/vits-web@1.0.3/+esm');
+    return this.piper;
+  },
+  async piperVoices(lang) {
+    try {
+      const p = await this.loadPiper();
+      if (!this.piperList) this.piperList = await p.voices();
+      const keys = Array.isArray(this.piperList) ? this.piperList.map(v => v.key || v) : Object.keys(this.piperList || {});
+      return keys.filter(k => k.toLowerCase().startsWith(lang === 'en' ? 'en_' : 'pt_br')).sort((a, b) => (/medium|high/.test(b) ? 1 : 0) - (/medium|high/.test(a) ? 1 : 0));
+    } catch (e) { return lang === 'en' ? [] : ['pt_BR-faber-medium']; }
+  },
+  // voices to offer for this book's language (only what is really available)
+  async list(lang) {
+    const e = this.engine();
+    if (e === 'azure') return (AZURE_VOICES[lang] || AZURE_VOICES.pt).map(([id, name, g]) => ({ id, name, desc: t(g === 'f' ? 'ttsFemale' : 'ttsMale') + ' · Microsoft' }));
+    if (lang === 'en') return KOKORO_VOICES.map(([id, name, g, d]) => ({ id: 'k:' + id, name, desc: t(g === 'f' ? 'ttsFemale' : 'ttsMale') + ' · ' + t(d) }));
+    const ps = await this.piperVoices('pt');
+    return ps.map(k => { const nm = k.split('-')[1] || k; return { id: 'p:' + k, name: nm[0].toUpperCase() + nm.slice(1), desc: t('ttsMale') + ' · ' + (/-(medium|high)$/.test(k) ? t('ttsGood') : t('ttsLight')) }; });
+  },
+  current(lang, list) {
+    const want = S['ttsN_' + this.engine() + '_' + lang];
+    return (list || []).find(v => v.id === want) || (list || [])[0] || null;
+  },
+  // text → audio blob (wav or mp3)
+  async synth(text, voiceId, lang, progress) {
+    const e = this.engine();
+    if (e === 'azure') {
+      const key = S.azKey, region = S.azRegion || 'eastus';
+      if (!key) throw new Error(t('azNoKey'));
+      const esc = s => s.replace(/[<&>"']/g, c => ({ '<': '&lt;', '&': '&amp;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]));
+      const loc = voiceId.split('-').slice(0, 2).join('-');
+      const r = await fetch(`https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`, {
+        method: 'POST', headers: { 'Ocp-Apim-Subscription-Key': key, 'Content-Type': 'application/ssml+xml', 'X-Microsoft-OutputFormat': 'audio-24khz-48kbitrate-mono-mp3' },
+        body: `<speak version="1.0" xml:lang="${loc}"><voice name="${voiceId}">${esc(text)}</voice></speak>`,
+      });
+      if (r.status === 401 || r.status === 403) throw new Error(t('azBadKey'));
+      if (r.status === 429) throw new Error(t('azQuota'));
+      if (!r.ok) throw new Error('Microsoft: ' + r.status);
+      return r.blob();
+    }
+    if (voiceId.startsWith('k:')) {
+      const k = await this.loadKokoro(progress);
+      const a = await k.generate(text, { voice: voiceId.slice(2) });
+      if (a.toBlob) return a.toBlob();
+      return wavBlob(a.audio || a.data, a.sampling_rate || 24000);
+    }
+    const p = await this.loadPiper();
+    return p.predict({ text, voiceId: voiceId.slice(2) }, pr => { if (progress && pr && pr.total) progress(Math.round(pr.loaded * 100 / pr.total)); });
+  },
+};
+function wavBlob(f32, rate) {
+  const n = f32.length, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+  const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++) { const s = Math.max(-1, Math.min(1, f32[i])); v.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true); }
+  return new Blob([buf], { type: 'audio/wav' });
+}
+
+/* plays passages one after another, generating ahead and caching on the device */
+const NeuralPlayer = {
+  audio: null, chunks: [], k: 0, ahead: new Map(), urls: [], token: 0, busy: false,
+  init() {
+    if (this.audio) return;
+    const a = this.audio = new Audio(); a.preload = 'auto'; a.setAttribute('playsinline', ''); a.preservesPitch = true;
+    a.addEventListener('ended', () => { if (TTS.playing && TTS.engineAudio()) this.next(); });
+    a.addEventListener('error', () => { if (TTS.playing && TTS.engineAudio()) this.next(); });
+    if ('mediaSession' in navigator) {
+      const ms = navigator.mediaSession;
+      try {
+        ms.setActionHandler('play', () => TTS.play()); ms.setActionHandler('pause', () => TTS.pause());
+        ms.setActionHandler('seekbackward', () => TTS.skip(-1)); ms.setActionHandler('seekforward', () => TTS.skip(1));
+        ms.setActionHandler('previoustrack', () => TTS.skip(-1)); ms.setActionHandler('nexttrack', () => TTS.skip(1));
+      } catch (e) { }
+    }
+  },
+  // passages of whole sentences, up to ~420 characters (natural rhythm, quick start)
+  build() {
+    this.chunks = []; let cur = null;
+    TTS.segs.forEach((s, i) => {
+      if (cur && cur.t.length + s.t.length < 420 && s.s - cur.e < 4) { cur.t += ' ' + s.t; cur.e = s.e; cur.last = i; }
+      else { cur = { s: s.s, e: s.e, t: s.t, first: i, last: i }; this.chunks.push(cur); }
+    });
+    this.ahead.clear(); for (const u of this.urls) URL.revokeObjectURL(u); this.urls = [];
+    if (this.long) { URL.revokeObjectURL(this.long.url); this.long = null; if (this.audio) this.audio.ontimeupdate = null; }
+  },
+  key(c, voice) { let h = 0; const s = voice + '|' + c.t; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return 'au:' + Voices.engine() + ':' + h; },
+  async get(i, voice, lang, show) {
+    const c = this.chunks[i]; if (!c) return null;
+    if (this.ahead.has(i)) return this.ahead.get(i);
+    const p = (async () => {
+      const k = this.key(c, voice);
+      let b = await DB.get('kv', k).catch(() => null);
+      if (!b) { b = await Voices.synth(c.t, voice, lang, show ? pc => TTS.loading(pc) : null); DB.put('kv', k, b).catch(() => { }); }
+      return b;
+    })();
+    this.ahead.set(i, p); p.catch(() => this.ahead.delete(i));
+    return p;
+  },
+  async play(fromSeg, voice, lang) {
+    this.init();
+    const tok = ++this.token; this.voice = voice; this.lang = lang;
+    this.k = Math.max(0, this.chunks.findIndex(c => c.last >= fromSeg));
+    await this.start(tok);
+  },
+  async start(tok) {
+    const c = this.chunks[this.k];
+    if (!c) return TTS.nextChapter();
+    TTS.i = c.first; TTS.follow(c);
+    let b;
+    if (this.long) return this.playLong(tok);
+    try { TTS.loading(0); b = await this.get(this.k, this.voice, this.lang, true); }
+    catch (e) { TTS.loading(null); if (tok === this.token) TTS.fail(e); return; }
+    TTS.loading(null);
+    if (tok !== this.token || !TTS.playing) return;
+    const u = URL.createObjectURL(b); this.urls.push(u); if (this.urls.length > 6) URL.revokeObjectURL(this.urls.shift());
+    const a = this.audio; a.src = u; a.playbackRate = S.ttsRate || 1;
+    try { await a.play(); } catch (e) { TTS.pause(); return; }
+    this.meta();
+    // generate the next passages while this one plays (one at a time: the phone does the work)
+    for (let j = 1; j <= 6; j++) { if (this.k + j < this.chunks.length) { try { await this.get(this.k + j, this.voice, this.lang); } catch (e) { break; } } if (tok !== this.token) return; }
+  },
+  // whole chapter prepared ahead: one long audio file plays to the end even with the screen locked
+  async prepare(onProgress) {
+    const lang = TTS.lang(), list = await Voices.list(lang), v = Voices.current(lang, list); if (!v) throw new Error(t('ttsNoVoices'));
+    this.voice = v.id; this.lang = lang;
+    const from = this.k, blobs = [];
+    for (let i = from; i < this.chunks.length; i++) { blobs.push(await this.get(i, v.id, lang, false)); onProgress && onProgress(Math.round((i - from + 1) / (this.chunks.length - from) * 100)); }
+    const cat = await wavConcat(blobs); if (!cat) return false;
+    if (this.long) URL.revokeObjectURL(this.long.url);
+    this.long = { url: URL.createObjectURL(cat.blob), starts: cat.starts, from };
+    return true;
+  },
+  async playLong(tok) {
+    const L = this.long, a = this.audio;
+    if (a.src !== L.url) { a.src = L.url; }
+    const k0 = Math.max(0, this.k - L.from); a.currentTime = L.starts[k0] || 0; a.playbackRate = S.ttsRate || 1;
+    a.ontimeupdate = () => { if (!this.long) return; let j = 0; while (j + 1 < L.starts.length && L.starts[j + 1] <= a.currentTime) j++; if (L.from + j !== this.k) { this.k = L.from + j; const c = this.chunks[this.k]; if (c) { TTS.i = c.first; if (document.visibilityState === 'visible') TTS.follow(c); } } };
+    try { await a.play(); } catch (e) { TTS.pause(); return; }
+    this.meta();
+  },
+  next() {
+    if (this.long && this.audio.src === this.long.url) { this.long = null; this.audio.ontimeupdate = null; this.k = this.chunks.length; return TTS.nextChapter(); }
+    if (TTS.sleepAt && Date.now() > TTS.sleepAt) { TTS.sleepAt = 0; TTS.pause(); toast(t('ttsSlept')); return; }
+    this.k++; this.start(++this.token);
+  },
+  seek(d) { this.k = clamp(this.k + d, 0, Math.max(0, this.chunks.length - 1)); if (this.long && this.k < this.long.from) { this.long = null; this.audio.ontimeupdate = null; } if (TTS.playing) this.start(++this.token); else { const c = this.chunks[this.k]; if (c) { TTS.i = c.first; TTS.follow(c); } } },
+  pause() { this.token++; if (this.audio) this.audio.pause(); },
+  resume() { if (this.long && this.audio.src !== this.long.url) return false; if (this.audio && this.audio.src && this.audio.currentTime > 0 && !this.audio.ended) { this.audio.play().catch(() => { }); this.meta(); return true; } return false; },
+  stop() { this.token++; if (this.audio) { this.audio.pause(); this.audio.ontimeupdate = null; this.audio.removeAttribute('src'); } this.ahead.clear(); if (this.long) { URL.revokeObjectURL(this.long.url); this.long = null; } },
+  rate(r) { if (this.audio) this.audio.playbackRate = r; },
+  meta() {
+    if (!('mediaSession' in navigator) || !window.MediaMetadata) return;
+    try {
+      const rec = Book.rec || {}; const art = [];
+      if (rec.cover instanceof Blob) { if (!this.coverUrl || this.coverFor !== rec.id) { this.coverUrl = URL.createObjectURL(rec.cover); this.coverFor = rec.id; } art.push({ src: this.coverUrl, sizes: '512x512', type: rec.cover.type || 'image/jpeg' }); }
+      navigator.mediaSession.metadata = new MediaMetadata({ title: niceLabel(Book.tocLabel ? Book.tocLabel(Book.ch) : '') || rec.title, artist: rec.author || '', album: rec.title || '', artwork: art });
+    } catch (e) { }
+  },
+};
+
+// join WAV passages into one file (same voice → same format); returns start time of each passage
+async function wavConcat(blobs) {
+  const parts = []; let rate = 0, ch = 1, bits = 16, total = 0; const starts = [];
+  for (const b of blobs) {
+    const buf = await b.arrayBuffer(), v = new DataView(buf);
+    if (buf.byteLength < 44 || String.fromCharCode(v.getUint8(0), v.getUint8(1), v.getUint8(2), v.getUint8(3)) !== 'RIFF') return null;
+    let o = 12, fmt = null, data = null;
+    while (o + 8 <= buf.byteLength) {
+      const id = String.fromCharCode(v.getUint8(o), v.getUint8(o + 1), v.getUint8(o + 2), v.getUint8(o + 3)), sz = v.getUint32(o + 4, true);
+      if (id === 'fmt ') fmt = { ch: v.getUint16(o + 10, true), rate: v.getUint32(o + 12, true), bits: v.getUint16(o + 22, true) };
+      if (id === 'data') { data = new Uint8Array(buf, o + 8, Math.min(sz, buf.byteLength - o - 8)); break; }
+      o += 8 + sz + (sz & 1);
+    }
+    if (!fmt || !data) return null;
+    if (!rate) { rate = fmt.rate; ch = fmt.ch; bits = fmt.bits; } else if (fmt.rate !== rate || fmt.ch !== ch || fmt.bits !== bits) return null;
+    starts.push(total / (rate * ch * bits / 8)); parts.push(data); total += data.length;
+  }
+  const h = new DataView(new ArrayBuffer(44)), w = (o, s) => { for (let i = 0; i < 4; i++) h.setUint8(o + i, s.charCodeAt(i)); };
+  w(0, 'RIFF'); h.setUint32(4, 36 + total, true); w(8, 'WAVE'); w(12, 'fmt '); h.setUint32(16, 16, true); h.setUint16(20, 1, true); h.setUint16(22, ch, true);
+  h.setUint32(24, rate, true); h.setUint32(28, rate * ch * bits / 8, true); h.setUint16(32, ch * bits / 8, true); h.setUint16(34, bits, true); w(36, 'data'); h.setUint32(40, total, true);
+  return { blob: new Blob([h.buffer, ...parts], { type: 'audio/wav' }), starts };
+}
 </script>
 </body></html>

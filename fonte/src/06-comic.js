@@ -76,13 +76,70 @@ function detectPanels(img, W, H, dir) {
   };
   rec({ x0: 0, y0: 0, x1: w, y1: h }, 0);
   const area = w * h;
-  const ps = leaves.filter(r => (r.x1 - r.x0) * (r.y1 - r.y0) >= area * 0.008);
+  let ps = leaves.filter(r => (r.x1 - r.x0) * (r.y1 - r.y0) >= area * 0.008);
   if (ps.length > 26 || !ps.length) return [];
+  const white = r => { let ink = 0; for (let y = r.y0; y < r.y1; y += 2) ink += rowInk(y, r.x0, r.x1); return 100 - ink * 2 / Math.max(1, (r.x1 - r.x0) * (r.y1 - r.y0)) * 100; };
+  const uni = (a, b) => ({ x0: Math.min(a.x0, b.x0), y0: Math.min(a.y0, b.y0), x1: Math.max(a.x1, b.x1), y1: Math.max(a.y1, b.y1) });
+  const dist = (a, b) => Math.hypot(Math.max(0, a.x0 - b.x1, b.x0 - a.x1), Math.max(0, a.y0 - b.y1, b.y0 - a.y1));
+  // logo / title / caption strips (mostly page colour, short): they belong with the nearest panel, never on their own
+  for (let guard = 0; guard < 6 && ps.length > 1; guard++) {
+    const k = ps.findIndex(r => (r.y1 - r.y0) < h * 0.22 && white(r) > 40);
+    if (k < 0) break;
+    const s = ps[k]; ps.splice(k, 1);
+    let bi = 0, bd = Infinity; ps.forEach((r, i) => { const d = dist(r, s); if (d < bd) { bd = d; bi = i; } });
+    ps[bi] = uni(ps[bi], s);
+  }
+  // balloons that spill out of a panel into the gutter: their text is ink outside every panel.
+  // group that ink and give it to the nearest panel, so a balloon is never cut or shown empty
+  {
+    const G = Math.max(4, Math.round(Math.min(w, h) / 140)), gw = Math.ceil(w / G), gh = Math.ceil(h / G);
+    const inside = (x, y) => ps.some(r => x >= r.x0 - 2 && x < r.x1 + 2 && y >= r.y0 - 2 && y < r.y1 + 2);
+    const cell = new Uint8Array(gw * gh);
+    for (let cy = 0; cy < gh; cy++) for (let cx = 0; cx < gw; cx++) {
+      let n = 0;
+      for (let y = cy * G; y < Math.min(h, cy * G + G); y++) for (let x = cx * G; x < Math.min(w, cx * G + G); x++) if (ink[y * w + x] && !inside(x, y)) n++;
+      if (n >= 2) cell[cy * gw + cx] = 1;
+    }
+    const seen = new Uint8Array(gw * gh), R = 2;
+    for (let i = 0; i < gw * gh; i++) {
+      if (!cell[i] || seen[i]) continue;
+      const st = [i]; seen[i] = 1; let x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1, cnt = 0;
+      while (st.length) {
+        const c = st.pop(), cx = c % gw, cy = (c / gw) | 0; cnt++;
+        x0 = Math.min(x0, cx); y0 = Math.min(y0, cy); x1 = Math.max(x1, cx); y1 = Math.max(y1, cy);
+        for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
+          const nx = cx + dx, ny = cy + dy; if (nx < 0 || ny < 0 || nx >= gw || ny >= gh) continue;
+          const j = ny * gw + nx; if (cell[j] && !seen[j]) { seen[j] = 1; st.push(j); }
+        }
+      }
+      if (cnt < 3) continue;
+      const pad = G * 2, blob = { x0: Math.max(0, x0 * G - pad), y0: Math.max(0, y0 * G - pad), x1: Math.min(w, (x1 + 1) * G + pad), y1: Math.min(h, (y1 + 1) * G + pad) };
+      let bi = -1, bd = Infinity; ps.forEach((r, k) => { const d = dist(r, blob); if (d < bd) { bd = d; bi = k; } });
+      if (bi >= 0 && bd < Math.min(w, h) * 0.12) ps[bi] = uni(ps[bi], blob);
+    }
+  }
   if (ps.length === 1 && (ps[0].x1 - ps[0].x0) * (ps[0].y1 - ps[0].y0) > area * 0.55) return [];
-  const px = w * 0.006, py = h * 0.006;
+  // title / logo pages: the gaps between big letters look like gutters -> show the whole page
+  const small = ps.filter(r => (r.x1 - r.x0) * (r.y1 - r.y0) < area * 0.04);
+  if (small.length >= 3 && small.length >= ps.length / 2) return [];
+  // panels must cover most of the page; otherwise it is an illustration, not a grid
+  const cover = ps.reduce((a, r) => a + (r.x1 - r.x0) * (r.y1 - r.y0), 0);
+  if (cover < area * 0.35) return [];
+  const px = w * 0.006, py = h * 0.006, BINS = 48;
+  // whiteness profile across each panel: balloons are page-coloured, art is not.
+  // a wide panel is only ever split where the line runs through art (never through a balloon)
+  const prof = (r, horiz) => {
+    const out = [], L = horiz ? r.x1 - r.x0 : r.y1 - r.y0, M = horiz ? r.y1 - r.y0 : r.x1 - r.x0;
+    for (let b = 0; b < BINS; b++) {
+      const a = Math.floor(b * L / BINS), e = Math.max(a + 1, Math.floor((b + 1) * L / BINS)); let ink = 0, tot = 0;
+      for (let p = a; p < e; p++) { const v = horiz ? colInk(r.x0 + p, r.y0, r.y1) : rowInk(r.y0 + p, r.x0, r.x1); ink += v; tot += M; }
+      out.push(Math.round(100 - ink / Math.max(1, tot) * 100));
+    }
+    return out;
+  };
   return ps.map(r => {
     const x0 = Math.max(0, r.x0 - px), y0 = Math.max(0, r.y0 - py), x1 = Math.min(w, r.x1 + px), y1 = Math.min(h, r.y1 + py);
-    return { x: x0 / w, y: y0 / h, w: (x1 - x0) / w, h: (y1 - y0) / h };
+    return { x: x0 / w, y: y0 / h, w: (x1 - x0) / w, h: (y1 - y0) / h, cx: prof(r, true), cy: prof(r, false) };
   });
 }
 
@@ -91,10 +148,28 @@ function splitPanel(p, sa, dir) {
   if (!S.cSplit) return [p];
   const r = (p.w / p.h) / sa, ov = 0.12;
   const mk = (n, horiz) => {
-    const out = [];
-    if (horiz) { const sw = p.w / (n - (n - 1) * ov), st = sw * (1 - ov); for (let k = 0; k < n; k++) out.push({ x: p.x + k * st, y: p.y, w: sw, h: p.h }); if (dir === 'rtl') out.reverse(); }
-    else { const sh = p.h / (n - (n - 1) * ov), st = sh * (1 - ov); for (let k = 0; k < n; k++) out.push({ x: p.x, y: p.y + k * st, w: p.w, h: sh }); }
-    return out;
+    const prof = horiz ? p.cx : p.cy;
+    // older cached pages have no profile: keep the whole panel rather than risk cutting a balloon
+    if (!prof || !prof.length) return [p];
+    const B = prof.length, cuts = [];
+    for (let k = 1; k < n; k++) {
+      const ideal = k / n * B, win = Math.round(B * 0.2);
+      let best = -1, bs = Infinity;
+      for (let b = Math.max(1, Math.round(ideal - win)); b <= Math.min(B - 2, Math.round(ideal + win)); b++) {
+        const sc = (prof[b - 1] + prof[b] * 2 + prof[b + 1]) / 4 + Math.abs(b - ideal) * 0.8;
+        if (sc < bs) { bs = sc; best = b; }
+      }
+      // the best line still crosses a lot of white (a balloon): do not split at all
+      if (best < 0 || (prof[best - 1] + prof[best] * 2 + prof[best + 1]) / 4 > 40) return [p];
+      cuts.push((best + 0.5) / B);
+    }
+    const L = horiz ? p.w : p.h, o = L * 0.05, out = [], edges = [0, ...cuts, 1];
+    for (let k = 0; k < edges.length - 1; k++) {
+      const a = Math.max(0, edges[k] * L - (k ? o : 0)), b = Math.min(L, edges[k + 1] * L + (k < edges.length - 2 ? o : 0));
+      out.push(horiz ? { x: p.x + a, y: p.y, w: b - a, h: p.h } : { x: p.x, y: p.y + a, w: p.w, h: b - a });
+    }
+    if (horiz && dir === 'rtl') out.reverse();
+    void ov; return out;
   };
   if (r > 2.3) return mk(Math.min(3, Math.max(2, Math.round(Math.sqrt(r)))), true);
   if (1 / r > 2.3) return mk(Math.min(3, Math.max(2, Math.round(Math.sqrt(1 / r)))), false);
@@ -179,7 +254,7 @@ const Comic = {
     $('#v-comic').append(h); setTimeout(() => h.remove(), 3200);
   },
   size() { return { SW: this.stage.clientWidth || innerWidth, SH: this.stage.clientHeight || innerHeight }; },
-  key(i) { return 'pn:' + this.rec.id + ':' + i + ':' + this.dir; },
+  key(i) { return 'pn:' + this.rec.id + ':' + i + ':' + this.dir + ':v2'; },
   load(i) {
     if (this.cache.has(i)) return this.cache.get(i);
     const p = (async () => {
@@ -204,7 +279,7 @@ const Comic = {
       const n = Math.max(2, Math.ceil((H - vis * 0.1) / (vis * 0.9))), st = (H - vis) / (n - 1);
       return Array.from({ length: n }, (_, k) => ({ x: 0, y: k * st, w: W, h: vis, strip: true }));
     }
-    const ps = pg.panels.map(p => ({ x: p.x * W, y: p.y * H, w: p.w * W, h: p.h * H }));
+    const ps = pg.panels.map(p => ({ x: p.x * W, y: p.y * H, w: p.w * W, h: p.h * H, cx: p.cx, cy: p.cy }));
     if (ps.length <= 1) return [full];
     const out = S.cFullFirst ? [full] : [];
     const sa = SW / SH;
@@ -249,6 +324,17 @@ const Comic = {
     this.cam.style.transform = `translate(${q.tx}px,${q.ty}px) scale(${q.s})`;
     Object.assign(this.spot.style, { left: q.sx + 'px', top: q.sy + 'px', width: q.sw + 'px', height: q.sh + 'px', boxShadow: `0 0 0 300vmax rgba(0,0,0,${(!r.full && !r.strip && S.cSpot) ? 0.8 : 0})` });
     this.resetZoom(false);
+    this.minimap(r);
+  },
+  minimap(r) {
+    let m = $('#c-map');
+    if (!m) { m = el('div', { id: 'c-map' }, el('img'), el('i')); $('#v-comic').append(m); }
+    const pg = this.cur; if (!pg) return;
+    const show = this.mode === 'quadros' && !r.full && this.steps.length > 1;
+    m.classList.toggle('on', show); if (!show) return;
+    const img = m.firstChild; if (img.src !== pg.url) img.src = pg.url;
+    const MW = 58, MH = MW * pg.h / pg.w; m.style.width = MW + 'px'; m.style.height = MH + 'px';
+    Object.assign(m.lastChild.style, { left: (r.x / pg.w * MW) + 'px', top: (r.y / pg.h * MH) + 'px', width: (r.w / pg.w * MW) + 'px', height: (r.h / pg.h * MH) + 'px' });
   },
   applyZoom(anim) {
     this.zoomer.style.transition = anim ? 'transform .25s ease' : 'none';

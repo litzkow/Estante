@@ -9,7 +9,7 @@ function getPdfjs() {
       const u = URL.createObjectURL(new Blob(['import "' + wsrc + '";'], { type: 'text/javascript' }));
       m.GlobalWorkerOptions.workerPort = new Worker(u, { type: 'module' });
     } catch (e) { m.GlobalWorkerOptions.workerSrc = wsrc; }
-    return m;
+    window.__pdfjs = m; return m;
   }).catch(e => { pdfjsP = null; throw new Error(t('pdfLibFail')); });
   return pdfjsP;
 }
@@ -18,6 +18,7 @@ async function openPdf(blob) {
   const data = new Uint8Array(await blob.arrayBuffer());
   return pdfjs.getDocument({ data, isEvalSupported: false, useSystemFonts: true }).promise;
 }
+function pdfjsMod() { return window.__pdfjs || {}; }
 function closePdf(pdf) { try { if (!pdf) return; const lt = pdf.loadingTask; if (lt && lt.destroy) lt.destroy(); else if (pdf.destroy) pdf.destroy(); } catch (e) { } }
 async function renderPdfPage(pdf, n, targetW, maxH = 4200) {
   const pg = await pdf.getPage(n);
@@ -363,9 +364,12 @@ async function importPdf(file) {
   let cover = null, kind = 'comic';
   try { const cv = await renderPdfPage(pdf, 1, 360); cover = await canvasBlob(cv, 'image/jpeg', 0.82); } catch (e) { }
   try {
-    let chars = 0; const n = Math.min(pdf.numPages, 4);
-    for (let i = 1; i <= n; i++) { const tc = await (await pdf.getPage(i)).getTextContent(); chars += tc.items.reduce((s, it) => s + (it.str || '').length, 0); }
-    if (chars / n > 350) kind = 'book';
+    // look at pages spread through the whole file (the first ones are often cover and pictures)
+    const N = pdf.numPages, picks = [...new Set(Array.from({ length: Math.min(N, 8) }, (_, k) => Math.max(1, Math.min(N, Math.round(1 + (N - 1) * (0.1 + 0.8 * k / Math.max(1, Math.min(N, 8) - 1)))))))];
+    const per = [];
+    for (const i of picks) { const tc = await (await pdf.getPage(i)).getTextContent(); per.push(tc.items.reduce((s, it) => s + (it.str || '').length, 0)); }
+    per.sort((a, b) => a - b);
+    if ((per[per.length >> 1] || 0) > 350) kind = 'book';
   } catch (e) { }
   let title = cleanTitle(file.name), author = '';
   try { const md = await pdf.getMetadata(); const inf = md && md.info || {}; if (inf.Title && inf.Title.trim().length > 2 && !/^untitled|microsoft word|^\(?anonymous/i.test(inf.Title)) title = inf.Title.trim(); author = (inf.Author || '').trim(); if (/^\(?(anonymous|unknown)\)?$/i.test(author)) author = ''; } catch (e) { }

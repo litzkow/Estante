@@ -16,12 +16,12 @@ setInterval(() => { if (S.comfortAuto) applyComfort(); }, 5 * 60 * 1000);
 function applyTheme() {
   document.body.className = document.body.className.replace(/\bt-\w+/g, '').trim() + ' t-' + effTheme();
   document.documentElement.className = 't-' + effTheme();
-  const c = { claro: '#f6f4ef', sepia: '#efe3c8', escuro: '#141518', noite: '#000000' }[effTheme()];
+  const c = { claro: '#f6f4ef', sepia: '#efe3c8', escuro: '#141518', noite: '#000000', branco: '#f7f7f5', creme: '#f5eedd', quente: '#efe0c2', antigo: '#e2cfa8', eink: '#e7e7e2', meianoite: '#0d1320' }[effTheme()];
   const m = $('meta[name=theme-color]'); if (m) m.content = c;
 }
 function themePicker(after) {
   const box = el('div', { class: 'themes' });
-  const defs = [['auto', t('autoTheme'), 'linear-gradient(135deg,#fbfaf7 50%,#1e1f22 50%)', '#e8a33d'], ['claro', t('light'), '#fbfaf7', '#1d1c1a'], ['sepia', t('sepia'), '#f3e7cf', '#4a3b27'], ['escuro', t('dark'), '#1e1f22', '#d9d4cb'], ['noite', t('night'), '#000', '#9d968a']];
+  const defs = [['auto', t('autoTheme'), 'linear-gradient(135deg,#fbfaf7 50%,#1e1f22 50%)', '#e8a33d'], ['claro', t('light'), '#fbfaf7', '#1d1c1a'], ['branco', t('thBranco'), '#ffffff', '#141414'], ['creme', t('thCreme'), '#f8f1e1', '#2f281d'], ['quente', t('thQuente'), '#f2e2c0', '#3a2c18'], ['sepia', t('sepia'), '#f3e7cf', '#4a3b27'], ['antigo', t('thAntigo'), 'radial-gradient(circle,#f0e0bd 30%,#c9a86e)', '#3b2a14'], ['eink', t('thEink'), '#e9e9e4', '#2a2a2a'], ['escuro', t('dark'), '#1e1f22', '#d9d4cb'], ['meianoite', t('thMeia'), '#101828', '#c3cad6'], ['noite', t('night'), '#000', '#9d968a']];
   const btns = defs.map(([k, label, bg, fg]) => el('button', { class: S.theme === k ? 'on' : '', style: { background: bg, color: fg, borderColor: S.theme === k ? 'var(--accent)' : (k === 'noite' ? '#333' : 'transparent') }, onclick: () => { setS('theme', k); applyTheme(); btns.forEach(x => { x.classList.remove('on'); x.style.borderColor = 'transparent'; }); const b = btns[defs.findIndex(d => d[0] === k)]; b.classList.add('on'); b.style.borderColor = 'var(--accent)'; after && after(); } }, el('b', { text: 'Aa' }), label));
   box.append(...btns); return box;
 }
@@ -75,7 +75,7 @@ async function settingsSheet() {
           wToggle(t('showGoal'), t('showGoalSub'), S.showGoal, v => { setS('showGoal', v); Lib.render(); }),
           wToggle(t('showContinue'), null, S.showContinue, v => { setS('showContinue', v); Lib.render(); }),
           el('div', { style: { margin: '12px 0 6px', fontSize: '14px', fontWeight: 600 }, text: t('pageTurn') }),
-          wSeg([['slide', t('ptSlide')], ['vertical', t('ptVertical')], ['curl', t('ptCurl')], ['fade', t('ptFade')], ['none', t('ptNone')]], S.bTurn || 'slide', x => { setS('bTurn', x); setS('bAnim', x !== 'none'); }, 'wrap')),
+          wSeg([['curl', t('ptCurl')], ['hard', t('ptHard')], ['slide', t('ptSlide')], ['vertical', t('ptVertical')], ['fade', t('ptFade')], ['none', t('ptNone')]], S.bTurn || 'slide', x => { setS('bTurn', x); setS('bAnim', x !== 'none'); }, 'wrap')),
         wGroup(t('comicsDefault'),
           wSeg([['quadros', t('mode_quadros'), 'panels'], ['largura', t('mode_largura'), 'width'], ['pagina', t('mode_pagina'), 'page']], S.cMode, v => setS('cMode', v)),
           el('div', { style: { height: '8px' } }),

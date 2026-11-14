@@ -174,6 +174,7 @@ const Lib = {
         item('info', t('details'), () => this.info(b));
         item('edit', t('editDetails'), () => this.edit(b));
         item('folder', t('collections'), () => this.collectionsFor(b), '', (b.collections || []).join(', ') || null);
+        if (b.format === 'pdf' && b.kind !== 'comic') item('book', b.pdfView === 'page' ? t('pdfAsBook') : t('pdfAsPages'), async () => { b.pdfView = b.pdfView === 'page' ? 'book' : 'page'; b.pos = null; await saveRec(b); this.render(); });
         if (b.format === 'pdf') item('flip', b.kind === 'comic' ? t('openAsBook') : t('openAsComic'), async () => { b.kind = b.kind === 'comic' ? 'book' : 'comic'; b.pos = null; await saveRec(b); this.render(); toast(b.kind === 'comic' ? t('nowComic') : t('nowBook')); });
         item('check', b.finished ? t('markUnread') : t('markRead'), async () => { b.finished = !b.finished; if (b.finished) b.pct = 1; else if (b.pct >= 1) b.pct = 0.99; await saveRec(b); this.render(); });
         item('trash', t('remove'), async () => {
@@ -255,6 +256,7 @@ const Lib = {
     Pause.start();
     try {
       if (rec.kind === 'comic') await Comic.open(rec, blob);
+      else if (rec.format === 'pdf' && rec.pdfView !== 'page') await Book.open(rec, blob);
       else if (rec.format === 'pdf') await PdfBook.open(rec, blob);
       else await Book.open(rec, blob);
     } catch (e) {

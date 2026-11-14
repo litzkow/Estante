@@ -4,6 +4,8 @@ const FONTS = {
   atkinson: "'Atkinson Hyperlegible', Verdana, sans-serif",
   inter: "'Inter', system-ui, -apple-system, sans-serif",
   georgia: "Georgia, 'Times New Roman', serif",
+  source: "'Source Serif 4', Georgia, serif",
+  merri: "'Merriweather', Georgia, serif",
 };
 const HL_COLORS = { y: '#ffd640', g: '#78d278', b: '#6eaaff', p: '#ff82b4' };
 function textOffset(root, node, off) {
@@ -73,6 +75,7 @@ const Book = {
     try {
       this.rec = rec; rec.highlights = rec.highlights || []; rec.bookmarks = rec.bookmarks || [];
       if (rec.format === 'epub') this.data = await EpubBook.open(blob);
+      else if (rec.format === 'pdf') this.data = await PdfFlow.open(blob, rec);
       else this.data = new TxtBook(decodeText(await blob.arrayBuffer()), rec.title);
       const sz = this.data.spine.map(s => s.size);
       this.cum = [0]; for (const s of sz) this.cum.push(this.cum[this.cum.length - 1] + s);
@@ -98,7 +101,8 @@ const Book = {
     f.style.setProperty('--bk-font', FONTS[S.bFont] || FONTS.literata);
     f.style.setProperty('--bk-size', S.bSize + 'px');
     f.style.setProperty('--bk-lh', S.bLh);
-    f.style.setProperty('--bk-ps', S.bIndent ? '0' : '0.65em');
+    f.style.setProperty('--bk-ps', S.bIndent ? '0' : ({ 0: '0.25em', 1: '0.65em', 2: '1.1em' }[S.bPara ?? 1]));
+    f.style.setProperty('--bk-wt', S.bWeight || 400);
     f.classList.toggle('just', !!S.bJustify);
     f.classList.toggle('indent', !!S.bIndent);
     this.layout();
@@ -110,7 +114,7 @@ const Book = {
     if (FW > 600) mx += 12;
     let cpp = (FW >= 900 && FW > FH * 1.15) ? 2 : 1;
     let col = cpp === 2 ? (FW - 4 * mx) / 2 : FW - 2 * mx;
-    const maxCol = S.bSize * 36;
+    const maxCol = S.bSize * ({ n: 28, m: 36, w: 48 }[S.bCol] || 36);
     if (col > maxCol) { mx = cpp === 2 ? (FW - 2 * maxCol) / 4 : (FW - maxCol) / 2; col = maxCol; }
     this.mx = mx; this.col = col; this.G = 2 * mx; this.cpp = cpp;
     const f = this.flow;
@@ -233,7 +237,7 @@ const Book = {
       this.fx = a;
       Promise.all(a.map(x => x.finished)).catch(() => { }).then(() => { if (this.ghost === g) { g.remove(); this.ghost = null; } F.style.zIndex = ''; F.style.clipPath = F.style.webkitClipPath = ''; });
       return;
-    } else if (mode === 'curlHard') {
+    } else if (mode === 'hard') {
       const out = [{ transform: 'perspective(1800px) rotateY(0)', filter: 'brightness(1)', boxShadow: '0 0 0 rgba(0,0,0,0)' }, { transform: 'perspective(1800px) rotateY(-30deg)', filter: 'brightness(.95)', boxShadow: '20px 0 40px rgba(0,0,0,.3)', offset: .35 }, { transform: 'perspective(1800px) rotateY(-100deg)', filter: 'brightness(.7)', boxShadow: '40px 0 60px rgba(0,0,0,0)' }];
       if (dir > 0) { on(g, F); g.style.transformOrigin = '0 50%'; a = [g.animate(out, { duration: D, easing: 'ease-in-out' }), F.animate([{ filter: 'brightness(.8)' }, { filter: 'brightness(1)' }], { duration: D })]; }
       else { on(F, g); F.style.transformOrigin = '0 50%'; a = [F.animate(out.slice().reverse().map((k, i) => ({ ...k, offset: [0, .65, 1][i] })), { duration: D, easing: 'ease-in-out' }), g.animate([{ filter: 'brightness(1)' }, { filter: 'brightness(.8)' }], { duration: D })]; }
@@ -255,7 +259,7 @@ const Book = {
     this.frame.parentNode.append(cv);
     const ctx = cv.getContext('2d'); ctx.scale(dpr, dpr);
     const paper = getComputedStyle(this.frame).backgroundColor || '#fbfaf7';
-    const C = { x: W, y: H }, D = { x: -1.2 * W, y: -2.2 * H };
+    const C = { x: W, y: H }, D = { x: -2.4 * W, y: -2.0 * H };
     const clipHalf = (poly, M, n, keepPos) => {
       const out = [], side = p => ((p.x - M.x) * n.x + (p.y - M.y) * n.y) * (keepPos ? 1 : -1);
       for (let i = 0; i < poly.length; i++) {
@@ -511,7 +515,7 @@ const Book = {
         const v = el('div', { class: 'v', text: S.bSize });
         const setSize = d => { setS('bSize', clamp(S.bSize + d, 13, 34)); v.textContent = S.bSize; this.relayout(); };
         const fonts = el('div', { class: 'fonts' });
-        for (const [k, label] of [['literata', 'Literata'], ['atkinson', 'Atkinson'], ['inter', 'Inter'], ['georgia', 'Georgia']]) {
+        for (const [k, label] of [['literata', 'Literata'], ['source', 'Source Serif'], ['merri', 'Merriweather'], ['georgia', 'Georgia'], ['inter', 'Inter'], ['atkinson', 'Atkinson']]) {
           const btn = el('button', { class: S.bFont === k ? 'on' : '', style: { fontFamily: FONTS[k] }, text: label, onclick: () => { setS('bFont', k); fonts.querySelectorAll('button').forEach(x => x.classList.remove('on')); btn.classList.add('on'); this.relayout(); } });
           fonts.append(btn);
         }
@@ -520,12 +524,15 @@ const Book = {
           wGroup(t('font'), fonts, el('p', { class: 'muted', style: { fontSize: '12.5px', margin: '8px 0 0', lineHeight: 1.4 }, text: t('fontHelp') })),
           wGroup(t('spacing'), wSeg([[1.4, t('compact')], [1.6, t('normal')], [1.85, t('airy')]], S.bLh, x => { setS('bLh', x); this.relayout(); })),
           wGroup(t('margins'), wSeg([['s', t('narrow')], ['m', t('medium')], ['l', t('wide')]], S.bMargin, x => { setS('bMargin', x); this.relayout(); })),
+          wGroup(t('fontWeight'), wSeg([[400, t('wtNormal')], [450, t('wtMedium')], [550, t('wtBold')]], S.bWeight || 400, x => { setS('bWeight', x); this.relayout(); })),
+          wGroup(t('paraSpace'), wSeg([[0, t('compact')], [1, t('normal')], [2, t('airy')]], S.bPara ?? 1, x => { setS('bPara', x); this.relayout(); })),
+          wGroup(t('colWidth'), wSeg([['n', t('narrow')], ['m', t('medium')], ['w', t('wide')]], S.bCol || 'm', x => { setS('bCol', x); this.relayout(); })),
           wGroup(t('theme'), themePicker(() => this.relayout())),
           wGroup(t('layout'),
             wToggle(t('justify'), null, S.bJustify, x => { setS('bJustify', x); this.relayout(); }),
             wToggle(t('indent'), t('indentSub'), S.bIndent, x => { setS('bIndent', x); this.relayout(); }),
             ),
-          wGroup(t('pageTurn'), wSeg([['slide', t('ptSlide')], ['vertical', t('ptVertical')], ['curl', t('ptCurl')], ['fade', t('ptFade')], ['none', t('ptNone')]], S.bTurn || 'slide', x => { setS('bTurn', x); setS('bAnim', x !== 'none'); }, 'wrap')),
+          wGroup(t('pageTurn'), wSeg([['curl', t('ptCurl')], ['hard', t('ptHard')], ['slide', t('ptSlide')], ['vertical', t('ptVertical')], ['fade', t('ptFade')], ['none', t('ptNone')]], S.bTurn || 'slide', x => { setS('bTurn', x); setS('bAnim', x !== 'none'); }, 'wrap')),
           comfortGroup());
       }
     });
@@ -696,6 +703,6 @@ function niceLabel(l) {
   const M = { 'titlepage': 'Folha de rosto', 'title page': 'Folha de rosto', 'imprint': 'Créditos', 'dedication': 'Dedicatória', 'colophon': 'Colofão', 'uncopyright': 'Licença', 'epigraph': 'Epígrafe', 'preface': 'Prefácio', "translator’s preface": 'Prefácio do tradutor', "translator's preface": 'Prefácio do tradutor', 'introduction': 'Introdução', 'contents': 'Sumário', 'endnotes': 'Notas', 'epilogue': 'Epílogo', 'halftitle': 'Folha de rosto' };
   const k = (l || '').trim().toLowerCase();
   if (M[k]) return M[k];
-  return l.replace(/^Part\s+/i, 'Parte ').replace(/^Book\s+/i, 'Livro ').replace(/^Chapter\s+/i, 'Capítulo ');
+  return l;
 }
 function langName(l) { return (l || '').toLowerCase().startsWith('en') ? 'English' : 'Português'; }
