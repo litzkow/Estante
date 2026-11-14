@@ -25,7 +25,7 @@ const Voices = {
   async list(lang) {
     const e = this.engine();
     // narrated audiobooks of this book come first: ready, no pauses
-    const ab = e === 'neural' && Book.rec ? (await AudioBook.voices(Book.rec)).filter(v => (AB_VOICES[v.id.slice(2)] || [])[2] === lang).map(v => ({ id: v.id, name: v.name, desc: t(v.g === 'f' ? 'ttsFemale' : 'ttsMale') + ' · ' + t('abReady') })) : [];
+    const ab = e === 'neural' && Book.rec ? (await AudioBook.voices(Book.rec)).filter(v => v.lang === lang).map(v => ({ id: v.id, name: v.name, desc: t(v.g === 'f' ? 'ttsFemale' : 'ttsMale') + ' · ' + t(v.hd ? 'abReadyHD' : 'abReady') })) : [];
     if (ab.length) return ab.concat(await this.listLive(lang));
     return this.listLive(lang);
   },

@@ -6,6 +6,14 @@ const AB_VOICES = {
   af_heart: ['Heart', 'f', 'en'], bm_george: ['George', 'm', 'en'], bf_emma: ['Emma', 'f', 'en'], am_michael: ['Michael', 'm', 'en'], bm_fable: ['Fable', 'm', 'en'],
   pf_dora: ['Dora', 'f', 'pt'], pm_alex: ['Alex', 'm', 'pt'], pm_santa: ['Santa', 'm', 'pt'],
 };
+// voice id → [name, gender, language]; Google voices: en-GB-Chirp3-HD-Charon
+const CHIRP_F = /^(Achernar|Aoede|Autonoe|Callirrhoe|Despina|Erinome|Gacrux|Kore|Laomedeia|Leda|Pulcherrima|Sulafat|Vindemiatrix|Zephyr)$/;
+function abVoice(v) {
+  if (AB_VOICES[v]) return AB_VOICES[v];
+  const m = /^([a-z]{2})-[A-Z]{2}-Chirp3-HD-(\w+)$/.exec(v);
+  if (m) return [m[2], CHIRP_F.test(m[2]) ? 'f' : 'm', m[1], true];
+  return [v, '', ''];
+}
 const AudioBook = {
   idx: null, idxAt: 0, maps: new Map(),
   base() { return /github\.io$/.test(location.hostname) ? new URL('audio/', location.href).href : (window.AUDIO_BASE || 'https://litzkow.github.io/Estante/audio/'); },
@@ -28,7 +36,8 @@ const AudioBook = {
   // narrated voices ready for this book
   async voices(rec) {
     const e = (await this.index())[this.key(rec)]; if (!e) return [];
-    return Object.keys(e.voices || {}).map(v => ({ id: 'a:' + v, name: (AB_VOICES[v] || [v])[0], g: (AB_VOICES[v] || [])[1], chapters: e.voices[v].chapters || [] }));
+    // the most natural (Google) first
+    return Object.keys(e.voices || {}).map(v => { const x = abVoice(v); return { id: 'a:' + v, name: x[0], g: x[1], lang: x[2], hd: !!x[3], chapters: e.voices[v].chapters || [] }; }).sort((a, b) => b.hd - a.hd);
   },
   async has(rec, voice, ch) { return (await this.voices(rec)).some(v => v.id === voice && v.chapters.includes(ch)); },
   async src(rec) { const e = (await this.index())[this.key(rec)]; return e ? e.src : 'pub'; },
