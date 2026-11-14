@@ -1766,9 +1766,22 @@ const Lib = {
   coverEl(b) {
     if (b.cover instanceof Blob) {
       const u = URL.createObjectURL(b.cover); this.urls.push(u);
-      return el('img', { src: u, alt: '', loading: 'lazy', decoding: 'async' });
+      // iPhone sometimes loses a saved picture: show a drawn cover and fetch the real one again
+      return el('img', { src: u, alt: '', loading: 'lazy', decoding: 'async', onerror: e => { const g = this.coverEl({ title: b.title, author: b.author, kind: b.kind }); e.target.replaceWith(g); if (b.id) this.repairCover(b); } });
     }
     return el('div', { class: 'gen', style: { background: genCoverColor(b.title || '') } }, el('div', { class: 'gt', text: b.title || '' }), el('div', { class: 'ga', text: b.author || (b.kind === 'comic' ? t('comic') : t('book')) }));
+  },
+  repaired: new Set(),
+  async repairCover(b) {
+    if (this.repaired.has(b.id)) return; this.repaired.add(b.id);
+    let blob = null;
+    try {
+      let cat = null; try { cat = await (await fetch(Starter.base + 'catalogo.json', { cache: 'no-cache' })).json(); } catch (e) { } const x = cat && cat.find(x => x.file === b.fname);
+      if (x && x.cover) { const r = await fetch(Starter.base + x.cover, { cache: 'reload' }); if (r.ok && (r.headers.get('content-type') || '').startsWith('image')) blob = new Blob([await r.arrayBuffer()], { type: 'image/jpeg' }); }
+      if (!blob && b.format === 'pdf') { const f = await DB.get('files', b.fileOf || b.id); if (f) { const pdf = await openPdf(f); try { const cv = await renderPdfPage(pdf, (b.range && b.range.from) || 1, 360); blob = new Blob([await (await canvasBlob(typeof trimWhite === 'function' ? trimWhite(cv) : cv, 'image/jpeg', 0.85)).arrayBuffer()], { type: 'image/jpeg' }); } finally { closePdf(pdf); } } }
+    } catch (e) { }
+    const rec = await DB.get('books', b.id);
+    if (rec) { rec.cover = blob || null; await DB.put('books', rec.id, rec); await this.render(); }
   },
   pctLabel(b) {
     if (b.finished) return t('finished');
