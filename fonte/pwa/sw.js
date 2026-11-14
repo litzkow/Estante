@@ -5,7 +5,7 @@ self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== VERSION && k !== 'estante-cdn').map(k => caches.delete(k)))).then(() => self.clients.claim()));
+  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== VERSION && k !== 'estante-cdn' && !k.startsWith('estante-vozes')).map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
 self.addEventListener('fetch', e => {
   const req = e.request;
@@ -25,6 +25,12 @@ self.addEventListener('fetch', e => {
   if (url.origin !== location.origin) return;
   // o próprio app: tenta a rede primeiro (pega versão nova), cai no cache sem internet
   if (url.pathname.includes('/livros/')) return; // livros vão para a estante, não para o cache
+  // vozes: baixadas uma vez pelo app e guardadas; nunca passam pelo cache do app
+  if (url.pathname.includes('/vozes/')) {
+    if (req.headers.has('range')) return;
+    e.respondWith(caches.open('estante-vozes-1').then(c => c.match(req.url)).then(r => r || fetch(req)));
+    return;
+  }
   e.respondWith(fetch(req, { cache: 'no-cache' }).then(res => {
     if (res && res.ok) { const copy = res.clone(); caches.open(VERSION).then(c => c.put(req, copy)); }
     return res;

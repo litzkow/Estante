@@ -9,42 +9,25 @@ const KOKORO_VOICES = [
   ['am_michael', 'Michael', 'm', 'ttsVCalm'], ['am_fenrir', 'Fenrir', 'm', 'ttsVDeep'], ['am_puck', 'Puck', 'm', 'ttsVExpressive'],
   ['bf_emma', 'Emma', 'f', 'ttsVBritish'], ['bm_george', 'George', 'm', 'ttsVBritishDeep'], ['bm_fable', 'Fable', 'm', 'ttsVStory'],
 ];
+// fast voices (Piper), kept inside the app too
+const PIPER_VOICES = {
+  pt: [['pt_BR-faber-medium', 'Faber', 'm', 'ttsVCalm'], ['pt_BR-cadu-medium', 'Cadu', 'm', 'ttsVWarm'], ['pt_BR-jeff-medium', 'Jeff', 'm', 'ttsVExpressive']],
+  en: [['en_US-lessac-medium', 'Lessac', 'f', 'ttsVCalm'], ['en_US-ryan-medium', 'Ryan', 'm', 'ttsVDeep'], ['en_GB-alba-medium', 'Alba', 'f', 'ttsVBritish'], ['en_US-hfc_female-medium', 'Hannah', 'f', 'ttsVWarm']],
+};
 const AZURE_VOICES = {
   pt: [['pt-BR-FranciscaNeural', 'Francisca', 'f'], ['pt-BR-AntonioNeural', 'Antonio', 'm'], ['pt-BR-ThalitaMultilingualNeural', 'Thalita', 'f']],
   en: [['en-US-AvaNeural', 'Ava', 'f'], ['en-US-AndrewNeural', 'Andrew', 'm'], ['en-US-JennyNeural', 'Jenny', 'f'], ['en-US-GuyNeural', 'Guy', 'm'], ['en-GB-SoniaNeural', 'Sonia', 'f'], ['en-GB-RyanNeural', 'Ryan', 'm']],
 };
 const Voices = {
-  kokoro: null, piper: null, piperList: null,
-  engine() { return S.ttsEngine || 'neural'; },
-  async loadKokoro(progress) {
-    if (this.kokoro) return this.kokoro;
-    const m = await import('https://cdn.jsdelivr.net/npm/kokoro-js@1.2.1/+esm');
-    this.kokoro = await m.KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', {
-      dtype: 'q8', device: 'wasm',
-      progress_callback: p => { if (p && p.status === 'progress' && progress) progress(Math.round(p.progress || 0)); },
-    });
-    return this.kokoro;
-  },
-  async loadPiper() {
-    if (this.piper) return this.piper;
-    this.piper = await import('https://cdn.jsdelivr.net/npm/@diffusionstudio/vits-web@1.0.3/+esm');
-    return this.piper;
-  },
-  async piperVoices(lang) {
-    try {
-      const p = await this.loadPiper();
-      if (!this.piperList) this.piperList = await p.voices();
-      const keys = Array.isArray(this.piperList) ? this.piperList.map(v => v.key || v) : Object.keys(this.piperList || {});
-      return keys.filter(k => k.toLowerCase().startsWith(lang === 'en' ? 'en_' : 'pt_br')).sort((a, b) => (/medium|high/.test(b) ? 1 : 0) - (/medium|high/.test(a) ? 1 : 0));
-    } catch (e) { return lang === 'en' ? [] : ['pt_BR-faber-medium']; }
-  },
+  warm: {},
+  engine() { return S.ttsEngine === 'azure' ? 'azure' : 'neural'; },
   // voices to offer for this book's language (only what is really available)
   async list(lang) {
     const e = this.engine();
     if (e === 'azure') return (AZURE_VOICES[lang] || AZURE_VOICES.pt).map(([id, name, g]) => ({ id, name, desc: t(g === 'f' ? 'ttsFemale' : 'ttsMale') + ' · Microsoft' }));
-    if (lang === 'en') return KOKORO_VOICES.map(([id, name, g, d]) => ({ id: 'k:' + id, name, desc: t(g === 'f' ? 'ttsFemale' : 'ttsMale') + ' · ' + t(d) }));
-    const ps = await this.piperVoices('pt');
-    return ps.map(k => { const nm = k.split('-')[1] || k; return { id: 'p:' + k, name: nm[0].toUpperCase() + nm.slice(1), desc: t('ttsMale') + ' · ' + (/-(medium|high)$/.test(k) ? t('ttsGood') : t('ttsLight')) }; });
+    if (lang === 'en') return KOKORO_VOICES.map(([id, name, g, d]) => ({ id: 'k:' + id, name, desc: t(g === 'f' ? 'ttsFemale' : 'ttsMale') + ' · ' + t(d) + ' · ' + t('vozNatural') }))
+      .concat(PIPER_VOICES.en.map(([id, name, g, d]) => ({ id: 'p:' + id, name, desc: t(g === 'f' ? 'ttsFemale' : 'ttsMale') + ' · ' + t(d) + ' · ' + t('vozFast') })));
+    return PIPER_VOICES.pt.map(([id, name, g, d]) => ({ id: 'p:' + id, name, desc: t(g === 'f' ? 'ttsFemale' : 'ttsMale') + ' · ' + t(d) }));
   },
   current(lang, list) {
     const want = S['ttsN_' + this.engine() + '_' + lang];
@@ -55,7 +38,7 @@ const Voices = {
     const e = this.engine();
     lang = (lang || 'pt').slice(0, 2);
     // a voice that doesn't fit the engine or the language is replaced by that language's chosen voice
-    const okId = id => typeof id === 'string' && (e === 'azure' ? id.toLowerCase().startsWith(lang) : lang === 'en' ? id.startsWith('k:') : id.startsWith('p:'));
+    const okId = id => typeof id === 'string' && (e === 'azure' ? id.toLowerCase().startsWith(lang) : lang === 'en' ? (id.startsWith('k:') || /^p:en_/.test(id)) : /^p:pt_/.test(id));
     if (!okId(voiceId)) { const v = this.current(lang, await this.list(lang)); if (!v) throw new Error(t('ttsNoVoices')); voiceId = v.id; }
     if (e === 'azure') {
       const key = S.azKey, region = S.azRegion || 'eastus';
@@ -71,14 +54,12 @@ const Voices = {
       if (!r.ok) throw new Error('Microsoft: ' + r.status);
       return r.blob();
     }
-    if (voiceId.startsWith('k:')) {
-      const k = await this.loadKokoro(progress);
-      const a = await k.generate(text, { voice: voiceId.slice(2) });
-      if (a.toBlob) return a.toBlob();
-      return wavBlob(a.audio || a.data, a.sampling_rate || 24000);
-    }
-    const p = await this.loadPiper();
-    return p.predict({ text, voiceId: voiceId.slice(2) }, pr => { if (progress && pr && pr.total) progress(Math.round(pr.loaded * 100 / pr.total)); });
+    // natural voices: downloaded once into the app, then generated in their own thread
+    const kind = voiceId[0], vid = voiceId.slice(2);
+    if (!(await VozPack.ready(kind, vid))) await VozPack.get(kind, vid, progress);
+    const first = !this.warm[voiceId]; this.warm[voiceId] = true;
+    if (progress && first) progress(-1);
+    return VozWorker.synth(voiceId.startsWith('k:') ? 'kokoro' : 'piper', text, vid, first);
   },
 };
 function wavBlob(f32, rate) {
@@ -92,7 +73,7 @@ function wavBlob(f32, rate) {
 
 /* plays passages one after another, generating ahead and caching on the device */
 const NeuralPlayer = {
-  audio: null, chunks: [], k: 0, ahead: new Map(), urls: [], token: 0, busy: false,
+  audio: null, chunks: [], k: 0, ahead: new Map(), urls: [], token: 0, busy: false, behind: 0,
   init() {
     if (this.audio) return;
     const a = this.audio = new Audio(); a.preload = 'auto'; a.setAttribute('playsinline', ''); a.preservesPitch = true;
@@ -154,10 +135,13 @@ const NeuralPlayer = {
     if (this.long) return this.playLong(tok);
     if (!this.voice) { this.lang = this.lang || TTS.lang(); this.voice = await this.voiceFor(this.lang); }
     this.loadingNow = true;
+    const waitFrom = Date.now(), wasAhead = this.ahead.has(this.k);
     try { TTS.loading(0); b = await this.get(this.k, this.voice, this.lang, true); }
     catch (e) { this.loadingNow = false; TTS.loading(null); if (tok === this.token) TTS.fail(e); return; }
     this.loadingNow = false;
     TTS.loading(null);
+    // the phone is generating slower than it reads: say so once, with what helps
+    if (wasAhead && this.k > 0 && Date.now() - waitFrom > 2500 && ++this.behind === 2 && !this.toldBehind) { this.toldBehind = true; toast(t('vozBehind'), 7000); }
     if (tok !== this.token || !TTS.playing) return;
     const u = URL.createObjectURL(b); this.urls.push(u); if (this.urls.length > 6) URL.revokeObjectURL(this.urls.shift());
     const a = this.audio; a.src = u; a.playbackRate = S.ttsRate || 1;

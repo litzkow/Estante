@@ -893,6 +893,12 @@ function gestures(target, h) {
 }
 /* ================= strings (pt / en) ================= */
 const STR = {
+  vozNatural: ['mais natural', 'most natural'], vozFast: ['rápida', 'fast'], vozWarm: ['Abrindo a voz… (só na primeira vez)', 'Opening the voice… (first time only)'],
+  vozHave: ['no celular ✓', 'on this phone ✓'], vozGet: ['baixa uma vez (~{n} MB)', 'downloads once (~{n} MB)'], vozRetry: ['Tentar de novo', 'Try again'],
+  vozNet: ['Não deu para baixar a voz. Confira a internet (o Wi-Fi é melhor, são cerca de 100 MB, só na primeira vez).', "Couldn't download the voice. Check the internet (Wi-Fi is best, about 100 MB, first time only)."],
+  vozSlow: ['A voz demorou demais para responder. Feche outros apps e tente de novo.', 'The voice took too long to respond. Close other apps and try again.'],
+  vozCrash: ['A voz parou de funcionar. Tente de novo.', 'The voice stopped working. Try again.'],
+  vozBehind: ['Esta voz está gerando mais devagar que a leitura neste celular. Para ouvir sem pausas, use "Preparar o capítulo" ou escolha uma voz rápida.', 'This voice generates slower than it reads on this phone. To listen without pauses, use "Prepare the chapter" or pick a fast voice.'],
   splitDone: ['A coleção foi dividida em livros, numa pasta', 'The collection was split into books, in a folder'],
   resumedAt: ['Você parou aqui: {c} · {p}%', 'You stopped here: {c} · {p}%'],
   whoTitle: ['Personagens e linha do tempo', 'Characters and timeline'], whoSub: ['Quem é quem até aqui, sem spoiler', 'Who is who so far, no spoilers'], vocabSub: ['Palavras que você guardou lendo', 'Words you saved while reading'],
@@ -931,7 +937,7 @@ const STR = {
   azNoKey: ['Coloque a chave da Microsoft para usar essas vozes.', 'Add your Microsoft key to use these voices.'], azBadKey: ['A Microsoft recusou a chave. Confira a chave e a região.', 'Microsoft rejected the key. Check the key and region.'], azQuota: ['O limite da Microsoft acabou por agora.', 'The Microsoft limit is used up for now.'],
   ttsFemale: ['Feminina', 'Female'], ttsMale: ['Masculina', 'Male'], ttsVWarm: ['calorosa', 'warm'], ttsVExpressive: ['expressiva', 'expressive'], ttsVCalm: ['calma', 'calm'], ttsVDeep: ['grave', 'deep'], ttsVBritish: ['britânica', 'British'], ttsVBritishDeep: ['britânica, grave', 'British, deep'], ttsVStory: ['contador de histórias', 'storyteller'], ttsGood: ['boa qualidade', 'good quality'], ttsLight: ['leve', 'light'],
   ttsLoadingList: ['Carregando vozes…', 'Loading voices…'], ttsDownloading: ['Baixando a voz… {n}%', 'Downloading the voice… {n}%'], ttsPreparing: ['Preparando a voz…', 'Preparing the voice…'],
-  ttsFailT: ['A voz não carregou', 'The voice did not load'], ttsFailHelp: ['Confira a internet (a primeira vez precisa baixar a voz) e tente de novo. Enquanto isso, dá para ouvir com a voz do iPhone.', 'Check the internet (the first time needs to download the voice) and try again. Meanwhile you can listen with the phone voice.'], ttsUseSystem: ['Usar a voz do iPhone', 'Use the phone voice'],
+  ttsFailT: ['A voz não carregou', 'The voice did not load'], ttsFailHelp: ['Confira a internet (na primeira vez a voz é baixada para o celular) e tente de novo.', 'Check the internet (the first time the voice is downloaded to the phone) and try again.'], ttsUseSystem: ['Usar a voz do iPhone', 'Use the phone voice'],
   autoTheme: ['Auto', 'Auto'], splitWideSub2: ['Desligado é o jeito do Comixology: o quadro aparece sempre inteiro. Ligado divide quadros muito largos (sem cortar balões).', 'Off is the Comixology way: the panel is always shown whole. On splits very wide panels (never through balloons).'], cBoxT: ['Em volta do quadro', 'Around the panel'], cBoxOff: ['Mostrar vizinhos', 'Show neighbours'], cBoxDim: ['Escurecer', 'Dim'], cBoxBlack: ['Preto', 'Black'], fontWeight: ['Peso da letra', 'Font weight'], wtNormal: ['Normal', 'Regular'], wtMedium: ['Médio', 'Medium'], wtBold: ['Forte', 'Bold'], paraSpace: ['Espaço entre parágrafos', 'Paragraph spacing'], colWidth: ['Largura da coluna (tablet)', 'Column width (tablet)'], thBranco: ['Branco', 'White'], thCreme: ['Creme', 'Cream'], thQuente: ['Papel quente', 'Warm paper'], thAntigo: ['Papel antigo', 'Old paper'], thEink: ['E-ink', 'E-ink'], thMeia: ['Meia-noite', 'Midnight'], pdfAsBook: ['Ler como livro (letra ajustável)', 'Read as a book (adjustable text)'], pdfAsPages: ['Ver as páginas originais do PDF', 'Show the original PDF pages'],
   ttsListen: ['Ouvir', 'Listen'], ttsTitle: ['Ouvir o livro', 'Listen to the book'], ttsVoice: ['Voz', 'Voice'], ttsSpeed: ['Velocidade', 'Speed'], ttsSleep: ['Parar depois de', 'Stop after'], off: ['Não', 'Off'],
   ttsScreen: ['Tela', 'Screen'], ttsDark: ['Apagar a tela e continuar ouvindo', 'Turn the screen black and keep listening'], ttsDarkHint: ['Lendo em voz alta · toque para voltar', 'Reading aloud · tap to return'],
@@ -4033,14 +4039,14 @@ const TTS = {
   loading(pc) {
     const tv = $('#tts-bar .tvoice'); if (!tv) return;
     if (pc == null) { this.ui(); return; }
-    tv.textContent = pc > 0 && pc < 100 ? t('ttsDownloading', { n: pc }) : t('ttsPreparing');
+    tv.textContent = pc === -1 ? t('vozWarm') : pc >= 0 && pc < 100 && pc !== 0 ? t('ttsDownloading', { n: pc }) : t('ttsPreparing');
   },
   fail(e) {
     this.pause(); this.loading(null);
     Sheets.open({ title: t('ttsFailT'), center: true, body: b => b.append(
       el('p', { style: { lineHeight: 1.5 }, text: ((e && e.message) || String(e)) }),
-      el('p', { class: 'muted', style: { lineHeight: 1.5, fontSize: '13.5px' }, text: t('ttsFailHelp') }),
-      el('button', { class: 'btn primary block', text: t('ttsUseSystem'), onclick: () => { setS('ttsEngine', 'system'); Sheets.close(); this.ui(); this.play(); } }),
+      ((e && e.message) || '') === t('vozNet') ? '' : el('p', { class: 'muted', style: { lineHeight: 1.5, fontSize: '13.5px' }, text: t('ttsFailHelp') }),
+      el('button', { class: 'btn primary block', text: t('vozRetry'), onclick: () => { Sheets.close(); this.ui(); this.play(); } }),
       el('button', { class: 'btn block', style: { marginTop: '8px' }, text: 'OK', onclick: () => Sheets.close() })) });
   },
   toggle() { this.playing ? this.pause() : this.play(); },
@@ -4114,7 +4120,7 @@ const TTS = {
     const s = Sheets.open({
       title: t('ttsTitle'), body: b => {
         const L = el('div', { class: 'list' }), lang = this.lang();
-        const engSeg = wSeg([['neural', t('ttsEngNeural')], ['azure', 'Microsoft'], ['system', t('ttsEngSystem')]], Voices.engine(), x => { setS('ttsEngine', x); NeuralPlayer.stop(); azBox.classList.toggle('hide', x !== 'azure'); draw(); this.ui(); }, 'wrap');
+        const engSeg = wSeg([['neural', t('ttsEngNeural')], ['azure', 'Microsoft']], Voices.engine(), x => { setS('ttsEngine', x); NeuralPlayer.stop(); azBox.classList.toggle('hide', x !== 'azure'); draw(); this.ui(); }, 'wrap');
         const azBox = el('div', { class: Voices.engine() === 'azure' ? '' : 'hide', style: { marginTop: '10px' } },
           el('input', { class: 'inp', placeholder: t('azKeyPh'), value: S.azKey || '', oninput: e => setS('azKey', e.target.value.trim()) }),
           el('input', { class: 'inp', style: { marginTop: '6px' }, placeholder: t('azRegionPh'), value: S.azRegion || '', oninput: e => setS('azRegion', e.target.value.trim().toLowerCase()) }),
@@ -4137,8 +4143,11 @@ const TTS = {
           if (!vs.length) L.append(el('p', { class: 'muted', text: t('ttsNoVoices') }));
           for (const v of vs) {
             const on = cur && v.id === cur.id;
-            L.append(el('button', { class: 'li' + (on ? ' cur' : ''), onclick: () => { setS('ttsN_' + Voices.engine() + '_' + lang, v.id); this.vname = v.name; NeuralPlayer.stop(); this.previewN(v, lang); draw(); this.ui(); } },
-              icon(on ? 'check' : 'headphones'), el('div', { class: 'lt' }, v.name, el('small', { text: v.desc }))));
+            const sm = el('small', { text: v.desc });
+            L.append(el('button', { class: 'li' + (on ? ' cur' : ''), onclick: async () => { setS('ttsN_' + Voices.engine() + '_' + lang, v.id); this.vname = v.name; NeuralPlayer.stop(); L.querySelectorAll('.li').forEach(x => x.classList.toggle('cur', x === sm.closest('.li'))); this.ui(); await this.previewN(v, lang, pc => { sm.textContent = pc === -1 ? t('vozWarm') : t('ttsDownloading', { n: Math.max(0, pc) }); }); sm.textContent = v.desc + ' · ' + t('vozHave'); } },
+              icon(on ? 'check' : 'headphones'), el('div', { class: 'lt' }, v.name, sm)));
+            // is it already on the phone?
+            if (Voices.engine() === 'neural') VozPack.ready(v.id[0], v.id.slice(2)).then(ok => { sm.textContent = v.desc + ' · ' + (ok ? t('vozHave') : t('vozGet', { n: VozPack.sizeMB(v.id[0]) })); });
           }
         };
         draw();
@@ -4158,10 +4167,10 @@ const TTS = {
     });
     if (this.playing) this.pause();
   },
-  async previewN(v, lang) {
+  async previewN(v, lang, onPct) {
     NeuralPlayer.init(); this.unlock();
     const tx = lang === 'en' ? 'Hello! This is the voice that will read your books.' : 'Olá! Esta é a voz que vai ler os seus livros.';
-    try { this.loading(0); const b = await Voices.synth(tx, v.id, lang, pc => this.loading(pc)); this.loading(null); const a = NeuralPlayer.audio; a.src = URL.createObjectURL(b); a.playbackRate = S.ttsRate || 1; a.play().catch(() => { }); }
+    try { this.loading(0); const b = await Voices.synth(tx, v.id, lang, pc => { this.loading(pc); onPct && onPct(pc); }); this.loading(null); const a = NeuralPlayer.audio; a.src = URL.createObjectURL(b); a.playbackRate = S.ttsRate || 1; a.play().catch(() => { }); }
     catch (e) { this.loading(null); this.fail(e); }
   },
   preview(v) {
@@ -4478,42 +4487,25 @@ const KOKORO_VOICES = [
   ['am_michael', 'Michael', 'm', 'ttsVCalm'], ['am_fenrir', 'Fenrir', 'm', 'ttsVDeep'], ['am_puck', 'Puck', 'm', 'ttsVExpressive'],
   ['bf_emma', 'Emma', 'f', 'ttsVBritish'], ['bm_george', 'George', 'm', 'ttsVBritishDeep'], ['bm_fable', 'Fable', 'm', 'ttsVStory'],
 ];
+// fast voices (Piper), kept inside the app too
+const PIPER_VOICES = {
+  pt: [['pt_BR-faber-medium', 'Faber', 'm', 'ttsVCalm'], ['pt_BR-cadu-medium', 'Cadu', 'm', 'ttsVWarm'], ['pt_BR-jeff-medium', 'Jeff', 'm', 'ttsVExpressive']],
+  en: [['en_US-lessac-medium', 'Lessac', 'f', 'ttsVCalm'], ['en_US-ryan-medium', 'Ryan', 'm', 'ttsVDeep'], ['en_GB-alba-medium', 'Alba', 'f', 'ttsVBritish'], ['en_US-hfc_female-medium', 'Hannah', 'f', 'ttsVWarm']],
+};
 const AZURE_VOICES = {
   pt: [['pt-BR-FranciscaNeural', 'Francisca', 'f'], ['pt-BR-AntonioNeural', 'Antonio', 'm'], ['pt-BR-ThalitaMultilingualNeural', 'Thalita', 'f']],
   en: [['en-US-AvaNeural', 'Ava', 'f'], ['en-US-AndrewNeural', 'Andrew', 'm'], ['en-US-JennyNeural', 'Jenny', 'f'], ['en-US-GuyNeural', 'Guy', 'm'], ['en-GB-SoniaNeural', 'Sonia', 'f'], ['en-GB-RyanNeural', 'Ryan', 'm']],
 };
 const Voices = {
-  kokoro: null, piper: null, piperList: null,
-  engine() { return S.ttsEngine || 'neural'; },
-  async loadKokoro(progress) {
-    if (this.kokoro) return this.kokoro;
-    const m = await import('https://cdn.jsdelivr.net/npm/kokoro-js@1.2.1/+esm');
-    this.kokoro = await m.KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', {
-      dtype: 'q8', device: 'wasm',
-      progress_callback: p => { if (p && p.status === 'progress' && progress) progress(Math.round(p.progress || 0)); },
-    });
-    return this.kokoro;
-  },
-  async loadPiper() {
-    if (this.piper) return this.piper;
-    this.piper = await import('https://cdn.jsdelivr.net/npm/@diffusionstudio/vits-web@1.0.3/+esm');
-    return this.piper;
-  },
-  async piperVoices(lang) {
-    try {
-      const p = await this.loadPiper();
-      if (!this.piperList) this.piperList = await p.voices();
-      const keys = Array.isArray(this.piperList) ? this.piperList.map(v => v.key || v) : Object.keys(this.piperList || {});
-      return keys.filter(k => k.toLowerCase().startsWith(lang === 'en' ? 'en_' : 'pt_br')).sort((a, b) => (/medium|high/.test(b) ? 1 : 0) - (/medium|high/.test(a) ? 1 : 0));
-    } catch (e) { return lang === 'en' ? [] : ['pt_BR-faber-medium']; }
-  },
+  warm: {},
+  engine() { return S.ttsEngine === 'azure' ? 'azure' : 'neural'; },
   // voices to offer for this book's language (only what is really available)
   async list(lang) {
     const e = this.engine();
     if (e === 'azure') return (AZURE_VOICES[lang] || AZURE_VOICES.pt).map(([id, name, g]) => ({ id, name, desc: t(g === 'f' ? 'ttsFemale' : 'ttsMale') + ' · Microsoft' }));
-    if (lang === 'en') return KOKORO_VOICES.map(([id, name, g, d]) => ({ id: 'k:' + id, name, desc: t(g === 'f' ? 'ttsFemale' : 'ttsMale') + ' · ' + t(d) }));
-    const ps = await this.piperVoices('pt');
-    return ps.map(k => { const nm = k.split('-')[1] || k; return { id: 'p:' + k, name: nm[0].toUpperCase() + nm.slice(1), desc: t('ttsMale') + ' · ' + (/-(medium|high)$/.test(k) ? t('ttsGood') : t('ttsLight')) }; });
+    if (lang === 'en') return KOKORO_VOICES.map(([id, name, g, d]) => ({ id: 'k:' + id, name, desc: t(g === 'f' ? 'ttsFemale' : 'ttsMale') + ' · ' + t(d) + ' · ' + t('vozNatural') }))
+      .concat(PIPER_VOICES.en.map(([id, name, g, d]) => ({ id: 'p:' + id, name, desc: t(g === 'f' ? 'ttsFemale' : 'ttsMale') + ' · ' + t(d) + ' · ' + t('vozFast') })));
+    return PIPER_VOICES.pt.map(([id, name, g, d]) => ({ id: 'p:' + id, name, desc: t(g === 'f' ? 'ttsFemale' : 'ttsMale') + ' · ' + t(d) }));
   },
   current(lang, list) {
     const want = S['ttsN_' + this.engine() + '_' + lang];
@@ -4524,7 +4516,7 @@ const Voices = {
     const e = this.engine();
     lang = (lang || 'pt').slice(0, 2);
     // a voice that doesn't fit the engine or the language is replaced by that language's chosen voice
-    const okId = id => typeof id === 'string' && (e === 'azure' ? id.toLowerCase().startsWith(lang) : lang === 'en' ? id.startsWith('k:') : id.startsWith('p:'));
+    const okId = id => typeof id === 'string' && (e === 'azure' ? id.toLowerCase().startsWith(lang) : lang === 'en' ? (id.startsWith('k:') || /^p:en_/.test(id)) : /^p:pt_/.test(id));
     if (!okId(voiceId)) { const v = this.current(lang, await this.list(lang)); if (!v) throw new Error(t('ttsNoVoices')); voiceId = v.id; }
     if (e === 'azure') {
       const key = S.azKey, region = S.azRegion || 'eastus';
@@ -4540,14 +4532,12 @@ const Voices = {
       if (!r.ok) throw new Error('Microsoft: ' + r.status);
       return r.blob();
     }
-    if (voiceId.startsWith('k:')) {
-      const k = await this.loadKokoro(progress);
-      const a = await k.generate(text, { voice: voiceId.slice(2) });
-      if (a.toBlob) return a.toBlob();
-      return wavBlob(a.audio || a.data, a.sampling_rate || 24000);
-    }
-    const p = await this.loadPiper();
-    return p.predict({ text, voiceId: voiceId.slice(2) }, pr => { if (progress && pr && pr.total) progress(Math.round(pr.loaded * 100 / pr.total)); });
+    // natural voices: downloaded once into the app, then generated in their own thread
+    const kind = voiceId[0], vid = voiceId.slice(2);
+    if (!(await VozPack.ready(kind, vid))) await VozPack.get(kind, vid, progress);
+    const first = !this.warm[voiceId]; this.warm[voiceId] = true;
+    if (progress && first) progress(-1);
+    return VozWorker.synth(voiceId.startsWith('k:') ? 'kokoro' : 'piper', text, vid, first);
   },
 };
 function wavBlob(f32, rate) {
@@ -4561,7 +4551,7 @@ function wavBlob(f32, rate) {
 
 /* plays passages one after another, generating ahead and caching on the device */
 const NeuralPlayer = {
-  audio: null, chunks: [], k: 0, ahead: new Map(), urls: [], token: 0, busy: false,
+  audio: null, chunks: [], k: 0, ahead: new Map(), urls: [], token: 0, busy: false, behind: 0,
   init() {
     if (this.audio) return;
     const a = this.audio = new Audio(); a.preload = 'auto'; a.setAttribute('playsinline', ''); a.preservesPitch = true;
@@ -4623,10 +4613,13 @@ const NeuralPlayer = {
     if (this.long) return this.playLong(tok);
     if (!this.voice) { this.lang = this.lang || TTS.lang(); this.voice = await this.voiceFor(this.lang); }
     this.loadingNow = true;
+    const waitFrom = Date.now(), wasAhead = this.ahead.has(this.k);
     try { TTS.loading(0); b = await this.get(this.k, this.voice, this.lang, true); }
     catch (e) { this.loadingNow = false; TTS.loading(null); if (tok === this.token) TTS.fail(e); return; }
     this.loadingNow = false;
     TTS.loading(null);
+    // the phone is generating slower than it reads: say so once, with what helps
+    if (wasAhead && this.k > 0 && Date.now() - waitFrom > 2500 && ++this.behind === 2 && !this.toldBehind) { this.toldBehind = true; toast(t('vozBehind'), 7000); }
     if (tok !== this.token || !TTS.playing) return;
     const u = URL.createObjectURL(b); this.urls.push(u); if (this.urls.length > 6) URL.revokeObjectURL(this.urls.shift());
     const a = this.audio; a.src = u; a.playbackRate = S.ttsRate || 1;
@@ -4928,6 +4921,159 @@ const Family = {
           wToggle(t('famAuto'), t('famAutoSub'), S.famAuto !== false, v => setS('famAuto', v)),
           el('p', { class: 'muted', style: { fontSize: '12.5px', lineHeight: 1.45 }, text: t('famWife') }));
       },
+    });
+  },
+};
+/* ================= the voice engine, in its own thread =================
+   Everything the voices need (models, voices, pronunciation, runtime) lives in the app's own site
+   (vozes/), is downloaded once with progress and kept on the phone (Cache Storage).
+   The heavy work runs in a Worker, so the screen never freezes and iOS doesn't close the app. */
+const VOZ_CACHE = 'estante-vozes-1';
+function vozBase() {
+  if (window.VOZ_BASE) return window.VOZ_BASE;
+  return /github\.io$/.test(location.hostname) ? new URL('vozes/', location.href).href : 'https://litzkow.github.io/Estante/vozes/';
+}
+// files each voice needs (sizes are approximate, for the progress bar)
+const VozPack = {
+  // kind: 'k' = Kokoro (most natural), 'p' = Piper (fast)
+  files(kind, voice) {
+    if (kind === 'k') return ['lib/kokoro/kokoro.web.js', 'lib/ort/ort-wasm-simd-threaded.jsep.mjs', 'lib/ort/ort-wasm-simd-threaded.jsep.wasm',
+      'kokoro/config.json', 'kokoro/tokenizer.json', 'kokoro/tokenizer_config.json', 'kokoro/onnx/model_quantized.onnx', 'kokoro/voices/' + voice + '.bin'];
+    return ['lib/vits/piper-DeOu3H9E.js', 'lib/phonemize/piper_phonemize.wasm', 'lib/phonemize/piper_phonemize.data',
+      'lib/ort/ort.wasm.min.mjs', 'lib/ort/ort-wasm-simd-threaded.mjs', 'lib/ort/ort-wasm-simd-threaded.wasm',
+      'piper/' + voice + '.onnx.json', 'piper/' + voice + '.onnx'];
+  },
+  sizeMB(kind) { return kind === 'k' ? 115 : 90; },
+  async missing(kind, voice) {
+    const c = await caches.open(VOZ_CACHE), b = vozBase(), out = [];
+    for (const f of this.files(kind, voice)) if (!(await c.match(b + f))) out.push(f);
+    return out;
+  },
+  async ready(kind, voice) { try { return !(await this.missing(kind, voice)).length; } catch (e) { return false; } },
+  // download what is missing, reporting 0–100
+  async get(kind, voice, onPct) {
+    const c = await caches.open(VOZ_CACHE), b = vozBase(), miss = await this.missing(kind, voice);
+    if (!miss.length) return true;
+    const sizes = []; let total = 0, done = 0;
+    for (const f of miss) { let n = 0; try { const h = await fetch(b + f, { method: 'HEAD', cache: 'no-store' }); n = +h.headers.get('content-length') || 0; } catch (e) { } sizes.push(n || 1e6); total += n || 1e6; }
+    for (let i = 0; i < miss.length; i++) {
+      let tries = 0;
+      for (; ;) {
+        try {
+          const r = await fetch(b + miss[i], { cache: 'no-store' });
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          const rd = r.body.getReader(), parts = []; let got = 0;
+          for (; ;) { const { done: d, value } = await rd.read(); if (d) break; parts.push(value); got += value.length; onPct && onPct(Math.min(99, Math.round((done + Math.min(got, sizes[i])) * 100 / total))); }
+          const type = /\.wasm$/.test(miss[i]) ? 'application/wasm' : /\.m?js$/.test(miss[i]) ? 'text/javascript' : /\.json$/.test(miss[i]) ? 'application/json' : 'application/octet-stream';
+          await c.put(b + miss[i], new Response(new Blob(parts, { type }), { headers: { 'content-type': type } }));
+          done += sizes[i]; break;
+        } catch (e) { if (++tries >= 3) throw new Error(t('vozNet')); await new Promise(r => setTimeout(r, 1500 * tries)); }
+      }
+    }
+    try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) { }
+    onPct && onPct(100);
+    return true;
+  },
+  async remove() { try { await caches.delete(VOZ_CACHE); } catch (e) { } },
+};
+
+// the code that runs inside the worker (kept as a function, started from a Blob)
+function vozWorkerMain() {
+  let B = '', CN = '', kok = null, ort = null, phonMod = null;
+  const sess = {}, cfgs = {};
+  const KOK = 'https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/';
+  const nf = self.fetch.bind(self);
+  // files come from the phone first, the site second
+  async function cfetch(u, o) {
+    let s = typeof u === 'string' ? u : (u && u.url) || String(u);
+    if (s.startsWith(KOK)) s = B + 'kokoro/' + s.slice(KOK.length);
+    if (s.startsWith(B)) { try { const c = await caches.open(CN), r = await c.match(s); if (r) return r; } catch (e) { } return nf(s); }
+    return nf(u, o);
+  }
+  self.fetch = cfetch;
+  async function modFrom(path) {
+    // import a module from the phone's copy when there is one
+    try { const c = await caches.open(CN), r = await c.match(B + path); if (r) { const u = URL.createObjectURL(new Blob([await r.text()], { type: 'text/javascript' })); return await import(u); } } catch (e) { }
+    return import(B + path);
+  }
+  async function kokoro(text, voice) {
+    if (!kok) {
+      const m = await modFrom('lib/kokoro/kokoro.web.js');
+      m.env.wasmPaths = B + 'lib/ort/';
+      kok = await m.KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', { dtype: 'q8', device: 'wasm' });
+    }
+    const a = await kok.generate(text, { voice });
+    return { pcm: a.audio, rate: a.sampling_rate };
+  }
+  let phonBin = null, phonData = null, phonInst = null, phonOut = null;
+  async function phonemes(text, espeakVoice) {
+    if (!phonMod) phonMod = (await modFrom('lib/vits/piper-DeOu3H9E.js')).createPiperPhonemize;
+    if (!phonBin) phonBin = await (await cfetch(B + 'lib/phonemize/piper_phonemize.wasm')).arrayBuffer();
+    if (!phonData) phonData = await (await cfetch(B + 'lib/phonemize/piper_phonemize.data')).arrayBuffer();
+    // one pronunciation engine, reused for every passage
+    if (!phonInst) phonInst = await phonMod({
+      print: l => { const f = phonOut; phonOut = null; if (!f) return; try { f.res(JSON.parse(l).phoneme_ids); } catch (e) { f.rej(e); } },
+      printErr: l => { if (phonOut && /error/i.test(l)) { const f = phonOut; phonOut = null; f.rej(new Error(l)); } },
+      wasmBinary: phonBin, noInitialRun: true,
+      getPreloadedPackage: () => phonData.slice(0),
+      locateFile: f => B + 'lib/phonemize/' + f.split('/').pop(),
+    });
+    return new Promise((res, rej) => {
+      phonOut = { res, rej };
+      try { phonInst.callMain(['-l', espeakVoice, '--input', JSON.stringify([{ text }]), '--espeak_data', '/espeak-ng-data']); }
+      catch (e) { phonInst = null; phonOut = null; rej(e); }
+      setTimeout(() => { if (phonOut) { phonOut = null; phonInst = null; rej(new Error('phonemize')); } }, 20000);
+    });
+  }
+  async function piper(text, voice) {
+    if (!ort) {
+      ort = await modFrom('lib/ort/ort.wasm.min.mjs');
+      ort.env.wasm.wasmPaths = B + 'lib/ort/'; ort.env.wasm.numThreads = 1;
+    }
+    if (!cfgs[voice]) cfgs[voice] = await (await cfetch(B + 'piper/' + voice + '.onnx.json')).json();
+    const cfg = cfgs[voice];
+    if (!sess[voice]) { for (const k in sess) delete sess[k]; sess[voice] = await ort.InferenceSession.create(new Uint8Array(await (await cfetch(B + 'piper/' + voice + '.onnx')).arrayBuffer())); }
+    const ids = await phonemes(text, cfg.espeak.voice);
+    const inf = cfg.inference || {};
+    const feeds = {
+      input: new ort.Tensor('int64', BigInt64Array.from(ids.map(BigInt)), [1, ids.length]),
+      input_lengths: new ort.Tensor('int64', BigInt64Array.from([BigInt(ids.length)]), [1]),
+      scales: new ort.Tensor('float32', Float32Array.from([inf.noise_scale ?? 0.667, inf.length_scale ?? 1, inf.noise_w ?? 0.8]), [3]),
+    };
+    if (cfg.num_speakers > 1) feeds.sid = new ort.Tensor('int64', BigInt64Array.from([0n]), [1]);
+    const out = await sess[voice].run(feeds);
+    return { pcm: out.output.data, rate: cfg.audio.sample_rate };
+  }
+  self.onmessage = async e => {
+    const m = e.data;
+    if (m.op === 'init') { B = m.base; CN = m.cache; return; }
+    try {
+      const r = m.op === 'kokoro' ? await kokoro(m.text, m.voice) : await piper(m.text, m.voice);
+      const pcm = r.pcm instanceof Float32Array ? r.pcm : Float32Array.from(r.pcm);
+      self.postMessage({ id: m.id, pcm, rate: r.rate }, [pcm.buffer]);
+    } catch (err) { self.postMessage({ id: m.id, err: String(err && err.message || err) }); }
+  };
+}
+
+const VozWorker = {
+  w: null, n: 0, wait: new Map(),
+  start() {
+    if (this.w) return this.w;
+    const src = '(' + vozWorkerMain.toString() + ')()';
+    this.w = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })), { type: 'module' });
+    this.w.postMessage({ op: 'init', base: vozBase(), cache: VOZ_CACHE });
+    this.w.onmessage = e => { const p = this.wait.get(e.data.id); if (!p) return; this.wait.delete(e.data.id); clearTimeout(p.to); e.data.err ? p.rej(new Error(e.data.err)) : p.res(e.data); };
+    this.w.onerror = e => { const err = new Error((e && e.message) || t('vozCrash')); for (const p of this.wait.values()) { clearTimeout(p.to); p.rej(err); } this.wait.clear(); this.kill(); };
+    return this.w;
+  },
+  kill() { try { this.w && this.w.terminate(); } catch (e) { } this.w = null; },
+  // text → wav blob; the first passage may take long (the voice is loaded into memory)
+  synth(op, text, voice, first) {
+    const w = this.start(), id = ++this.n;
+    return new Promise((res, rej) => {
+      const to = setTimeout(() => { this.wait.delete(id); this.kill(); rej(new Error(t('vozSlow'))); }, first ? 240000 : 120000);
+      this.wait.set(id, { res: d => res(wavBlob(d.pcm, d.rate)), rej, to });
+      w.postMessage({ op, id, text, voice });
     });
   },
 };
