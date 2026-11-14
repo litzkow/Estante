@@ -20,6 +20,9 @@ jobs:
           K=vozes/kokoro
           for f in config.json tokenizer.json tokenizer_config.json onnx/model_quantized.onnx; do get $K/$f "$HF/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/$f"; done
           for v in af_heart af_bella af_nicole am_michael am_fenrir am_puck bf_emma bm_george bm_fable; do get $K/voices/$v.bin "$HF/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/$v.bin"; done
+          for v in en/en_US/lessac/high/en_US-lessac-high en/en_US/ryan/high/en_US-ryan-high en/en_GB/alba/medium/en_GB-alba-medium en/en_US/hfc_female/medium/en_US-hfc_female-medium; do
+            n=$(basename $v); get vozes/piper/$n.onnx.json "$HF/rhasspy/piper-voices/resolve/main/$v.onnx.json" && get vozes/piper/$n.onnx "$HF/rhasspy/piper-voices/resolve/main/$v.onnx" || rm -f vozes/piper/$n.onnx vozes/piper/$n.onnx.json
+          done
           mkdir -p /tmp/n && cd /tmp/n && npm init -y >/dev/null && npm i --no-audit --no-fund @diffusionstudio/piper-wasm@1.0.0 >/dev/null
           cd $GITHUB_WORKSPACE
           mkdir -p vozes/lib/phonemize
