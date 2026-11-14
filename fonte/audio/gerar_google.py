@@ -9,6 +9,7 @@ KEY = os.environ['GOOGLE_TTS_KEY']
 lang = '-'.join(voice.split('-')[:2])
 SR = 24000
 book = json.load(open(src))
+CAPS = set(int(x) for x in os.environ.get('CAPS', '').split(',') if x.strip())  # só estes capítulos (vazio = todos)
 os.makedirs(out, exist_ok=True)
 
 def tts(text):
@@ -41,7 +42,7 @@ def chunks(segs):
     if cur: yield cur
 
 for ch in book['chapters']:
-    if ch['i'] % parts != part or not ch['segs']: continue
+    if ch['i'] % parts != part or not ch['segs'] or (CAPS and ch['i'] not in CAPS): continue
     segs = ch['segs']; audio, times, t0 = [], [], 0.0
     for n, c in enumerate(chunks(segs)):
         if n: audio.append(np.zeros(int(SR * 0.45), np.float32)); t0 += 0.45

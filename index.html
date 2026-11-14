@@ -893,6 +893,7 @@ function gestures(target, h) {
 }
 /* ================= strings (pt / en) ================= */
 const STR = {
+  cDblT: ['Dois toques na tela', 'Double tap'], cDblZoom: ['Zoom (aproximar/afastar)', 'Zoom in/out'], cDblPanel: ['Ir para o quadro', 'Go to panel'],
   abReady: ['audiolivro pronto · sem pausas', 'ready audiobook · no pauses'], abReadyHD: ['audiolivro pronto · voz mais natural', 'ready audiobook · most natural voice'], abMissing: ['Este capítulo ainda não tem áudio.', 'This chapter has no audio yet.'],
   abNet: ['Não deu para tocar o audiolivro. Confira a internet e tente de novo.', "Couldn't play the audiobook. Check the internet and try again."],
   vozNatural: ['mais natural', 'most natural'], vozFast: ['rápida', 'fast'], vozWarm: ['Abrindo a voz… (só na primeira vez)', 'Opening the voice… (first time only)'],
@@ -2270,7 +2271,9 @@ const Comic = {
         const W = this.stage.clientWidth, zone = x / W, now = performance.now();
         // double tap on a panel while seeing the whole page: guided reading starts at that panel (like Comixology)
         if (this.lastTap && now - this.lastTap.t < 320 && Math.hypot(x - this.lastTap.x, y - this.lastTap.y) < 40) {
-          clearTimeout(this.tapT); this.lastTap = null; this.enterPanelAt(x, y); return;
+          clearTimeout(this.tapT); this.lastTap = null;
+          if ((S.cDbl || 'zoom') === 'zoom') return this.dblZoom(x, y);
+          this.enterPanelAt(x, y); return;
         }
         this.lastTap = { t: now, x, y };
         const act = () => {
@@ -2279,7 +2282,8 @@ const Comic = {
           (this.dir === 'rtl' ? !fwd : fwd) ? this.next() : this.prev();
         };
         const r = this.steps[this.step];
-        if (r && r.full && this.mode === 'quadros' && this.steps.length > 1) { clearTimeout(this.tapT); this.tapT = setTimeout(act, 300); } else act();
+        // wait a moment so a second tap can become a double tap (zoom)
+        if ((S.cDbl || 'zoom') === 'zoom' || (r && r.full && this.mode === 'quadros' && this.steps.length > 1)) { clearTimeout(this.tapT); this.tapT = setTimeout(act, 260); } else act();
       },
       swipe: d => { if (this.z.s > 1.05) return; const fwd = d === 'left'; (this.dir === 'rtl' ? !fwd : fwd) ? this.next() : this.prev(); },
       down: () => { this.zb = Object.assign({}, this.z); },
@@ -2487,6 +2491,14 @@ Return only JSON: {"lang":"source language code","items":[{"box":[..],"kind":"sp
     this.zoomer.style.transform = `translate(${this.z.x}px,${this.z.y}px) scale(${this.z.s})`;
   },
   resetZoom(anim) { this.z = { s: 1, x: 0, y: 0 }; this.applyZoom(anim); },
+  // double tap: zoom in on that spot; double tap again: back to the whole view
+  dblZoom(x, y) {
+    if (this.z.s > 1.05) return this.resetZoom(true);
+    const r = this.stage.getBoundingClientRect(), zr = this.zoomer.getBoundingClientRect();
+    const px = x - (zr.left - r.left), py = y - (zr.top - r.top), S2 = 2.5;
+    this.z = { s: S2, x: this.z.x + px * (1 - S2), y: this.z.y + py * (1 - S2) };
+    this.applyZoom(true);
+  },
   next() {
     if (this.z.s > 1.05) this.resetZoom(true);
     if (this.step < this.steps.length - 1) { this.step++; this.apply(true); this.afterMove(); }
@@ -2565,6 +2577,8 @@ Return only JSON: {"lang":"source language code","items":[{"box":[..],"kind":"sp
             wToggle(t('fullFirst'), t('fullFirstSub'), S.cFullFirst, v => { setS('cFullFirst', v); this.relayout(); }),
             wToggle(t('splitWide'), t('splitWideSub2'), S.cSplit, v => { setS('cSplit', v); this.relayout(); }),
             el('button', { class: 'btn block', style: { margin: '10px 0' }, onclick: () => { Sheets.closeAll(); this.linesSheet(); } }, icon('translate'), t('cLines')),
+            el('div', { style: { margin: '12px 0 6px', fontSize: '14px', fontWeight: 600 }, text: t('cDblT') }),
+            wSeg([['zoom', t('cDblZoom')], ['panel', t('cDblPanel')]], S.cDbl || 'zoom', v => setS('cDbl', v)),
             el('div', { style: { margin: '12px 0 6px', fontSize: '14px', fontWeight: 600 }, text: t('cBoxT') }),
             wSeg([['off', t('cBoxOff')], ['dim', t('cBoxDim')], ['black', t('cBoxBlack')]], S.cBox || (S.cSpot ? 'dim' : 'off'), v => { setS('cBox', v); this.apply(false); }),
             wToggle(t('animZoom'), null, S.anim, v => setS('anim', v)),

@@ -1,5 +1,5 @@
 // Estante: funciona sem internet e se atualiza sozinho
-const VERSION = 'estante-202611140339';
+const VERSION = 'estante-202611140347';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'lib/icon-180.png', 'lib/icon-192.png', 'lib/icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
