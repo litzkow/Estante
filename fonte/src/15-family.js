@@ -65,6 +65,7 @@ const Family = {
         try { await importFiles([new File([blob], f.name)]); } finally { this.importing = false; }
         got.add(f.sha); setS('famGot', [...got]);
       }
+      if (todo.length) { await splitCollections(); await Lib.render(); }
     } catch (e) { if (!quiet) toast(e.message || String(e)); console.warn('family', e); }
     finally { this.syncing = false; }
   },
