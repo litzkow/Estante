@@ -11,8 +11,8 @@ const KOKORO_VOICES = [
 ];
 // fast voices (Piper), kept inside the app too
 const PIPER_VOICES = {
-  pt: [['pt_BR-faber-medium', 'Faber', 'm', 'ttsVCalm'], ['pt_BR-cadu-medium', 'Cadu', 'm', 'ttsVWarm'], ['pt_BR-jeff-medium', 'Jeff', 'm', 'ttsVExpressive']],
-  en: [['en_US-lessac-medium', 'Lessac', 'f', 'ttsVCalm'], ['en_US-ryan-medium', 'Ryan', 'm', 'ttsVDeep'], ['en_GB-alba-medium', 'Alba', 'f', 'ttsVBritish'], ['en_US-hfc_female-medium', 'Hannah', 'f', 'ttsVWarm']],
+  pt: [['pt_BR-faber-medium', 'Faber', 'm', 'ttsVCalm']],
+  en: [['en_US-ryan-medium', 'Ryan', 'm', 'ttsVDeep']],
 };
 const AZURE_VOICES = {
   pt: [['pt-BR-FranciscaNeural', 'Francisca', 'f'], ['pt-BR-AntonioNeural', 'Antonio', 'm'], ['pt-BR-ThalitaMultilingualNeural', 'Thalita', 'f']],
@@ -24,6 +24,13 @@ const Voices = {
   // voices to offer for this book's language (only what is really available)
   async list(lang) {
     const e = this.engine();
+    // narrated audiobooks of this book come first: ready, no pauses
+    const ab = e === 'neural' && Book.rec ? (await AudioBook.voices(Book.rec)).filter(v => (AB_VOICES[v.id.slice(2)] || [])[2] === lang).map(v => ({ id: v.id, name: v.name, desc: t(v.g === 'f' ? 'ttsFemale' : 'ttsMale') + ' · ' + t('abReady') })) : [];
+    if (ab.length) return ab.concat(await this.listLive(lang));
+    return this.listLive(lang);
+  },
+  async listLive(lang) {
+    const e = this.engine();
     if (e === 'azure') return (AZURE_VOICES[lang] || AZURE_VOICES.pt).map(([id, name, g]) => ({ id, name, desc: t(g === 'f' ? 'ttsFemale' : 'ttsMale') + ' · Microsoft' }));
     if (lang === 'en') return KOKORO_VOICES.map(([id, name, g, d]) => ({ id: 'k:' + id, name, desc: t(g === 'f' ? 'ttsFemale' : 'ttsMale') + ' · ' + t(d) + ' · ' + t('vozNatural') }))
       .concat(PIPER_VOICES.en.map(([id, name, g, d]) => ({ id: 'p:' + id, name, desc: t(g === 'f' ? 'ttsFemale' : 'ttsMale') + ' · ' + t(d) + ' · ' + t('vozFast') })));
@@ -31,6 +38,10 @@ const Voices = {
   },
   current(lang, list) {
     const want = S['ttsN_' + this.engine() + '_' + lang];
+    // a book with a narrated audiobook plays it, unless a live voice was picked on purpose for this language
+    if ((list || []).some(v => v.id.startsWith('a:')) && !(want && S['ttsLive_' + lang])) {
+      return list.find(v => v.id === want) || list.find(v => v.id.startsWith('a:'));
+    }
     return (list || []).find(v => v.id === want) || (list || [])[0] || null;
   },
   // text → audio blob (wav or mp3)
@@ -79,7 +90,7 @@ const NeuralPlayer = {
     const a = this.audio = new Audio(); a.preload = 'auto'; a.setAttribute('playsinline', ''); a.preservesPitch = true;
     const done = () => { if (this.silent) { this.silent = false; return; } if (TTS.playing && TTS.engineAudio() && !this.loadingNow) this.next(); };
     a.addEventListener('ended', done);
-    a.addEventListener('error', () => { if (this.silent || !a.getAttribute('src')) { this.silent = false; return; } done(); });
+    a.addEventListener('error', () => { if (this.silent || !a.getAttribute('src')) { this.silent = false; return; } if (this.ab && TTS.playing) { TTS.fail(new Error(t('abNet'))); return; } done(); });
     if ('mediaSession' in navigator) {
       const ms = navigator.mediaSession;
       try {
@@ -122,6 +133,8 @@ const NeuralPlayer = {
     return p;
   },
   async play(fromSeg, voice, lang) {
+    if (voice && voice.startsWith('a:')) return this.abPlay(fromSeg, voice);
+    this.ab = null;
     this.init();
     const tok = ++this.token; this.voice = voice; this.lang = lang;
     this.k = Math.max(0, this.chunks.findIndex(c => c.last >= fromSeg));
@@ -169,15 +182,50 @@ const NeuralPlayer = {
     try { await a.play(); } catch (e) { TTS.pause(); return; }
     this.meta();
   },
+  // ---------- narrated audiobook ----------
+  async abPlay(fromSeg, voice) {
+    this.init(); const tok = ++this.token; this.voice = voice; this.ab = null;
+    if (this.long) { URL.revokeObjectURL(this.long.url); this.long = null; }
+    const rec = Book.rec, ch = Book.ch;
+    if (!(await AudioBook.has(rec, voice, ch))) {
+      if (!TTS.segs.length) return TTS.nextChapter(); // nothing to read in this chapter
+      const live = (await Voices.listLive(TTS.lang()))[0]; if (!live) return TTS.fail(new Error(t('abMissing')));
+      return this.play(fromSeg, live.id, TTS.lang());
+    }
+    let m;
+    try { TTS.loading(0); m = await AudioBook.chapter(rec, voice.slice(2), ch); }
+    catch (e) { TTS.loading(null); if (tok === this.token) TTS.fail(new Error(t('abNet'))); return; }
+    TTS.loading(null);
+    if (tok !== this.token || !TTS.playing) return;
+    this.ab = Object.assign({}, m, { ch, sync: !m.len || m.len === (Book.rootText || '').length });
+    const a = this.audio; a.ontimeupdate = null; a.src = m.url; a.playbackRate = S.ttsRate || 1;
+    let st = 0; if (this.ab.sync && fromSeg > 0) { const x = m.times.find(x => x[1] >= fromSeg); if (x) st = x[0]; }
+    try {
+      if (st) { await new Promise(r => { if (a.readyState >= 1) r(); else a.addEventListener('loadedmetadata', r, { once: true }); }); a.currentTime = st; }
+      await a.play();
+    } catch (e) { if (tok === this.token) TTS.pause(); return; }
+    a.ontimeupdate = () => this.abTick();
+    this.meta();
+  },
+  abTick() {
+    const A = this.ab; if (!A || !A.sync || !A.times.length) return;
+    const ct = this.audio.currentTime; let lo = 0, hi = A.times.length - 1;
+    while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (A.times[mid][0] <= ct) lo = mid; else hi = mid - 1; }
+    const si = A.times[lo][1];
+    if (si !== TTS.i) { TTS.i = si; if (document.visibilityState === 'visible') TTS.follow(); }
+  },
   next() {
+    if (this.ab) { this.ab = null; this.audio.ontimeupdate = null; if (TTS.sleepAt && Date.now() > TTS.sleepAt) { TTS.sleepAt = 0; TTS.pause(); toast(t('ttsSlept')); return; } return TTS.nextChapter(); }
     if (this.long && this.audio.src === this.long.url) { this.long = null; this.audio.ontimeupdate = null; this.k = this.chunks.length; return TTS.nextChapter(); }
     if (TTS.sleepAt && Date.now() > TTS.sleepAt) { TTS.sleepAt = 0; TTS.pause(); toast(t('ttsSlept')); return; }
     this.k++; this.start(++this.token);
   },
-  seek(d) { this.k = clamp(this.k + d, 0, Math.max(0, this.chunks.length - 1)); if (this.long && this.k < this.long.from) { this.long = null; this.audio.ontimeupdate = null; } if (TTS.playing) this.start(++this.token); else { const c = this.chunks[this.k]; if (c) { TTS.i = c.first; TTS.follow(c); } } },
+  seek(d) {
+    if (this.ab) { const a = this.audio; a.currentTime = clamp(a.currentTime + d * 15, 0, Math.max(0, (a.duration || this.ab.dur || 0) - 0.5)); return; }
+    this.k = clamp(this.k + d, 0, Math.max(0, this.chunks.length - 1)); if (this.long && this.k < this.long.from) { this.long = null; this.audio.ontimeupdate = null; } if (TTS.playing) this.start(++this.token); else { const c = this.chunks[this.k]; if (c) { TTS.i = c.first; TTS.follow(c); } } },
   pause() { this.token++; if (this.audio) this.audio.pause(); },
   resume() { if (this.long && this.audio.src !== this.long.url) return false; if (this.audio && this.audio.src && this.audio.currentTime > 0 && !this.audio.ended) { this.audio.play().catch(() => { }); this.meta(); return true; } return false; },
-  stop() { this.token++; if (this.audio) { this.audio.pause(); this.audio.ontimeupdate = null; this.audio.removeAttribute('src'); } this.ahead.clear(); if (this.long) { URL.revokeObjectURL(this.long.url); this.long = null; } },
+  stop() { this.token++; this.ab = null; if (this.audio) { this.audio.pause(); this.audio.ontimeupdate = null; this.audio.removeAttribute('src'); } this.ahead.clear(); if (this.long) { URL.revokeObjectURL(this.long.url); this.long = null; } },
   rate(r) { if (this.audio) this.audio.playbackRate = r; },
   meta() {
     if (!('mediaSession' in navigator) || !window.MediaMetadata) return;

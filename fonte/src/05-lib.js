@@ -14,7 +14,12 @@ const Lib = {
     return Math.round(b.pct * 100) + '%';
   },
   kindLabel(b) { return b.kind === 'comic' ? t('comic') : t('book'); },
-  sibling(rec) { return rec.work ? this.books.find(b => b.id !== rec.id && b.work === rec.work) || null : null; },
+  // the same book in the other language: tagged as one work, or the same volume of the same series
+  sibling(rec) {
+    if (rec.work) { const w = this.books.find(b => b.id !== rec.id && b.work === rec.work); if (w) return w; }
+    if (rec.series && rec.snum) { const k = seriesKey(rec.series); return this.books.find(b => b.id !== rec.id && b.snum === rec.snum && b.series && seriesKey(b.series) === k && b.lang && rec.lang && b.lang !== rec.lang) || null; }
+    return null;
+  },
   filtered() {
     let list = this.books.slice();
     const pick = new Map();
@@ -273,3 +278,5 @@ function volTitle(b) {
   x = x.replace(/^[\s:,–—-]+/, '');
   return x ? x.charAt(0).toUpperCase() + x.slice(1) : t('volumeN', { n: b.snum });
 }
+
+function seriesKey(x) { return (x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim(); }

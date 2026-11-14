@@ -213,10 +213,10 @@ const TTS = {
           for (const v of vs) {
             const on = cur && v.id === cur.id;
             const sm = el('small', { text: v.desc });
-            L.append(el('button', { class: 'li' + (on ? ' cur' : ''), onclick: async () => { setS('ttsN_' + Voices.engine() + '_' + lang, v.id); this.vname = v.name; NeuralPlayer.stop(); L.querySelectorAll('.li').forEach(x => x.classList.toggle('cur', x === sm.closest('.li'))); this.ui(); await this.previewN(v, lang, pc => { sm.textContent = pc === -1 ? t('vozWarm') : t('ttsDownloading', { n: Math.max(0, pc) }); }); sm.textContent = v.desc + ' · ' + t('vozHave'); } },
+            L.append(el('button', { class: 'li' + (on ? ' cur' : ''), onclick: async () => { setS('ttsN_' + Voices.engine() + '_' + lang, v.id); setS('ttsLive_' + lang, !v.id.startsWith('a:')); this.vname = v.name; NeuralPlayer.stop(); L.querySelectorAll('.li').forEach(x => x.classList.toggle('cur', x === sm.closest('.li'))); this.ui(); await this.previewN(v, lang, pc => { sm.textContent = pc === -1 ? t('vozWarm') : t('ttsDownloading', { n: Math.max(0, pc) }); }); sm.textContent = v.desc + ' · ' + t('vozHave'); } },
               icon(on ? 'check' : 'headphones'), el('div', { class: 'lt' }, v.name, sm)));
             // is it already on the phone?
-            if (Voices.engine() === 'neural') VozPack.ready(v.id[0], v.id.slice(2)).then(ok => { sm.textContent = v.desc + ' · ' + (ok ? t('vozHave') : t('vozGet', { n: VozPack.sizeMB(v.id[0]) })); });
+            if (Voices.engine() === 'neural' && !v.id.startsWith('a:')) VozPack.ready(v.id[0], v.id.slice(2)).then(ok => { sm.textContent = v.desc + ' · ' + (ok ? t('vozHave') : t('vozGet', { n: VozPack.sizeMB(v.id[0]) })); });
           }
         };
         draw();
@@ -238,6 +238,7 @@ const TTS = {
   },
   async previewN(v, lang, onPct) {
     NeuralPlayer.init(); this.unlock();
+    if (v.id.startsWith('a:')) { try { const m = await AudioBook.chapter(Book.rec, v.id.slice(2), Book.ch); const a = NeuralPlayer.audio; a.src = m.url; a.playbackRate = S.ttsRate || 1; a.play().catch(() => { }); setTimeout(() => { if (!TTS.playing) a.pause(); }, 9000); } catch (e) { this.fail(new Error(t('abNet'))); } return; }
     const tx = lang === 'en' ? 'Hello! This is the voice that will read your books.' : 'Olá! Esta é a voz que vai ler os seus livros.';
     try { this.loading(0); const b = await Voices.synth(tx, v.id, lang, pc => { this.loading(pc); onPct && onPct(pc); }); this.loading(null); const a = NeuralPlayer.audio; a.src = URL.createObjectURL(b); a.playbackRate = S.ttsRate || 1; a.play().catch(() => { }); }
     catch (e) { this.loading(null); this.fail(e); }

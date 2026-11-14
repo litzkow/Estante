@@ -1,0 +1,59 @@
+name: Narrar audiolivro
+on:
+  workflow_dispatch:
+    inputs:
+      livro: { description: 'Nome do livro (arquivo em audio-src, sem .json)', required: true }
+      voz: { description: 'Voz (af_heart, bm_george, pf_dora, pm_alex...)', required: true }
+permissions:
+  contents: write
+jobs:
+  narrar:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: { parte: [0, 1, 2, 3, 4, 5, 6, 7] }
+    steps:
+      - uses: actions/checkout@v4
+        with: { sparse-checkout: "audio-src\nfonte/audio", sparse-checkout-cone-mode: false }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - uses: actions/cache@v4
+        with: { path: modelos, key: kokoro-onnx-v1.0 }
+      - name: Preparar a voz
+        run: |
+          pip install -q kokoro-onnx lameenc numpy
+          sudo apt-get install -y -qq espeak-ng >/dev/null || true
+          mkdir -p modelos
+          [ -s modelos/kokoro-v1.0.onnx ] || curl -fsSL -o modelos/kokoro-v1.0.onnx https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx
+          [ -s modelos/voices-v1.0.bin ] || curl -fsSL -o modelos/voices-v1.0.bin https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin
+      - name: Narrar
+        env: { KOKORO_MODEL: modelos/kokoro-v1.0.onnx, KOKORO_VOICES: modelos/voices-v1.0.bin }
+        run: python fonte/audio/gerar.py "audio-src/${{ inputs.livro }}.json" saida "${{ inputs.voz }}" ${{ matrix.parte }} 8
+      - uses: actions/upload-artifact@v4
+        with: { name: "parte-${{ matrix.parte }}", path: saida, if-no-files-found: ignore }
+  juntar:
+    needs: narrar
+    runs-on: ubuntu-latest
+    concurrency: { group: audio-push, cancel-in-progress: false }
+    steps:
+      - uses: actions/checkout@v4
+        with: { sparse-checkout: "audio", sparse-checkout-cone-mode: false }
+      - uses: actions/download-artifact@v4
+        with: { pattern: "parte-*", merge-multiple: true, path: "audio/${{ inputs.livro }}/${{ inputs.voz }}" }
+      - name: Guardar
+        run: |
+          python3 - "${{ inputs.livro }}" "${{ inputs.voz }}" <<'PY'
+          import json, os, sys, glob
+          livro, voz = sys.argv[1], sys.argv[2]
+          p = 'audio/index.json'
+          idx = json.load(open(p)) if os.path.exists(p) else {}
+          caps = sorted(int(os.path.basename(f)[:3]) for f in glob.glob(f'audio/{livro}/{voz}/*.mp3'))
+          idx.setdefault(livro, {'voices': {}})['voices'][voz] = {'chapters': caps}
+          json.dump(idx, open(p, 'w'), ensure_ascii=False, indent=1)
+          print(livro, voz, len(caps), 'capítulos')
+          PY
+          du -sh audio/${{ inputs.livro }}/${{ inputs.voz }}
+          git config user.name "estante-bot"; git config user.email "estante-bot@users.noreply.github.com"
+          git add audio
+          git commit -m "Audiolivro: ${{ inputs.livro }} (${{ inputs.voz }})"
+          for i in 1 2 3 4 5; do git pull --rebase -q && git push && break; sleep 5; done

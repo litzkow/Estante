@@ -28,7 +28,7 @@ echo '</head>'
 echo '<body class="t-escuro">'
 cat src/body.html
 echo '<script>'
-cat src/01-util.js src/02-i18n.js src/03-store.js src/04-formats.js src/05-lib.js src/06-comic.js src/07-book.js src/08-pdf.js src/09-main.js src/10-design.js src/11-tts.js src/12-pdfflow.js src/13-voices.js src/14-translate.js src/15-family.js src/16-voxworker.js
+cat src/01-util.js src/02-i18n.js src/03-store.js src/04-formats.js src/05-lib.js src/06-comic.js src/07-book.js src/08-pdf.js src/09-main.js src/10-design.js src/11-tts.js src/12-pdfflow.js src/13-voices.js src/14-translate.js src/15-family.js src/16-voxworker.js src/17-audiobook.js
 echo '</script>'
 echo '</body></html>'
 } > dist/index.html

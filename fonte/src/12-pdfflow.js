@@ -241,6 +241,9 @@ async function splitCollections() {
         let pre = vols[0].label; for (const v of vols) { let i = 0; while (i < pre.length && i < v.label.length && pre[i].toLowerCase() === v.label[i].toLowerCase()) i++; pre = pre.slice(0, i); }
         pre = pre.replace(/\b(and|e|the|o|a|of|de|do|da)\s*$/i, '').replace(/\b(and|e|the|o|a|of|de|do|da)\s*$/i, '').replace(/[\s:,–—-]+$/, '').trim();
         const series = pre.length >= 4 ? pre : b.title;
+        // which language is this collection in (to pair it with the same books in the other language)
+        let lang = b.lang || '';
+        try { let tx = ''; for (const pg of [vols[0].page + 8, vols[0].page + 12, vols[0].page + 20]) { if (pg > n) continue; const tc = await (await pdf.getPage(pg)).getTextContent(); tx += ' ' + tc.items.map(i => i.str).join(' '); } lang = detectLang(tx) || lang; } catch (e) { }
         for (let k = 0; k < vols.length; k++) {
           const v = vols[k]; let cover = null;
           // the volume's own cover is usually one of its first pages: take the most "inked" one (a full-page picture beats a title page)
@@ -254,7 +257,7 @@ async function splitCollections() {
             if (best) cover = await canvasBlob(trimWhite(best), 'image/jpeg', 0.85);
           } catch (e) { }
           const id = b.id + '-v' + (k + 1);
-          await DB.put('books', id, { id, kind: 'book', format: 'pdf', title: v.label, author: b.author || '', fname: b.fname, fileOf: b.id, range: { from: v.page, to: v.to }, series, snum: k + 1, cover, pages: v.to - v.page + 1, size: 0, added: b.added || Date.now(), opened: 0, updated: 0, pct: 0, pos: null, bookmarks: [], highlights: [], collections: [], prefs: {}, fp: (b.fp || b.id) + ':v' + (k + 1), lang: b.lang || '' });
+          await DB.put('books', id, { id, kind: 'book', format: 'pdf', title: v.label, author: b.author || '', fname: b.fname, fileOf: b.id, range: { from: v.page, to: v.to }, series, snum: k + 1, cover, pages: v.to - v.page + 1, size: 0, added: b.added || Date.now(), opened: 0, updated: 0, pct: 0, pos: null, bookmarks: [], highlights: [], collections: [], prefs: {}, fp: (b.fp || b.id) + ':v' + (k + 1), lang, work: 'serie:' + seriesKey(series) + '#' + (k + 1) });
         }
         b.hidden = true; changed = true;
       }

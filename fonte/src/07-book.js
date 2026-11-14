@@ -88,6 +88,9 @@ const Book = {
       this.showUI(true);
       Resume.apply(rec);
       const pos = rec.pos || {};
+      $('#b-ai').classList.toggle('hide', !AI.fn);
+      // volumes of a series learn their language and their place, so the other edition pairs with them
+      if (rec.series && rec.snum && (!rec.work || !rec.lang)) { rec.lang = rec.lang || (this.data.lang || '').slice(0, 2); rec.work = rec.work || 'serie:' + seriesKey(rec.series) + '#' + rec.snum; await DB.put('books', rec.id, rec); Lib.books = Lib.books.map(b => b.id === rec.id ? rec : b); }
       this.sib = Lib.sibling(rec);
       $('#b-lang').classList.toggle('hide', !this.sib);
       if (this.sib) $('#b-lang').textContent = langName(this.sib.lang);
@@ -538,7 +541,7 @@ const Book = {
           fonts.append(btn);
         }
         b.append(
-          Trans.sheetGroup(this.rec, () => { Sheets.closeAll(); this.render(this.ch, { frac: this.page / Math.max(1, this.pages) }); }),
+          AI.fn ? Trans.sheetGroup(this.rec, () => { Sheets.closeAll(); this.render(this.ch, { frac: this.page / Math.max(1, this.pages) }); }) : '',
           wGroup(t('fontSize'), el('div', { class: 'stepper' }, el('button', { style: { fontSize: '15px' }, onclick: () => setSize(-1) }, 'A−'), v, el('button', { style: { fontSize: '20px' }, onclick: () => setSize(1) }, 'A+'))),
           wGroup(t('font'), fonts, el('p', { class: 'muted', style: { fontSize: '12.5px', margin: '8px 0 0', lineHeight: 1.4 }, text: t('fontHelp') })),
           wGroup(t('spacing'), wSeg([[1.4, t('compact')], [1.6, t('normal')], [1.85, t('airy')]], S.bLh, x => { setS('bLh', x); this.relayout(); })),

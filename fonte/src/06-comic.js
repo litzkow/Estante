@@ -239,6 +239,7 @@ const Comic = {
     $('#c-set').onclick = () => this.settings();
     $('#c-grid').onclick = () => this.pagesSheet();
     $('#c-tr').onclick = () => this.toggleTr();
+    $('#c-tr').classList.toggle('hide', !AI.fn);
     $('#c-bmk').onclick = () => this.toggleBookmark();
     const rg = $('#c-range');
     rg.oninput = () => { $('#c-label').textContent = t('pageXofY', { a: rg.value, b: this.src.count }); };
@@ -349,7 +350,7 @@ const Comic = {
   // ---------- translated balloons (AI reads the page, finds each balloon and translates it) ----------
   trLang() { return (this.rec.prefs.trTo) || (S.lang === 'en' ? 'en' : 'pt'); },
   async toggleTr() {
-    if (!AI.fn) return aiKeySheet();
+    if (!AI.fn) return;
     const on = !this.rec.prefs.tr;
     if (on) {
       const pick = await new Promise(res => Sheets.open({ title: t('cTrTitle'), body: b => b.append(

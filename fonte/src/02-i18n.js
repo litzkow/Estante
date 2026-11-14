@@ -1,5 +1,7 @@
 /* ================= strings (pt / en) ================= */
 const STR = {
+  abReady: ['audiolivro pronto · sem pausas', 'ready audiobook · no pauses'], abMissing: ['Este capítulo ainda não tem áudio.', 'This chapter has no audio yet.'],
+  abNet: ['Não deu para tocar o audiolivro. Confira a internet e tente de novo.', "Couldn't play the audiobook. Check the internet and try again."],
   vozNatural: ['mais natural', 'most natural'], vozFast: ['rápida', 'fast'], vozWarm: ['Abrindo a voz… (só na primeira vez)', 'Opening the voice… (first time only)'],
   vozHave: ['no celular ✓', 'on this phone ✓'], vozGet: ['baixa uma vez (~{n} MB)', 'downloads once (~{n} MB)'], vozRetry: ['Tentar de novo', 'Try again'],
   vozNet: ['Não deu para baixar a voz. Confira a internet (o Wi-Fi é melhor, são cerca de 100 MB, só na primeira vez).', "Couldn't download the voice. Check the internet (Wi-Fi is best, about 100 MB, first time only)."],
