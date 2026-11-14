@@ -156,6 +156,17 @@ async function saveRec(rec, { sync = true } = {}) {
   if (sync) Sync.push(rec);
 }
 const saveRecSoon = debounce(rec => saveRec(rec), 1200);
+/* reading position: written instantly (synchronously) on every move, so it survives the app being closed
+   or killed by the phone; the database copy follows a moment later and syncs to other devices */
+const Resume = {
+  save(rec) { try { localStorage.setItem('pos:' + rec.id, JSON.stringify({ pos: rec.pos, pct: rec.pct, at: Date.now() })); } catch (e) { } },
+  apply(rec) {
+    try {
+      const j = JSON.parse(localStorage.getItem('pos:' + rec.id) || 'null');
+      if (j && j.pos && j.at > (rec.posAt || rec.updated || 0)) { rec.pos = j.pos; rec.pct = j.pct ?? rec.pct; }
+    } catch (e) { }
+  },
+};
 
 /* ================= Claude (sample) ================= */
 const AI = {

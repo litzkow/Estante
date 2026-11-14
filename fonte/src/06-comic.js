@@ -254,6 +254,7 @@ const Comic = {
     const rg = $('#c-range'); rg.max = this.src.count; rg.min = 1;
     App.show('v-comic');
     this.showUI(true);
+    Resume.apply(rec);
     const pos = rec.pos || {};
     await this.goto(clamp(pos.page || 0, 0, this.src.count - 1), pos.step || 0, false);
     if (!(await DB.get('kv', 'hint:comic'))) { DB.put('kv', 'hint:comic', 1); this.hint(); }
@@ -470,7 +471,8 @@ Return only JSON: {"lang":"source language code","items":[{"box":[..],"kind":"sp
     // progress
     this.rec.pos = { page: i, step: this.step };
     const pct = n <= 1 ? 1 : (i + (this.steps.length > 1 ? this.step / this.steps.length : 0)) / (n - 1);
-    this.rec.pct = clamp(i >= n - 1 ? 1 : pct, 0, 1);
+    this.rec.pct = clamp(i >= n - 1 ? 1 : pct, 0, 1); this.rec.posAt = Date.now();
+    Resume.save(this.rec);
     saveRecSoon(this.rec);
   },
   toggleUI() { $('#v-comic').classList.contains('ui-off') ? this.showUI() : this.hideUI(); },

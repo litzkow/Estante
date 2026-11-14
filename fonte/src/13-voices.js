@@ -19,11 +19,10 @@ const Voices = {
   async loadKokoro(progress) {
     if (this.kokoro) return this.kokoro;
     const m = await import('https://cdn.jsdelivr.net/npm/kokoro-js@1.2.1/+esm');
-    const gpu = !!navigator.gpu;
     this.kokoro = await m.KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', {
-      dtype: gpu ? 'fp32' : 'q8', device: gpu ? 'webgpu' : 'wasm',
+      dtype: 'q8', device: 'wasm',
       progress_callback: p => { if (p && p.status === 'progress' && progress) progress(Math.round(p.progress || 0)); },
-    }).catch(async e => { if (!gpu) throw e; return m.KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', { dtype: 'q8', device: 'wasm' }); });
+    });
     return this.kokoro;
   },
   async loadPiper() {
@@ -54,6 +53,10 @@ const Voices = {
   // text → audio blob (wav or mp3)
   async synth(text, voiceId, lang, progress) {
     const e = this.engine();
+    lang = (lang || 'pt').slice(0, 2);
+    // a voice that doesn't fit the engine or the language is replaced by that language's chosen voice
+    const okId = id => typeof id === 'string' && (e === 'azure' ? id.toLowerCase().startsWith(lang) : lang === 'en' ? id.startsWith('k:') : id.startsWith('p:'));
+    if (!okId(voiceId)) { const v = this.current(lang, await this.list(lang)); if (!v) throw new Error(t('ttsNoVoices')); voiceId = v.id; }
     if (e === 'azure') {
       const key = S.azKey, region = S.azRegion || 'eastus';
       if (!key) throw new Error(t('azNoKey'));
@@ -93,8 +96,9 @@ const NeuralPlayer = {
   init() {
     if (this.audio) return;
     const a = this.audio = new Audio(); a.preload = 'auto'; a.setAttribute('playsinline', ''); a.preservesPitch = true;
-    a.addEventListener('ended', () => { if (TTS.playing && TTS.engineAudio()) this.next(); });
-    a.addEventListener('error', () => { if (TTS.playing && TTS.engineAudio()) this.next(); });
+    const done = () => { if (this.silent) { this.silent = false; return; } if (TTS.playing && TTS.engineAudio() && !this.loadingNow) this.next(); };
+    a.addEventListener('ended', done);
+    a.addEventListener('error', () => { if (this.silent || !a.getAttribute('src')) { this.silent = false; return; } done(); });
     if ('mediaSession' in navigator) {
       const ms = navigator.mediaSession;
       try {
@@ -104,21 +108,30 @@ const NeuralPlayer = {
       } catch (e) { }
     }
   },
-  // passages of whole sentences, up to ~420 characters (natural rhythm, quick start)
+  // passages of whole sentences, up to ~220 characters, never mixing languages (the voice model reads short input fully)
   build() {
     this.chunks = []; let cur = null;
     TTS.segs.forEach((s, i) => {
-      if (cur && cur.t.length + s.t.length < 420 && s.s - cur.e < 4) { cur.t += ' ' + s.t; cur.e = s.e; cur.last = i; }
-      else { cur = { s: s.s, e: s.e, t: s.t, first: i, last: i }; this.chunks.push(cur); }
+      if (cur && cur.lang === s.lang && cur.t.length + s.t.length < 220 && s.s - cur.e < 4) { cur.t += ' ' + s.t; cur.e = s.e; cur.last = i; }
+      else { cur = { s: s.s, e: s.e, t: s.t, first: i, last: i, lang: s.lang }; this.chunks.push(cur); }
     });
     this.ahead.clear(); for (const u of this.urls) URL.revokeObjectURL(u); this.urls = [];
     if (this.long) { URL.revokeObjectURL(this.long.url); this.long = null; if (this.audio) this.audio.ontimeupdate = null; }
+  },
+  // the voice for a passage: the listener's choice for that language
+  async voiceFor(lang) {
+    this.vcache = this.vcache || {};
+    const k = Voices.engine() + ':' + lang + ':' + (S['ttsN_' + Voices.engine() + '_' + lang] || '');
+    if (!this.vcache[k]) { const v = Voices.current(lang, await Voices.list(lang)); this.vcache[k] = v ? v.id : null; }
+    return this.vcache[k];
   },
   key(c, voice) { let h = 0; const s = voice + '|' + c.t; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return 'au:' + Voices.engine() + ':' + h; },
   async get(i, voice, lang, show) {
     const c = this.chunks[i]; if (!c) return null;
     if (this.ahead.has(i)) return this.ahead.get(i);
     const p = (async () => {
+      lang = c.lang || lang || TTS.lang();
+      if (lang !== this.lang || !voice) voice = await this.voiceFor(lang);
       const k = this.key(c, voice);
       let b = await DB.get('kv', k).catch(() => null);
       if (!b) { b = await Voices.synth(c.t, voice, lang, show ? pc => TTS.loading(pc) : null); DB.put('kv', k, b).catch(() => { }); }
@@ -139,8 +152,11 @@ const NeuralPlayer = {
     TTS.i = c.first; TTS.follow(c);
     let b;
     if (this.long) return this.playLong(tok);
+    if (!this.voice) { this.lang = this.lang || TTS.lang(); this.voice = await this.voiceFor(this.lang); }
+    this.loadingNow = true;
     try { TTS.loading(0); b = await this.get(this.k, this.voice, this.lang, true); }
-    catch (e) { TTS.loading(null); if (tok === this.token) TTS.fail(e); return; }
+    catch (e) { this.loadingNow = false; TTS.loading(null); if (tok === this.token) TTS.fail(e); return; }
+    this.loadingNow = false;
     TTS.loading(null);
     if (tok !== this.token || !TTS.playing) return;
     const u = URL.createObjectURL(b); this.urls.push(u); if (this.urls.length > 6) URL.revokeObjectURL(this.urls.shift());
@@ -155,7 +171,7 @@ const NeuralPlayer = {
     const lang = TTS.lang(), list = await Voices.list(lang), v = Voices.current(lang, list); if (!v) throw new Error(t('ttsNoVoices'));
     this.voice = v.id; this.lang = lang;
     const from = this.k, blobs = [];
-    for (let i = from; i < this.chunks.length; i++) { blobs.push(await this.get(i, v.id, lang, false)); onProgress && onProgress(Math.round((i - from + 1) / (this.chunks.length - from) * 100)); }
+    for (let i = from; i < this.chunks.length; i++) { blobs.push(await this.get(i, v.id, lang, false)); await new Promise(r => setTimeout(r, 0)); onProgress && onProgress(Math.round((i - from + 1) / (this.chunks.length - from) * 100)); }
     const cat = await wavConcat(blobs); if (!cat) return false;
     if (this.long) URL.revokeObjectURL(this.long.url);
     this.long = { url: URL.createObjectURL(cat.blob), starts: cat.starts, from };

@@ -893,6 +893,8 @@ function gestures(target, h) {
 }
 /* ================= strings (pt / en) ================= */
 const STR = {
+  splitDone: ['A coleção foi dividida em livros, numa pasta', 'The collection was split into books, in a folder'],
+  resumedAt: ['Você parou aqui: {c} · {p}%', 'You stopped here: {c} · {p}%'],
   whoTitle: ['Personagens e linha do tempo', 'Characters and timeline'], whoSub: ['Quem é quem até aqui, sem spoiler', 'Who is who so far, no spoilers'], vocabSub: ['Palavras que você guardou lendo', 'Words you saved while reading'],
   repTitle: ['Relatório do livro', 'Book report'], repSub: ['Como o app entendeu este arquivo', 'How the app understood this file'], repFormat: ['Formato', 'Format'], repPages: ['páginas', 'pages'], repChapters: ['Partes lidas pelo app', 'Parts found'], repToc: ['Entradas no sumário', 'Contents entries'], repStart: ['Começa em', 'Starts at'], repLang: ['Idioma', 'Language'],
   repThis: ['Este capítulo', 'This chapter'], repThisV: ['{p} parágrafos · {i} imagens · {h} títulos · {c} letras', '{p} paragraphs · {i} images · {h} headings · {c} characters'], repTrans: ['Tradução guardada', 'Saved translation'], repTransV: ['{n} de {m} partes ({l})', '{n} of {m} parts ({l})'],
@@ -1221,6 +1223,17 @@ async function saveRec(rec, { sync = true } = {}) {
   if (sync) Sync.push(rec);
 }
 const saveRecSoon = debounce(rec => saveRec(rec), 1200);
+/* reading position: written instantly (synchronously) on every move, so it survives the app being closed
+   or killed by the phone; the database copy follows a moment later and syncs to other devices */
+const Resume = {
+  save(rec) { try { localStorage.setItem('pos:' + rec.id, JSON.stringify({ pos: rec.pos, pct: rec.pct, at: Date.now() })); } catch (e) { } },
+  apply(rec) {
+    try {
+      const j = JSON.parse(localStorage.getItem('pos:' + rec.id) || 'null');
+      if (j && j.pos && j.at > (rec.posAt || rec.updated || 0)) { rec.pos = j.pos; rec.pct = j.pct ?? rec.pct; }
+    } catch (e) { }
+  },
+};
 
 /* ================= Claude (sample) ================= */
 const AI = {
@@ -1792,7 +1805,7 @@ const Lib = {
   collections() { const s = new Set(); for (const b of this.books) for (const c of b.collections || []) s.add(c); return [...s].sort(natCmp); },
   async render() {
     for (const u of this.urls) URL.revokeObjectURL(u); this.urls = [];
-    this.books = await DB.all('books');
+    this.books = (await DB.all('books')).filter(b => !b.hidden);
     // banner
     const ban = $('#l-banner'); ban.replaceChildren();
     if (!DB.ok || this.memOnly) ban.append(el('div', { class: 'banner' }, icon('info'), el('div', { text: t('memOnly') })));
@@ -1902,8 +1915,8 @@ const Lib = {
       (b.pct > 0 && !b.finished) ? el('div', { class: 'cbar' }, el('i', { style: { width: Math.round(b.pct * 100) + '%' } })) : null);
     return el('div', { class: 'card' }, cover,
       el('div', { class: 'crow' },
-        el('div', { class: 'ctext' }, el('div', { class: 'ctitle', text: this.series && b.series && b.snum ? t('volumeN', { n: b.snum }) : b.title }),
-          el('div', { class: 'cmeta', text: this.series && b.series && b.snum ? [b.title.replace(/^.*?—\s*/, ''), this.pctLabel(b)].filter(Boolean).join(' · ') : [b.author, this.pctLabel(b)].filter(Boolean).join(' · ') })),
+        el('div', { class: 'ctext' }, el('div', { class: 'ctitle', text: this.series && b.series && b.snum ? volTitle(b) : b.title }),
+          el('div', { class: 'cmeta', text: this.series && b.series && b.snum ? [t('volumeN', { n: b.snum }), this.pctLabel(b)].filter(Boolean).join(' · ') : [b.author, this.pctLabel(b)].filter(Boolean).join(' · ') })),
         el('button', { class: 'icon more', 'aria-label': t('options'), onclick: () => this.menu(b) }, icon('more'))));
   },
   menu(b) {
@@ -1987,7 +2000,7 @@ const Lib = {
     try { await this.open2(rec, id); } finally { OpenFx.end(fx); }
   },
   async open2(rec, id) {
-    const blob = await DB.get('files', id);
+    const blob = await DB.get('files', rec.fileOf || id);
     if (!blob) { Sheets.confirm(t('fileMissing'), t('fileMissingText'), t('addFile')).then(ok => ok && $('#l-file').click()); return; }
     // resume from another device?
     const cloud = await Sync.pull(rec.fp);
@@ -2006,6 +2019,14 @@ const Lib = {
     }
   },
 };
+
+// "Harry Potter and the Chamber of Secrets" inside the "Harry Potter" folder → "Chamber of Secrets"
+function volTitle(b) {
+  let x = b.title.replace(/^.*?—\s*/, '');
+  if (b.series && x.toLowerCase().startsWith(b.series.toLowerCase())) x = x.slice(b.series.length).replace(/^[\s:,–—-]*(and the|and|e o|e a|e|the|o|a)\s+/i, '').trim();
+  x = x.replace(/^[\s:,–—-]+/, '');
+  return x ? x.charAt(0).toUpperCase() + x.slice(1) : t('volumeN', { n: b.snum });
+}
 /* ================= panel detection ================= */
 function detectPanels(img, W, H, dir) {
   const maxD = 1100, sc = Math.min(1, maxD / Math.max(W, H));
@@ -2262,6 +2283,7 @@ const Comic = {
     const rg = $('#c-range'); rg.max = this.src.count; rg.min = 1;
     App.show('v-comic');
     this.showUI(true);
+    Resume.apply(rec);
     const pos = rec.pos || {};
     await this.goto(clamp(pos.page || 0, 0, this.src.count - 1), pos.step || 0, false);
     if (!(await DB.get('kv', 'hint:comic'))) { DB.put('kv', 'hint:comic', 1); this.hint(); }
@@ -2478,7 +2500,8 @@ Return only JSON: {"lang":"source language code","items":[{"box":[..],"kind":"sp
     // progress
     this.rec.pos = { page: i, step: this.step };
     const pct = n <= 1 ? 1 : (i + (this.steps.length > 1 ? this.step / this.steps.length : 0)) / (n - 1);
-    this.rec.pct = clamp(i >= n - 1 ? 1 : pct, 0, 1);
+    this.rec.pct = clamp(i >= n - 1 ? 1 : pct, 0, 1); this.rec.posAt = Date.now();
+    Resume.save(this.rec);
     saveRecSoon(this.rec);
   },
   toggleUI() { $('#v-comic').classList.contains('ui-off') ? this.showUI() : this.hideUI(); },
@@ -2656,6 +2679,7 @@ const Book = {
       App.show('v-book');
       this.applyStyle();
       this.showUI(true);
+      Resume.apply(rec);
       const pos = rec.pos || {};
       this.sib = Lib.sibling(rec);
       $('#b-lang').classList.toggle('hide', !this.sib);
@@ -2663,7 +2687,10 @@ const Book = {
       if (rec.prevOpened && Date.now() - rec.prevOpened > 3 * 864e5 && (rec.pct || 0) > 0.02 && AI.on) setTimeout(() => this.welcomeBack(Math.round((Date.now() - rec.prevOpened) / 864e5)), 1200);
       if (pos.jump) { delete rec.pos; await this.jumpTo(pos.jump); }
       else if (!rec.pos) await this.render(this.data.start || 0, { frac: 0 });
-      else await this.render(clamp(pos.ch || 0, 0, this.data.count - 1), pos.off != null ? { offset: pos.off } : { frac: pos.frac || 0 });
+      else {
+        await this.render(clamp(pos.ch || 0, 0, this.data.count - 1), pos.off != null ? { offset: pos.off, anchor: pos.tr === Trans.mode(rec) ? pos.anchor : null, frac: pos.frac } : { frac: pos.frac || 0 });
+        if ((rec.pct || 0) > 0.003) toast(t('resumedAt', { c: niceLabel(this.tocLabel(this.ch)) || t('chapterN', { n: this.ch + 1, m: this.data.count }), p: Math.round((rec.pct || 0) * 100) }), 2600);
+      }
     } finally { busy(null); }
     if (!(await DB.get('kv', 'hint:book'))) { DB.put('kv', 'hint:book', 1); const h = el('div', { class: 'hint' }, el('div', { text: t('hintBack') }), el('div', { text: t('hintMenuSel') }), el('div', { text: t('hintNext') })); $('#v-book').append(h); setTimeout(() => h.remove(), 3400); }
   },
@@ -2755,7 +2782,15 @@ const Book = {
     this.measure(); this.buildTN();
     let p = 0;
     if (where === 'end') p = this.pages - 1;
-    else if (where.offset != null) p = this.pageOfOffset(where.offset);
+    else if (where.offset != null) {
+      // find the exact sentence again even if the font, size or translation changed the layout
+      let off = where.offset; const a = where.anchor;
+      if (a && this.rootText.slice(off, off + a.length) !== a) {
+        let k = this.rootText.indexOf(a); if (k < 0 && a.length > 24) k = this.rootText.indexOf(a.slice(0, 24));
+        if (k >= 0) off = k; else if (where.frac != null) off = Math.round(where.frac * this.rootText.length);
+      }
+      p = this.pageOfOffset(off);
+    }
     else if (where.anchor) { const t2 = this.flow.querySelector('#' + CSS.escape(where.anchor)) || this.flow.querySelector(`[name="${CSS.escape(where.anchor)}"]`); if (t2) { const r = t2.getClientRects()[0] || t2.getBoundingClientRect(); p = this.pageOfX(this.absX(r)); } }
     else if (where.frac != null) p = Math.min(this.pages - 1, Math.floor(where.frac * this.pages + 1e-6));
     this.showPage(p, false);
@@ -2946,8 +2981,9 @@ const Book = {
     $('#b-label').textContent = t('chapterN', { n: this.ch + 1, m: this.data.count }) + ' · ' + Math.round(pct * 100) + '%';
     const off = this.offsetAtPage(this.page);
     this.curOff = off;
-    this.rec.pos = { ch: this.ch, off, frac: this.page / this.pages };
-    this.rec.pct = pct;
+    this.rec.pos = { ch: this.ch, off, frac: this.page / this.pages, anchor: (this.rootText || '').slice(off, off + 64), tr: Trans.mode(this.rec) };
+    this.rec.pct = pct; this.rec.posAt = Date.now();
+    Resume.save(this.rec);
     if (pct >= 1 && !this.rec.finished) { /* finished on explicit end */ }
     const bm = this.bmHere();
     $('#b-bm').classList.toggle('on', !!bm);
@@ -3424,7 +3460,7 @@ const PdfBook = {
     $('#p-range').value = i + 1;
     $('#p-label').textContent = t('pageXofY', { a: i + 1, b: this.n }) + ' · ' + Math.round(this.zoom * 100) + '%';
     const y = d ? (this.scroll.scrollTop - d.offsetTop) / d.offsetHeight : 0;
-    this.rec.pos = { page: i, y: clamp(y, 0, 1) };
+    this.rec.pos = { page: i, y: clamp(y, 0, 1) }; this.rec.posAt = Date.now(); Resume.save(this.rec);
     this.rec.pct = this.n <= 1 ? 1 : clamp(i / (this.n - 1), 0, 1);
     const bm = (this.rec.bookmarks || []).some(b => b.page === i);
     $('#p-bmk').replaceChildren(icon(bm ? 'bookmarkF' : 'bookmark')); $('#p-bmk').style.color = bm ? 'var(--accent)' : '';
@@ -3616,7 +3652,7 @@ const App = {
     Comic.init(); Book.init(); PdfBook.init(); TTS.init();
     // library controls
     $('#l-add').onclick = () => $('#l-file').click();
-    $('#l-file').onchange = async e => { const f = [...e.target.files]; e.target.value = ''; await importFiles(f); Family.afterImport(f); };
+    $('#l-file').onchange = async e => { const f = [...e.target.files]; e.target.value = ''; await importFiles(f); await splitCollections(); Family.afterImport(f); };
     $('#l-set').onclick = () => settingsSheet();
     $('#l-sort').onclick = () => Lib.sortSheet();
     $('#l-search').onclick = () => { $('#l-sbar').classList.add('on'); $('#l-q').focus(); };
@@ -3644,7 +3680,7 @@ const App = {
     await Goal.init();
     Lib.animNext = true;
     await Lib.render();
-    Splash.hide().then(async () => { Tour.maybe(); await Starter.run(); Family.sync(true); });
+    Splash.hide().then(async () => { Tour.maybe(); await splitCollections(); await Starter.run(); Family.sync(true); });
     // platform capabilities arrive later
     AI.init();
     Sync.init().then(async () => { if (Sync.on) { if (await Sync.pullPrefs()) { applyTheme(); applyComfort(); applyI18n(); } Lib.render(); } });
@@ -3891,7 +3927,17 @@ function closeX(fn) {
 const TTS = {
   playing: false, open: false, segs: [], i: 0, u: null, wake: null, sleepAt: 0,
   supported() { return 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window; },
-  lang() { return ((Book.flow && Book.flow.lang) || 'pt').slice(0, 2).toLowerCase(); },
+  lang() {
+    const rec = Book.rec;
+    if (rec && typeof Trans !== 'undefined' && Trans.mode(rec) === 'tr') return Trans.target(rec);
+    if (this._lk !== Book.rootText) { this._lk = Book.rootText; this._l = detectLang(Book.rootText || '') || ''; }
+    return (this._l || (Book.flow && Book.flow.lang) || (rec && rec.lang) || 'pt').slice(0, 2).toLowerCase();
+  },
+  // the language of one block: a translated paragraph says so; an untranslated one stays in the book's language
+  blockLang(b, def) {
+    const l = b && b.closest && b.closest('[lang]'); const v = l && l.getAttribute('lang');
+    return v && v !== (Book.flow && Book.flow.lang) ? v.slice(0, 2).toLowerCase() : def;
+  },
   NOVELTY: /^(albert|bad news|bahh|bells|boing|bubbles|cellos|good news|jester|organ|superstar|trinoids|whisper|wobble|zarvox|junior|ralph|fred|kathy|grandma|grandpa|rocko|shelley|flo|eddy|reed|sandy|deranged|hysterical|pipe organ)\b/i,
   score(v) {
     const n = v.name;
@@ -3917,9 +3963,12 @@ const TTS = {
       if (!cur || cur.b !== b) { cur = { b, s: pos, e: pos + len }; blocks.push(cur); } else cur.e = pos + len;
       pos += len;
     }
-    const txt = Book.rootText;
+    const txt = Book.rootText, def = this.lang(), tr = Book.rec && typeof Trans !== 'undefined' ? Trans.mode(Book.rec) : 'orig';
     for (const bl of blocks) {
       const t0 = txt.slice(bl.s, bl.e); if (!t0.trim()) continue;
+      // bilingual: read the original only; translated mode: a paragraph that wasn't translated is read in its own language
+      if (bl.b && bl.b.closest && bl.b.closest('.bi-tr')) continue;
+      this.curLang = tr === 'tr' && bl.b && bl.b.closest && bl.b.closest('.tr-miss') ? (detectLang(t0) || def) : this.blockLang(bl.b, def);
       const re = /[^.!?…]+(?:[.!?…]+["”’»)\]]*|$)\s*/g; let m;
       while ((m = re.exec(t0)) && m[0]) {
         let a = bl.s + m.index, piece = m[0];
@@ -3932,7 +3981,7 @@ const TTS = {
       }
     }
   },
-  push(s, e) { const t = Book.rootText.slice(s, e); if (/[\p{L}\p{N}]/u.test(t)) this.segs.push({ s, e, t: t.replace(/\s+/g, ' ').trim() }); },
+  push(s, e) { const t = Book.rootText.slice(s, e); if (/[\p{L}\p{N}]/u.test(t)) this.segs.push({ s, e, t: t.replace(/\s+/g, ' ').trim(), lang: this.curLang || this.lang() }); },
   range(s, e) {
     const root = Book.flow.firstElementChild; if (!root) return null;
     const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT); let n, pos = 0; const r = document.createRange(); let started = false;
@@ -3964,7 +4013,7 @@ const TTS = {
   },
   // iPhone only lets audio start from a tap: start the player silently right now, inside the tap
   unlock() {
-    try { const a = NeuralPlayer.audio; if (!a.src) { a.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA='; a.play().catch(() => { }); } } catch (e) { }
+    try { const a = NeuralPlayer.audio; if (!a.src) { NeuralPlayer.silent = true; a.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA='; a.play().catch(() => { }); } } catch (e) { }
   },
   async play() {
     this.playing = true; this.keepAwake(true); this.ui();
@@ -4169,19 +4218,21 @@ class PdfFlow {
       };
       await walk(await this.pdf.getOutline(), 0);
     } catch (e) { }
-    marks = marks.filter(m => m.label).sort((a, b) => a.page - b.page || a.depth - b.depth);
+    // one volume of a collection: only its own pages
+    const R = this.rec.range || { from: 1, to: n };
+    marks = marks.filter(m => m.label && m.page >= R.from && m.page <= R.to).sort((a, b) => a.page - b.page || a.depth - b.depth);
     const starts = [];
     for (const m of marks) if (!starts.length || m.page > starts[starts.length - 1].page) starts.push(m);
-    if (!starts.length || starts[0].page > 1) starts.unshift({ label: this.title || t('part') + ' 1', page: 1, depth: 0, front: true });
+    if (!starts.length || starts[0].page > R.from) starts.unshift({ label: this.title || t('part') + ' 1', page: R.from, depth: 0, front: true });
     // very long sections are cut into parts of at most 40 pages (keeps each piece light on a phone)
     this.spine = []; this.toc = [];
     starts.forEach((s, k) => {
-      const end = k + 1 < starts.length ? starts[k + 1].page - 1 : n;
+      const end = k + 1 < starts.length ? starts[k + 1].page - 1 : R.to;
       if (end < s.page) return;
       this.toc.push({ label: s.label, depth: s.depth, idx: this.spine.length, frag: '' });
       for (let a = s.page; a <= end; a += 40) this.spine.push({ from: a, to: Math.min(end, a + 39), href: 'p' + a, size: Math.max(400, (Math.min(end, a + 39) - a + 1) * 1800), head: a === s.page && !s.front ? s.label : '' });
     });
-    if (!marks.length) { this.toc = []; this.spine = []; for (let a = 1; a <= n; a += 12) { this.spine.push({ from: a, to: Math.min(n, a + 11), href: 'p' + a, size: (Math.min(n, a + 11) - a + 1) * 1800 }); this.toc.push({ label: t('pageN', { n: a }), depth: 0, idx: this.spine.length - 1, frag: '' }); } }
+    if (!marks.length) { this.toc = []; this.spine = []; for (let a = R.from; a <= R.to; a += 12) { this.spine.push({ from: a, to: Math.min(R.to, a + 11), href: 'p' + a, size: (Math.min(R.to, a + 11) - a + 1) * 1800 }); this.toc.push({ label: t('pageN', { n: a }), depth: 0, idx: this.spine.length - 1, frag: '' }); } }
     // start at the first real chapter (skip cover, contents, copyright…)
     const FRONT = /^(cover|capa|title|contents|sum[aá]rio|[ií]ndice|copyright|dedica|also by|praise|table of)/i;
     const CH = /^(chapter|cap[ií]tulo|prologue|pr[oó]logo|one\b|um\b|1\b|i\b|part (one|1)|parte (um|1))/i;
@@ -4189,6 +4240,9 @@ class PdfFlow {
     this.start = st ? st.idx : 0;
     // running headers: text that repeats at the top/bottom of many pages
     this.repeat = new Map();
+    if (!this.lang) {
+      try { let s = ''; const sp = this.spine[this.start] || this.spine[0]; for (let p = sp.from; p <= Math.min(sp.to, sp.from + 3); p++) s += (await (await this.pdf.getPage(p)).getTextContent()).items.map(x => x.str).join(' ') + ' '; this.lang = detectLang(s) || ''; } catch (e) { }
+    }
   }
   async pageData(p) {
     const page = await this.pdf.getPage(p);
@@ -4227,7 +4281,7 @@ class PdfFlow {
       const ws = L.items.map(it => [it.fs, it.s.length]).sort((a, b) => a[0] - b[0]); let hh = ws.reduce((a, q) => a + q[1], 0) / 2; for (const [f, n] of ws) { hh -= n; if (hh <= 0) { L.fs = f; break; } }
     }
     for (const c of caps) {
-      const L = lines.filter(L => L.x >= c.x - 2 && L.y >= c.y - c.fs * 1.15 && L.y <= c.y + pbody).sort((a, b) => a.y - b.y)[0];
+      const L = lines.filter(L => L.x >= c.x - 2 && L.y >= c.y - c.fs * 1.15 && L.y <= c.y + pbody * 1.5 && L.fs <= pbody * 1.3).sort((a, b) => a.y - b.y)[0];
       if (L) { L.text = c.s.trim() + L.text; L.x = c.x; }
     }
     // pictures: where the page paints images, and how big
@@ -4311,7 +4365,11 @@ class PdfFlow {
         const gap = lastL && lastL.page === pd.page && !lastL.fig ? L.y - lastL.y : lineGap;
         const indent = L.x > left + body * 0.9 && L.x < left + body * 4;
         const prevShort = lastL && (lastL.r - lastL.x) < full * 0.82 && /[.!?:;”"’)\]…—]$/.test(lastL.text);
-        const startsPara = !para || big !== para.big || gap > lineGap * 1.6 || indent || prevShort || (center && !para.center);
+        const ended = !para || /[.!?:;”"’)\]…—–-]["”’)]?$/.test(para.text) || /^[A-ZÀ-Ý0-9 ,.'’\-]+$/.test(para.text);
+        const midSentence = para && !big && !para.big && !ended && /^[a-zà-ÿ,;(]/.test(L.text);
+        const hard = !para || big !== para.big || (center && !para.center) || gap > lineGap * 2.4;
+        const soft = gap > lineGap * 1.6 || indent || prevShort;
+        const startsPara = !midSentence && (hard || (soft && ended));
         if (startsPara) {
           flush();
           const tag = big ? (L.fs > body * 1.6 ? 'h1' : 'h2') : 'p';
@@ -4344,6 +4402,71 @@ class PdfFlow {
   locate(href) { const m = /^p(\d+)/.exec(href || ''); const p = m ? +m[1] : 1; return { idx: Math.max(0, this.spine.findIndex(s => p >= s.from && p <= s.to)), frag: '' }; }
   close() { for (const u of this.urls) URL.revokeObjectURL(u); this.urls = []; closePdf(this.pdf); }
 }
+
+/* a PDF that holds several books (a "complete collection") becomes one shelf folder with each book in order.
+   The file is stored once; each book only points to its range of pages. */
+async function splitCollections() {
+  let changed = false;
+  for (const b of await DB.all('books')) {
+    if (b.format !== 'pdf' || b.splitChecked || b.fileOf || b.kind === 'comic') continue;
+    b.splitChecked = true;
+    const blob = await DB.get('files', b.id);
+    if (!blob) { await DB.put('books', b.id, b); continue; }
+    let pdf;
+    try {
+      pdf = await openPdf(blob);
+      const n = pdf.numPages, tops = [];
+      for (const it of (await pdf.getOutline()) || []) {
+        let p = null;
+        try { let d = it.dest; if (typeof d === 'string') d = await pdf.getDestination(d); if (Array.isArray(d) && d[0]) p = (await pdf.getPageIndex(d[0])) + 1; } catch (e) { }
+        if (p) tops.push({ label: (it.title || '').trim(), page: p, kids: (it.items || []).length });
+      }
+      tops.sort((a, c) => a.page - c.page);
+      const vols = [];
+      tops.forEach((x, k) => { if (x.kids >= 5) { const nx = tops.slice(k + 1).find(y => y.page > x.page); vols.push({ ...x, to: nx ? nx.page - 1 : n }); } });
+      if (vols.length >= 2 && vols.every(v => v.to - v.page >= 30)) {
+        // series name: what the volume titles have in common ("Harry Potter and the …" → "Harry Potter")
+        let pre = vols[0].label; for (const v of vols) { let i = 0; while (i < pre.length && i < v.label.length && pre[i].toLowerCase() === v.label[i].toLowerCase()) i++; pre = pre.slice(0, i); }
+        pre = pre.replace(/\b(and|e|the|o|a|of|de|do|da)\s*$/i, '').replace(/\b(and|e|the|o|a|of|de|do|da)\s*$/i, '').replace(/[\s:,–—-]+$/, '').trim();
+        const series = pre.length >= 4 ? pre : b.title;
+        for (let k = 0; k < vols.length; k++) {
+          const v = vols[k]; let cover = null;
+          // the volume's own cover is usually one of its first pages: take the most "inked" one (a full-page picture beats a title page)
+          try {
+            let best = null, bestInk = -1;
+            for (let pg = v.page; pg <= Math.min(v.to, v.page + 3); pg++) {
+              const cv = await renderPdfPage(pdf, pg, 360), cx = cv.getContext('2d'), d = cx.getImageData(0, 0, cv.width, cv.height).data;
+              let ink = 0; for (let i = 0; i < d.length; i += 64) if (d[i] + d[i + 1] + d[i + 2] < 690) ink++;
+              if (ink > bestInk) { bestInk = ink; best = cv; }
+            }
+            if (best) cover = await canvasBlob(trimWhite(best), 'image/jpeg', 0.85);
+          } catch (e) { }
+          const id = b.id + '-v' + (k + 1);
+          await DB.put('books', id, { id, kind: 'book', format: 'pdf', title: v.label, author: b.author || '', fname: b.fname, fileOf: b.id, range: { from: v.page, to: v.to }, series, snum: k + 1, cover, pages: v.to - v.page + 1, size: 0, added: b.added || Date.now(), opened: 0, updated: 0, pct: 0, pos: null, bookmarks: [], highlights: [], collections: [], prefs: {}, fp: (b.fp || b.id) + ':v' + (k + 1), lang: b.lang || '' });
+        }
+        b.hidden = true; changed = true;
+      }
+      await DB.put('books', b.id, b);
+    } catch (e) { console.warn('split', e); await DB.put('books', b.id, b).catch(() => { }); }
+    finally { closePdf(pdf); }
+  }
+  if (changed) { await Lib.render(); toast(t('splitDone')); }
+}
+
+// cut the white page margin around a cover picture
+function trimWhite(cv) {
+  const W = cv.width, H = cv.height, d = cv.getContext('2d').getImageData(0, 0, W, H).data;
+  const ink = (x, y) => { const i = (y * W + x) * 4; return d[i] + d[i + 1] + d[i + 2] < 705; };
+  const rowInk = y => { let c = 0; for (let x = 0; x < W; x += 2) if (ink(x, y)) c++; return c > W * 0.04; };
+  const colInk = x => { let c = 0; for (let y = 0; y < H; y += 2) if (ink(x, y)) c++; return c > H * 0.04; };
+  let t = 0, b = H - 1, l = 0, r = W - 1;
+  while (t < H / 3 && !rowInk(t)) t++; while (b > H * 2 / 3 && !rowInk(b)) b--;
+  while (l < W / 3 && !colInk(l)) l++; while (r > W * 2 / 3 && !colInk(r)) r--;
+  const w = r - l + 1, h = b - t + 1;
+  if (w > W * 0.95 && h > H * 0.95) return cv;
+  if (w < W * 0.4 || h < H * 0.4 || h / w < 1.1 || h / w > 1.8) return cv;
+  const o = document.createElement('canvas'); o.width = w; o.height = h; o.getContext('2d').drawImage(cv, l, t, w, h, 0, 0, w, h); return o;
+}
 /* ================= natural voices: free neural voices that run on the phone, or Microsoft with a key =================
    neural  → English: Kokoro (kokoro-js), Portuguese: Piper (vits-web). Both run on the device, free, no limit.
    azure   → Microsoft Azure Speech with the user's own key (official free tier, then paid).
@@ -4365,11 +4488,10 @@ const Voices = {
   async loadKokoro(progress) {
     if (this.kokoro) return this.kokoro;
     const m = await import('https://cdn.jsdelivr.net/npm/kokoro-js@1.2.1/+esm');
-    const gpu = !!navigator.gpu;
     this.kokoro = await m.KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', {
-      dtype: gpu ? 'fp32' : 'q8', device: gpu ? 'webgpu' : 'wasm',
+      dtype: 'q8', device: 'wasm',
       progress_callback: p => { if (p && p.status === 'progress' && progress) progress(Math.round(p.progress || 0)); },
-    }).catch(async e => { if (!gpu) throw e; return m.KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', { dtype: 'q8', device: 'wasm' }); });
+    });
     return this.kokoro;
   },
   async loadPiper() {
@@ -4400,6 +4522,10 @@ const Voices = {
   // text → audio blob (wav or mp3)
   async synth(text, voiceId, lang, progress) {
     const e = this.engine();
+    lang = (lang || 'pt').slice(0, 2);
+    // a voice that doesn't fit the engine or the language is replaced by that language's chosen voice
+    const okId = id => typeof id === 'string' && (e === 'azure' ? id.toLowerCase().startsWith(lang) : lang === 'en' ? id.startsWith('k:') : id.startsWith('p:'));
+    if (!okId(voiceId)) { const v = this.current(lang, await this.list(lang)); if (!v) throw new Error(t('ttsNoVoices')); voiceId = v.id; }
     if (e === 'azure') {
       const key = S.azKey, region = S.azRegion || 'eastus';
       if (!key) throw new Error(t('azNoKey'));
@@ -4439,8 +4565,9 @@ const NeuralPlayer = {
   init() {
     if (this.audio) return;
     const a = this.audio = new Audio(); a.preload = 'auto'; a.setAttribute('playsinline', ''); a.preservesPitch = true;
-    a.addEventListener('ended', () => { if (TTS.playing && TTS.engineAudio()) this.next(); });
-    a.addEventListener('error', () => { if (TTS.playing && TTS.engineAudio()) this.next(); });
+    const done = () => { if (this.silent) { this.silent = false; return; } if (TTS.playing && TTS.engineAudio() && !this.loadingNow) this.next(); };
+    a.addEventListener('ended', done);
+    a.addEventListener('error', () => { if (this.silent || !a.getAttribute('src')) { this.silent = false; return; } done(); });
     if ('mediaSession' in navigator) {
       const ms = navigator.mediaSession;
       try {
@@ -4450,21 +4577,30 @@ const NeuralPlayer = {
       } catch (e) { }
     }
   },
-  // passages of whole sentences, up to ~420 characters (natural rhythm, quick start)
+  // passages of whole sentences, up to ~220 characters, never mixing languages (the voice model reads short input fully)
   build() {
     this.chunks = []; let cur = null;
     TTS.segs.forEach((s, i) => {
-      if (cur && cur.t.length + s.t.length < 420 && s.s - cur.e < 4) { cur.t += ' ' + s.t; cur.e = s.e; cur.last = i; }
-      else { cur = { s: s.s, e: s.e, t: s.t, first: i, last: i }; this.chunks.push(cur); }
+      if (cur && cur.lang === s.lang && cur.t.length + s.t.length < 220 && s.s - cur.e < 4) { cur.t += ' ' + s.t; cur.e = s.e; cur.last = i; }
+      else { cur = { s: s.s, e: s.e, t: s.t, first: i, last: i, lang: s.lang }; this.chunks.push(cur); }
     });
     this.ahead.clear(); for (const u of this.urls) URL.revokeObjectURL(u); this.urls = [];
     if (this.long) { URL.revokeObjectURL(this.long.url); this.long = null; if (this.audio) this.audio.ontimeupdate = null; }
+  },
+  // the voice for a passage: the listener's choice for that language
+  async voiceFor(lang) {
+    this.vcache = this.vcache || {};
+    const k = Voices.engine() + ':' + lang + ':' + (S['ttsN_' + Voices.engine() + '_' + lang] || '');
+    if (!this.vcache[k]) { const v = Voices.current(lang, await Voices.list(lang)); this.vcache[k] = v ? v.id : null; }
+    return this.vcache[k];
   },
   key(c, voice) { let h = 0; const s = voice + '|' + c.t; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return 'au:' + Voices.engine() + ':' + h; },
   async get(i, voice, lang, show) {
     const c = this.chunks[i]; if (!c) return null;
     if (this.ahead.has(i)) return this.ahead.get(i);
     const p = (async () => {
+      lang = c.lang || lang || TTS.lang();
+      if (lang !== this.lang || !voice) voice = await this.voiceFor(lang);
       const k = this.key(c, voice);
       let b = await DB.get('kv', k).catch(() => null);
       if (!b) { b = await Voices.synth(c.t, voice, lang, show ? pc => TTS.loading(pc) : null); DB.put('kv', k, b).catch(() => { }); }
@@ -4485,8 +4621,11 @@ const NeuralPlayer = {
     TTS.i = c.first; TTS.follow(c);
     let b;
     if (this.long) return this.playLong(tok);
+    if (!this.voice) { this.lang = this.lang || TTS.lang(); this.voice = await this.voiceFor(this.lang); }
+    this.loadingNow = true;
     try { TTS.loading(0); b = await this.get(this.k, this.voice, this.lang, true); }
-    catch (e) { TTS.loading(null); if (tok === this.token) TTS.fail(e); return; }
+    catch (e) { this.loadingNow = false; TTS.loading(null); if (tok === this.token) TTS.fail(e); return; }
+    this.loadingNow = false;
     TTS.loading(null);
     if (tok !== this.token || !TTS.playing) return;
     const u = URL.createObjectURL(b); this.urls.push(u); if (this.urls.length > 6) URL.revokeObjectURL(this.urls.shift());
@@ -4501,7 +4640,7 @@ const NeuralPlayer = {
     const lang = TTS.lang(), list = await Voices.list(lang), v = Voices.current(lang, list); if (!v) throw new Error(t('ttsNoVoices'));
     this.voice = v.id; this.lang = lang;
     const from = this.k, blobs = [];
-    for (let i = from; i < this.chunks.length; i++) { blobs.push(await this.get(i, v.id, lang, false)); onProgress && onProgress(Math.round((i - from + 1) / (this.chunks.length - from) * 100)); }
+    for (let i = from; i < this.chunks.length; i++) { blobs.push(await this.get(i, v.id, lang, false)); await new Promise(r => setTimeout(r, 0)); onProgress && onProgress(Math.round((i - from + 1) / (this.chunks.length - from) * 100)); }
     const cat = await wavConcat(blobs); if (!cat) return false;
     if (this.long) URL.revokeObjectURL(this.long.url);
     this.long = { url: URL.createObjectURL(cat.blob), starts: cat.starts, from };

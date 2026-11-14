@@ -1,5 +1,7 @@
 /* ================= strings (pt / en) ================= */
 const STR = {
+  splitDone: ['A coleção foi dividida em livros, numa pasta', 'The collection was split into books, in a folder'],
+  resumedAt: ['Você parou aqui: {c} · {p}%', 'You stopped here: {c} · {p}%'],
   whoTitle: ['Personagens e linha do tempo', 'Characters and timeline'], whoSub: ['Quem é quem até aqui, sem spoiler', 'Who is who so far, no spoilers'], vocabSub: ['Palavras que você guardou lendo', 'Words you saved while reading'],
   repTitle: ['Relatório do livro', 'Book report'], repSub: ['Como o app entendeu este arquivo', 'How the app understood this file'], repFormat: ['Formato', 'Format'], repPages: ['páginas', 'pages'], repChapters: ['Partes lidas pelo app', 'Parts found'], repToc: ['Entradas no sumário', 'Contents entries'], repStart: ['Começa em', 'Starts at'], repLang: ['Idioma', 'Language'],
   repThis: ['Este capítulo', 'This chapter'], repThisV: ['{p} parágrafos · {i} imagens · {h} títulos · {c} letras', '{p} paragraphs · {i} images · {h} headings · {c} characters'], repTrans: ['Tradução guardada', 'Saved translation'], repTransV: ['{n} de {m} partes ({l})', '{n} of {m} parts ({l})'],

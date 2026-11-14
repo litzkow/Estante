@@ -30,19 +30,21 @@ class PdfFlow {
       };
       await walk(await this.pdf.getOutline(), 0);
     } catch (e) { }
-    marks = marks.filter(m => m.label).sort((a, b) => a.page - b.page || a.depth - b.depth);
+    // one volume of a collection: only its own pages
+    const R = this.rec.range || { from: 1, to: n };
+    marks = marks.filter(m => m.label && m.page >= R.from && m.page <= R.to).sort((a, b) => a.page - b.page || a.depth - b.depth);
     const starts = [];
     for (const m of marks) if (!starts.length || m.page > starts[starts.length - 1].page) starts.push(m);
-    if (!starts.length || starts[0].page > 1) starts.unshift({ label: this.title || t('part') + ' 1', page: 1, depth: 0, front: true });
+    if (!starts.length || starts[0].page > R.from) starts.unshift({ label: this.title || t('part') + ' 1', page: R.from, depth: 0, front: true });
     // very long sections are cut into parts of at most 40 pages (keeps each piece light on a phone)
     this.spine = []; this.toc = [];
     starts.forEach((s, k) => {
-      const end = k + 1 < starts.length ? starts[k + 1].page - 1 : n;
+      const end = k + 1 < starts.length ? starts[k + 1].page - 1 : R.to;
       if (end < s.page) return;
       this.toc.push({ label: s.label, depth: s.depth, idx: this.spine.length, frag: '' });
       for (let a = s.page; a <= end; a += 40) this.spine.push({ from: a, to: Math.min(end, a + 39), href: 'p' + a, size: Math.max(400, (Math.min(end, a + 39) - a + 1) * 1800), head: a === s.page && !s.front ? s.label : '' });
     });
-    if (!marks.length) { this.toc = []; this.spine = []; for (let a = 1; a <= n; a += 12) { this.spine.push({ from: a, to: Math.min(n, a + 11), href: 'p' + a, size: (Math.min(n, a + 11) - a + 1) * 1800 }); this.toc.push({ label: t('pageN', { n: a }), depth: 0, idx: this.spine.length - 1, frag: '' }); } }
+    if (!marks.length) { this.toc = []; this.spine = []; for (let a = R.from; a <= R.to; a += 12) { this.spine.push({ from: a, to: Math.min(R.to, a + 11), href: 'p' + a, size: (Math.min(R.to, a + 11) - a + 1) * 1800 }); this.toc.push({ label: t('pageN', { n: a }), depth: 0, idx: this.spine.length - 1, frag: '' }); } }
     // start at the first real chapter (skip cover, contents, copyright…)
     const FRONT = /^(cover|capa|title|contents|sum[aá]rio|[ií]ndice|copyright|dedica|also by|praise|table of)/i;
     const CH = /^(chapter|cap[ií]tulo|prologue|pr[oó]logo|one\b|um\b|1\b|i\b|part (one|1)|parte (um|1))/i;
@@ -50,6 +52,9 @@ class PdfFlow {
     this.start = st ? st.idx : 0;
     // running headers: text that repeats at the top/bottom of many pages
     this.repeat = new Map();
+    if (!this.lang) {
+      try { let s = ''; const sp = this.spine[this.start] || this.spine[0]; for (let p = sp.from; p <= Math.min(sp.to, sp.from + 3); p++) s += (await (await this.pdf.getPage(p)).getTextContent()).items.map(x => x.str).join(' ') + ' '; this.lang = detectLang(s) || ''; } catch (e) { }
+    }
   }
   async pageData(p) {
     const page = await this.pdf.getPage(p);
@@ -88,7 +93,7 @@ class PdfFlow {
       const ws = L.items.map(it => [it.fs, it.s.length]).sort((a, b) => a[0] - b[0]); let hh = ws.reduce((a, q) => a + q[1], 0) / 2; for (const [f, n] of ws) { hh -= n; if (hh <= 0) { L.fs = f; break; } }
     }
     for (const c of caps) {
-      const L = lines.filter(L => L.x >= c.x - 2 && L.y >= c.y - c.fs * 1.15 && L.y <= c.y + pbody).sort((a, b) => a.y - b.y)[0];
+      const L = lines.filter(L => L.x >= c.x - 2 && L.y >= c.y - c.fs * 1.15 && L.y <= c.y + pbody * 1.5 && L.fs <= pbody * 1.3).sort((a, b) => a.y - b.y)[0];
       if (L) { L.text = c.s.trim() + L.text; L.x = c.x; }
     }
     // pictures: where the page paints images, and how big
@@ -172,7 +177,11 @@ class PdfFlow {
         const gap = lastL && lastL.page === pd.page && !lastL.fig ? L.y - lastL.y : lineGap;
         const indent = L.x > left + body * 0.9 && L.x < left + body * 4;
         const prevShort = lastL && (lastL.r - lastL.x) < full * 0.82 && /[.!?:;”"’)\]…—]$/.test(lastL.text);
-        const startsPara = !para || big !== para.big || gap > lineGap * 1.6 || indent || prevShort || (center && !para.center);
+        const ended = !para || /[.!?:;”"’)\]…—–-]["”’)]?$/.test(para.text) || /^[A-ZÀ-Ý0-9 ,.'’\-]+$/.test(para.text);
+        const midSentence = para && !big && !para.big && !ended && /^[a-zà-ÿ,;(]/.test(L.text);
+        const hard = !para || big !== para.big || (center && !para.center) || gap > lineGap * 2.4;
+        const soft = gap > lineGap * 1.6 || indent || prevShort;
+        const startsPara = !midSentence && (hard || (soft && ended));
         if (startsPara) {
           flush();
           const tag = big ? (L.fs > body * 1.6 ? 'h1' : 'h2') : 'p';
@@ -204,4 +213,69 @@ class PdfFlow {
   }
   locate(href) { const m = /^p(\d+)/.exec(href || ''); const p = m ? +m[1] : 1; return { idx: Math.max(0, this.spine.findIndex(s => p >= s.from && p <= s.to)), frag: '' }; }
   close() { for (const u of this.urls) URL.revokeObjectURL(u); this.urls = []; closePdf(this.pdf); }
+}
+
+/* a PDF that holds several books (a "complete collection") becomes one shelf folder with each book in order.
+   The file is stored once; each book only points to its range of pages. */
+async function splitCollections() {
+  let changed = false;
+  for (const b of await DB.all('books')) {
+    if (b.format !== 'pdf' || b.splitChecked || b.fileOf || b.kind === 'comic') continue;
+    b.splitChecked = true;
+    const blob = await DB.get('files', b.id);
+    if (!blob) { await DB.put('books', b.id, b); continue; }
+    let pdf;
+    try {
+      pdf = await openPdf(blob);
+      const n = pdf.numPages, tops = [];
+      for (const it of (await pdf.getOutline()) || []) {
+        let p = null;
+        try { let d = it.dest; if (typeof d === 'string') d = await pdf.getDestination(d); if (Array.isArray(d) && d[0]) p = (await pdf.getPageIndex(d[0])) + 1; } catch (e) { }
+        if (p) tops.push({ label: (it.title || '').trim(), page: p, kids: (it.items || []).length });
+      }
+      tops.sort((a, c) => a.page - c.page);
+      const vols = [];
+      tops.forEach((x, k) => { if (x.kids >= 5) { const nx = tops.slice(k + 1).find(y => y.page > x.page); vols.push({ ...x, to: nx ? nx.page - 1 : n }); } });
+      if (vols.length >= 2 && vols.every(v => v.to - v.page >= 30)) {
+        // series name: what the volume titles have in common ("Harry Potter and the …" → "Harry Potter")
+        let pre = vols[0].label; for (const v of vols) { let i = 0; while (i < pre.length && i < v.label.length && pre[i].toLowerCase() === v.label[i].toLowerCase()) i++; pre = pre.slice(0, i); }
+        pre = pre.replace(/\b(and|e|the|o|a|of|de|do|da)\s*$/i, '').replace(/\b(and|e|the|o|a|of|de|do|da)\s*$/i, '').replace(/[\s:,–—-]+$/, '').trim();
+        const series = pre.length >= 4 ? pre : b.title;
+        for (let k = 0; k < vols.length; k++) {
+          const v = vols[k]; let cover = null;
+          // the volume's own cover is usually one of its first pages: take the most "inked" one (a full-page picture beats a title page)
+          try {
+            let best = null, bestInk = -1;
+            for (let pg = v.page; pg <= Math.min(v.to, v.page + 3); pg++) {
+              const cv = await renderPdfPage(pdf, pg, 360), cx = cv.getContext('2d'), d = cx.getImageData(0, 0, cv.width, cv.height).data;
+              let ink = 0; for (let i = 0; i < d.length; i += 64) if (d[i] + d[i + 1] + d[i + 2] < 690) ink++;
+              if (ink > bestInk) { bestInk = ink; best = cv; }
+            }
+            if (best) cover = await canvasBlob(trimWhite(best), 'image/jpeg', 0.85);
+          } catch (e) { }
+          const id = b.id + '-v' + (k + 1);
+          await DB.put('books', id, { id, kind: 'book', format: 'pdf', title: v.label, author: b.author || '', fname: b.fname, fileOf: b.id, range: { from: v.page, to: v.to }, series, snum: k + 1, cover, pages: v.to - v.page + 1, size: 0, added: b.added || Date.now(), opened: 0, updated: 0, pct: 0, pos: null, bookmarks: [], highlights: [], collections: [], prefs: {}, fp: (b.fp || b.id) + ':v' + (k + 1), lang: b.lang || '' });
+        }
+        b.hidden = true; changed = true;
+      }
+      await DB.put('books', b.id, b);
+    } catch (e) { console.warn('split', e); await DB.put('books', b.id, b).catch(() => { }); }
+    finally { closePdf(pdf); }
+  }
+  if (changed) { await Lib.render(); toast(t('splitDone')); }
+}
+
+// cut the white page margin around a cover picture
+function trimWhite(cv) {
+  const W = cv.width, H = cv.height, d = cv.getContext('2d').getImageData(0, 0, W, H).data;
+  const ink = (x, y) => { const i = (y * W + x) * 4; return d[i] + d[i + 1] + d[i + 2] < 705; };
+  const rowInk = y => { let c = 0; for (let x = 0; x < W; x += 2) if (ink(x, y)) c++; return c > W * 0.04; };
+  const colInk = x => { let c = 0; for (let y = 0; y < H; y += 2) if (ink(x, y)) c++; return c > H * 0.04; };
+  let t = 0, b = H - 1, l = 0, r = W - 1;
+  while (t < H / 3 && !rowInk(t)) t++; while (b > H * 2 / 3 && !rowInk(b)) b--;
+  while (l < W / 3 && !colInk(l)) l++; while (r > W * 2 / 3 && !colInk(r)) r--;
+  const w = r - l + 1, h = b - t + 1;
+  if (w > W * 0.95 && h > H * 0.95) return cv;
+  if (w < W * 0.4 || h < H * 0.4 || h / w < 1.1 || h / w > 1.8) return cv;
+  const o = document.createElement('canvas'); o.width = w; o.height = h; o.getContext('2d').drawImage(cv, l, t, w, h, 0, 0, w, h); return o;
 }

@@ -2,7 +2,17 @@
 const TTS = {
   playing: false, open: false, segs: [], i: 0, u: null, wake: null, sleepAt: 0,
   supported() { return 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window; },
-  lang() { return ((Book.flow && Book.flow.lang) || 'pt').slice(0, 2).toLowerCase(); },
+  lang() {
+    const rec = Book.rec;
+    if (rec && typeof Trans !== 'undefined' && Trans.mode(rec) === 'tr') return Trans.target(rec);
+    if (this._lk !== Book.rootText) { this._lk = Book.rootText; this._l = detectLang(Book.rootText || '') || ''; }
+    return (this._l || (Book.flow && Book.flow.lang) || (rec && rec.lang) || 'pt').slice(0, 2).toLowerCase();
+  },
+  // the language of one block: a translated paragraph says so; an untranslated one stays in the book's language
+  blockLang(b, def) {
+    const l = b && b.closest && b.closest('[lang]'); const v = l && l.getAttribute('lang');
+    return v && v !== (Book.flow && Book.flow.lang) ? v.slice(0, 2).toLowerCase() : def;
+  },
   NOVELTY: /^(albert|bad news|bahh|bells|boing|bubbles|cellos|good news|jester|organ|superstar|trinoids|whisper|wobble|zarvox|junior|ralph|fred|kathy|grandma|grandpa|rocko|shelley|flo|eddy|reed|sandy|deranged|hysterical|pipe organ)\b/i,
   score(v) {
     const n = v.name;
@@ -28,9 +38,12 @@ const TTS = {
       if (!cur || cur.b !== b) { cur = { b, s: pos, e: pos + len }; blocks.push(cur); } else cur.e = pos + len;
       pos += len;
     }
-    const txt = Book.rootText;
+    const txt = Book.rootText, def = this.lang(), tr = Book.rec && typeof Trans !== 'undefined' ? Trans.mode(Book.rec) : 'orig';
     for (const bl of blocks) {
       const t0 = txt.slice(bl.s, bl.e); if (!t0.trim()) continue;
+      // bilingual: read the original only; translated mode: a paragraph that wasn't translated is read in its own language
+      if (bl.b && bl.b.closest && bl.b.closest('.bi-tr')) continue;
+      this.curLang = tr === 'tr' && bl.b && bl.b.closest && bl.b.closest('.tr-miss') ? (detectLang(t0) || def) : this.blockLang(bl.b, def);
       const re = /[^.!?…]+(?:[.!?…]+["”’»)\]]*|$)\s*/g; let m;
       while ((m = re.exec(t0)) && m[0]) {
         let a = bl.s + m.index, piece = m[0];
@@ -43,7 +56,7 @@ const TTS = {
       }
     }
   },
-  push(s, e) { const t = Book.rootText.slice(s, e); if (/[\p{L}\p{N}]/u.test(t)) this.segs.push({ s, e, t: t.replace(/\s+/g, ' ').trim() }); },
+  push(s, e) { const t = Book.rootText.slice(s, e); if (/[\p{L}\p{N}]/u.test(t)) this.segs.push({ s, e, t: t.replace(/\s+/g, ' ').trim(), lang: this.curLang || this.lang() }); },
   range(s, e) {
     const root = Book.flow.firstElementChild; if (!root) return null;
     const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT); let n, pos = 0; const r = document.createRange(); let started = false;
@@ -75,7 +88,7 @@ const TTS = {
   },
   // iPhone only lets audio start from a tap: start the player silently right now, inside the tap
   unlock() {
-    try { const a = NeuralPlayer.audio; if (!a.src) { a.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA='; a.play().catch(() => { }); } } catch (e) { }
+    try { const a = NeuralPlayer.audio; if (!a.src) { NeuralPlayer.silent = true; a.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA='; a.play().catch(() => { }); } } catch (e) { }
   },
   async play() {
     this.playing = true; this.keepAwake(true); this.ui();

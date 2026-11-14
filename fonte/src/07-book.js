@@ -86,6 +86,7 @@ const Book = {
       App.show('v-book');
       this.applyStyle();
       this.showUI(true);
+      Resume.apply(rec);
       const pos = rec.pos || {};
       this.sib = Lib.sibling(rec);
       $('#b-lang').classList.toggle('hide', !this.sib);
@@ -93,7 +94,10 @@ const Book = {
       if (rec.prevOpened && Date.now() - rec.prevOpened > 3 * 864e5 && (rec.pct || 0) > 0.02 && AI.on) setTimeout(() => this.welcomeBack(Math.round((Date.now() - rec.prevOpened) / 864e5)), 1200);
       if (pos.jump) { delete rec.pos; await this.jumpTo(pos.jump); }
       else if (!rec.pos) await this.render(this.data.start || 0, { frac: 0 });
-      else await this.render(clamp(pos.ch || 0, 0, this.data.count - 1), pos.off != null ? { offset: pos.off } : { frac: pos.frac || 0 });
+      else {
+        await this.render(clamp(pos.ch || 0, 0, this.data.count - 1), pos.off != null ? { offset: pos.off, anchor: pos.tr === Trans.mode(rec) ? pos.anchor : null, frac: pos.frac } : { frac: pos.frac || 0 });
+        if ((rec.pct || 0) > 0.003) toast(t('resumedAt', { c: niceLabel(this.tocLabel(this.ch)) || t('chapterN', { n: this.ch + 1, m: this.data.count }), p: Math.round((rec.pct || 0) * 100) }), 2600);
+      }
     } finally { busy(null); }
     if (!(await DB.get('kv', 'hint:book'))) { DB.put('kv', 'hint:book', 1); const h = el('div', { class: 'hint' }, el('div', { text: t('hintBack') }), el('div', { text: t('hintMenuSel') }), el('div', { text: t('hintNext') })); $('#v-book').append(h); setTimeout(() => h.remove(), 3400); }
   },
@@ -185,7 +189,15 @@ const Book = {
     this.measure(); this.buildTN();
     let p = 0;
     if (where === 'end') p = this.pages - 1;
-    else if (where.offset != null) p = this.pageOfOffset(where.offset);
+    else if (where.offset != null) {
+      // find the exact sentence again even if the font, size or translation changed the layout
+      let off = where.offset; const a = where.anchor;
+      if (a && this.rootText.slice(off, off + a.length) !== a) {
+        let k = this.rootText.indexOf(a); if (k < 0 && a.length > 24) k = this.rootText.indexOf(a.slice(0, 24));
+        if (k >= 0) off = k; else if (where.frac != null) off = Math.round(where.frac * this.rootText.length);
+      }
+      p = this.pageOfOffset(off);
+    }
     else if (where.anchor) { const t2 = this.flow.querySelector('#' + CSS.escape(where.anchor)) || this.flow.querySelector(`[name="${CSS.escape(where.anchor)}"]`); if (t2) { const r = t2.getClientRects()[0] || t2.getBoundingClientRect(); p = this.pageOfX(this.absX(r)); } }
     else if (where.frac != null) p = Math.min(this.pages - 1, Math.floor(where.frac * this.pages + 1e-6));
     this.showPage(p, false);
@@ -376,8 +388,9 @@ const Book = {
     $('#b-label').textContent = t('chapterN', { n: this.ch + 1, m: this.data.count }) + ' · ' + Math.round(pct * 100) + '%';
     const off = this.offsetAtPage(this.page);
     this.curOff = off;
-    this.rec.pos = { ch: this.ch, off, frac: this.page / this.pages };
-    this.rec.pct = pct;
+    this.rec.pos = { ch: this.ch, off, frac: this.page / this.pages, anchor: (this.rootText || '').slice(off, off + 64), tr: Trans.mode(this.rec) };
+    this.rec.pct = pct; this.rec.posAt = Date.now();
+    Resume.save(this.rec);
     if (pct >= 1 && !this.rec.finished) { /* finished on explicit end */ }
     const bm = this.bmHere();
     $('#b-bm').classList.toggle('on', !!bm);

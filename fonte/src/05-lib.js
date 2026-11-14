@@ -51,7 +51,7 @@ const Lib = {
   collections() { const s = new Set(); for (const b of this.books) for (const c of b.collections || []) s.add(c); return [...s].sort(natCmp); },
   async render() {
     for (const u of this.urls) URL.revokeObjectURL(u); this.urls = [];
-    this.books = await DB.all('books');
+    this.books = (await DB.all('books')).filter(b => !b.hidden);
     // banner
     const ban = $('#l-banner'); ban.replaceChildren();
     if (!DB.ok || this.memOnly) ban.append(el('div', { class: 'banner' }, icon('info'), el('div', { text: t('memOnly') })));
@@ -161,8 +161,8 @@ const Lib = {
       (b.pct > 0 && !b.finished) ? el('div', { class: 'cbar' }, el('i', { style: { width: Math.round(b.pct * 100) + '%' } })) : null);
     return el('div', { class: 'card' }, cover,
       el('div', { class: 'crow' },
-        el('div', { class: 'ctext' }, el('div', { class: 'ctitle', text: this.series && b.series && b.snum ? t('volumeN', { n: b.snum }) : b.title }),
-          el('div', { class: 'cmeta', text: this.series && b.series && b.snum ? [b.title.replace(/^.*?—\s*/, ''), this.pctLabel(b)].filter(Boolean).join(' · ') : [b.author, this.pctLabel(b)].filter(Boolean).join(' · ') })),
+        el('div', { class: 'ctext' }, el('div', { class: 'ctitle', text: this.series && b.series && b.snum ? volTitle(b) : b.title }),
+          el('div', { class: 'cmeta', text: this.series && b.series && b.snum ? [t('volumeN', { n: b.snum }), this.pctLabel(b)].filter(Boolean).join(' · ') : [b.author, this.pctLabel(b)].filter(Boolean).join(' · ') })),
         el('button', { class: 'icon more', 'aria-label': t('options'), onclick: () => this.menu(b) }, icon('more'))));
   },
   menu(b) {
@@ -246,7 +246,7 @@ const Lib = {
     try { await this.open2(rec, id); } finally { OpenFx.end(fx); }
   },
   async open2(rec, id) {
-    const blob = await DB.get('files', id);
+    const blob = await DB.get('files', rec.fileOf || id);
     if (!blob) { Sheets.confirm(t('fileMissing'), t('fileMissingText'), t('addFile')).then(ok => ok && $('#l-file').click()); return; }
     // resume from another device?
     const cloud = await Sync.pull(rec.fp);
@@ -265,3 +265,11 @@ const Lib = {
     }
   },
 };
+
+// "Harry Potter and the Chamber of Secrets" inside the "Harry Potter" folder → "Chamber of Secrets"
+function volTitle(b) {
+  let x = b.title.replace(/^.*?—\s*/, '');
+  if (b.series && x.toLowerCase().startsWith(b.series.toLowerCase())) x = x.slice(b.series.length).replace(/^[\s:,–—-]*(and the|and|e o|e a|e|the|o|a)\s+/i, '').trim();
+  x = x.replace(/^[\s:,–—-]+/, '');
+  return x ? x.charAt(0).toUpperCase() + x.slice(1) : t('volumeN', { n: b.snum });
+}

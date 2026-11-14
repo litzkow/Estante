@@ -82,7 +82,7 @@ const PdfBook = {
     $('#p-range').value = i + 1;
     $('#p-label').textContent = t('pageXofY', { a: i + 1, b: this.n }) + ' · ' + Math.round(this.zoom * 100) + '%';
     const y = d ? (this.scroll.scrollTop - d.offsetTop) / d.offsetHeight : 0;
-    this.rec.pos = { page: i, y: clamp(y, 0, 1) };
+    this.rec.pos = { page: i, y: clamp(y, 0, 1) }; this.rec.posAt = Date.now(); Resume.save(this.rec);
     this.rec.pct = this.n <= 1 ? 1 : clamp(i / (this.n - 1), 0, 1);
     const bm = (this.rec.bookmarks || []).some(b => b.page === i);
     $('#p-bmk').replaceChildren(icon(bm ? 'bookmarkF' : 'bookmark')); $('#p-bmk').style.color = bm ? 'var(--accent)' : '';

@@ -120,7 +120,7 @@ const App = {
     Comic.init(); Book.init(); PdfBook.init(); TTS.init();
     // library controls
     $('#l-add').onclick = () => $('#l-file').click();
-    $('#l-file').onchange = async e => { const f = [...e.target.files]; e.target.value = ''; await importFiles(f); Family.afterImport(f); };
+    $('#l-file').onchange = async e => { const f = [...e.target.files]; e.target.value = ''; await importFiles(f); await splitCollections(); Family.afterImport(f); };
     $('#l-set').onclick = () => settingsSheet();
     $('#l-sort').onclick = () => Lib.sortSheet();
     $('#l-search').onclick = () => { $('#l-sbar').classList.add('on'); $('#l-q').focus(); };
@@ -148,7 +148,7 @@ const App = {
     await Goal.init();
     Lib.animNext = true;
     await Lib.render();
-    Splash.hide().then(async () => { Tour.maybe(); await Starter.run(); Family.sync(true); });
+    Splash.hide().then(async () => { Tour.maybe(); await splitCollections(); await Starter.run(); Family.sync(true); });
     // platform capabilities arrive later
     AI.init();
     Sync.init().then(async () => { if (Sync.on) { if (await Sync.pullPrefs()) { applyTheme(); applyComfort(); applyI18n(); } Lib.render(); } });
