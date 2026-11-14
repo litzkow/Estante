@@ -430,7 +430,7 @@ html[data-view=v-comic],html[data-view=v-comic] body{background:#000}
 .b-x svg{width:18px;height:18px}
 .b-x:active{background:rgba(127,127,127,.18)}
 #v-book:not(.ui-off) .b-x{opacity:0;pointer-events:none}
-#b-lang{margin-right:2px}
+#b-lang{margin-right:2px;display:inline-flex;gap:2px;padding:3px;height:auto;border-radius:999px;background:var(--surface-2,rgba(127,127,127,.15))}#b-lang.hide{display:none}#b-lang span{padding:4px 9px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:.04em;opacity:.55}#b-lang span.on{opacity:1;background:var(--accent);color:var(--accent-ink)}
 .pt-ghost{background:var(--paper);pointer-events:none;will-change:transform}
 #b-frame{background:var(--paper)}
 .seg.wrap{display:grid!important;grid-template-columns:repeat(3,1fr);gap:4px}
@@ -893,9 +893,10 @@ function gestures(target, h) {
 }
 /* ================= strings (pt / en) ================= */
 const STR = {
+  readIn: ['Ler em {l}', 'Read in {l}'],
   tapToPlay: ['Pronto! Toque no ▶ para começar a ouvir.', 'Ready! Tap ▶ to start listening.'],
   cDblT: ['Dois toques na tela', 'Double tap'], cDblZoom: ['Zoom (aproximar/afastar)', 'Zoom in/out'], cDblPanel: ['Ir para o quadro', 'Go to panel'],
-  abReady: ['audiolivro pronto · sem pausas', 'ready audiobook · no pauses'], abReadyHD: ['audiolivro pronto · voz mais natural', 'ready audiobook · most natural voice'], abMissing: ['Este capítulo ainda não tem áudio.', 'This chapter has no audio yet.'],
+  abReady: ['audiolivro pronto · sem pausas', 'ready audiobook · no pauses'], abReadyHD: ['audiolivro pronto · voz mais natural', 'ready audiobook · most natural voice'], abMissing: ['Este capítulo ainda não foi narrado. Ele entra na fila e aparece aqui quando ficar pronto.', 'This chapter is not narrated yet. It will show up here when it is ready.'],
   abNet: ['Não deu para tocar o audiolivro. Confira a internet e tente de novo.', "Couldn't play the audiobook. Check the internet and try again."],
   vozNatural: ['mais natural', 'most natural'], vozFast: ['rápida', 'fast'], vozWarm: ['Abrindo a voz… (só na primeira vez)', 'Opening the voice… (first time only)'],
   vozHave: ['no celular ✓', 'on this phone ✓'], vozGet: ['baixa uma vez (~{n} MB)', 'downloads once (~{n} MB)'], vozRetry: ['Tentar de novo', 'Try again'],
@@ -2736,11 +2737,17 @@ const Book = {
       Resume.apply(rec);
       const pos = rec.pos || {};
       $('#b-ai').classList.toggle('hide', !AI.fn);
+      // the headphones only show up when this book (in this language) has a ready audiobook
+      $('#b-tts').classList.add('hide');
+      AudioBook.voices(rec).then(vs => { if (this.rec === rec) $('#b-tts').classList.toggle('hide', !vs.some(v => v.chapters.length)); }).catch(() => { });
       // volumes of a series learn their language and their place, so the other edition pairs with them
       if (rec.series && rec.snum && (!rec.work || !rec.lang)) { rec.lang = rec.lang || (this.data.lang || '').slice(0, 2); rec.work = rec.work || 'serie:' + seriesKey(rec.series) + '#' + rec.snum; await DB.put('books', rec.id, rec); Lib.books = Lib.books.map(b => b.id === rec.id ? rec : b); }
       this.sib = Lib.sibling(rec);
       $('#b-lang').classList.toggle('hide', !this.sib);
-      if (this.sib) $('#b-lang').textContent = langName(this.sib.lang);
+      // a two-part switch: the language you're reading is lit, tap to change
+      if (this.sib) { const cur = (rec.lang || '').slice(0, 2), oth = (this.sib.lang || '').slice(0, 2), ls = [cur, oth].sort((a, b) => (a === 'pt' ? -1 : b === 'pt' ? 1 : 0));
+        $('#b-lang').replaceChildren(...ls.map(l => el('span', { class: l === cur ? 'on' : '', text: (l || '?').toUpperCase() })));
+        $('#b-lang').setAttribute('aria-label', t('readIn', { l: langName(oth) })); }
       if (rec.prevOpened && Date.now() - rec.prevOpened > 3 * 864e5 && (rec.pct || 0) > 0.02 && AI.on) setTimeout(() => this.welcomeBack(Math.round((Date.now() - rec.prevOpened) / 864e5)), 1200);
       if (pos.jump) { delete rec.pos; await this.jumpTo(pos.jump); }
       else if (!rec.pos) await this.render(this.data.start || 0, { frac: 0 });
@@ -4019,8 +4026,11 @@ const TTS = {
       pos += len;
     }
     const txt = Book.rootText, def = this.lang(), tr = Book.rec && typeof Trans !== 'undefined' ? Trans.mode(Book.rec) : 'orig';
+    let bi = 0;
     for (const bl of blocks) {
       const t0 = txt.slice(bl.s, bl.e); if (!t0.trim()) continue;
+      // which paragraph, and is it a title (the narrator pauses around titles)
+      this.curBlk = bi++; this.curHead = !!(bl.b && bl.b.closest && bl.b.closest('h1,h2,h3,h4,h5,h6,header,hgroup,.chap-title,.ch-title,.ch-num'));
       // bilingual: read the original only; translated mode: a paragraph that wasn't translated is read in its own language
       if (bl.b && bl.b.closest && bl.b.closest('.bi-tr')) continue;
       this.curLang = tr === 'tr' && bl.b && bl.b.closest && bl.b.closest('.tr-miss') ? (detectLang(t0) || def) : this.blockLang(bl.b, def);
@@ -4036,7 +4046,7 @@ const TTS = {
       }
     }
   },
-  push(s, e) { const t = Book.rootText.slice(s, e); if (/[\p{L}\p{N}]/u.test(t)) this.segs.push({ s, e, t: t.replace(/\s+/g, ' ').trim(), lang: this.curLang || this.lang() }); },
+  push(s, e) { const t = Book.rootText.slice(s, e); if (/[\p{L}\p{N}]/u.test(t)) this.segs.push({ s, e, t: t.replace(/\s+/g, ' ').trim(), lang: this.curLang || this.lang(), blk: this.curBlk, h: this.curHead }); },
   range(s, e) {
     const root = Book.flow.firstElementChild; if (!root) return null;
     const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT); let n, pos = 0; const r = document.createRange(); let started = false;
@@ -4770,8 +4780,8 @@ const NeuralPlayer = {
     const rec = Book.rec, ch = Book.ch;
     if (!(await AudioBook.has(rec, voice, ch))) {
       if (!TTS.segs.length) return TTS.nextChapter(); // nothing to read in this chapter
-      const live = (await Voices.listLive(TTS.lang()))[0]; if (!live) return TTS.fail(new Error(t('abMissing')));
-      return this.play(fromSeg, live.id, TTS.lang());
+      // no robotic stand-in: stop here and say the chapter isn't narrated yet
+      TTS.pause(); toast(t('abMissing'), 6000); return;
     }
     let m;
     try { TTS.loading(0); m = await AudioBook.chapter(rec, voice.slice(2), ch); }
@@ -5297,7 +5307,7 @@ const AudioBook = {
     const out = { title: Book.rec.title, key: this.key(Book.rec), lang: (Book.flow.lang || '').slice(0, 2), chapters: [] };
     for (let i = 0; i < Book.data.count; i++) {
       await Book.render(i, { frac: 0 }); TTS.build();
-      out.chapters.push({ i, label: Book.tocLabel ? Book.tocLabel(i) : '', len: (Book.rootText || '').length, segs: TTS.segs.map(s => [s.s, s.e, s.t, s.lang]) });
+      out.chapters.push({ i, label: Book.tocLabel ? Book.tocLabel(i) : '', len: (Book.rootText || '').length, segs: TTS.segs.map(s => [s.s, s.e, s.t, s.lang, s.blk, s.h ? 1 : 0]) });
     }
     return out;
   },

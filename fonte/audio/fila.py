@@ -10,7 +10,12 @@ for item in fila:
     livro, voz = item['livro'], item['voz']
     if not os.path.exists(f'audio-src/{livro}.json'): continue
     book = json.load(open(f'audio-src/{livro}.json'))
-    feitos = {int(os.path.basename(f)[:3]) for f in glob.glob(f'audio/{livro}/{voz}/*.mp3')}
+    # capítulo pronto = tem o MP3 e foi narrado na versão pedida (ver 2: títulos e parágrafos com pausa)
+    precisa = item.get('ver', 1)
+    def ver(f):
+        try: return json.load(open(f[:-4] + '.json')).get('ver', 1)
+        except Exception: return 0
+    feitos = {int(os.path.basename(f)[:3]) for f in glob.glob(f'audio/{livro}/{voz}/*.mp3') if ver(f) >= precisa}
     falta = [c for c in book['chapters'] if c['segs'] and c['i'] not in feitos]
     if not falta: continue
     caps, total = [], 0

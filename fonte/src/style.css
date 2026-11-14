@@ -412,7 +412,7 @@ html[data-view=v-comic],html[data-view=v-comic] body{background:#000}
 .b-x svg{width:18px;height:18px}
 .b-x:active{background:rgba(127,127,127,.18)}
 #v-book:not(.ui-off) .b-x{opacity:0;pointer-events:none}
-#b-lang{margin-right:2px}
+#b-lang{margin-right:2px;display:inline-flex;gap:2px;padding:3px;height:auto;border-radius:999px;background:var(--surface-2,rgba(127,127,127,.15))}#b-lang.hide{display:none}#b-lang span{padding:4px 9px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:.04em;opacity:.55}#b-lang span.on{opacity:1;background:var(--accent);color:var(--accent-ink)}
 .pt-ghost{background:var(--paper);pointer-events:none;will-change:transform}
 #b-frame{background:var(--paper)}
 .seg.wrap{display:grid!important;grid-template-columns:repeat(3,1fr);gap:4px}

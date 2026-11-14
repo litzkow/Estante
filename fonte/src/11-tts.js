@@ -39,8 +39,11 @@ const TTS = {
       pos += len;
     }
     const txt = Book.rootText, def = this.lang(), tr = Book.rec && typeof Trans !== 'undefined' ? Trans.mode(Book.rec) : 'orig';
+    let bi = 0;
     for (const bl of blocks) {
       const t0 = txt.slice(bl.s, bl.e); if (!t0.trim()) continue;
+      // which paragraph, and is it a title (the narrator pauses around titles)
+      this.curBlk = bi++; this.curHead = !!(bl.b && bl.b.closest && bl.b.closest('h1,h2,h3,h4,h5,h6,header,hgroup,.chap-title,.ch-title,.ch-num'));
       // bilingual: read the original only; translated mode: a paragraph that wasn't translated is read in its own language
       if (bl.b && bl.b.closest && bl.b.closest('.bi-tr')) continue;
       this.curLang = tr === 'tr' && bl.b && bl.b.closest && bl.b.closest('.tr-miss') ? (detectLang(t0) || def) : this.blockLang(bl.b, def);
@@ -56,7 +59,7 @@ const TTS = {
       }
     }
   },
-  push(s, e) { const t = Book.rootText.slice(s, e); if (/[\p{L}\p{N}]/u.test(t)) this.segs.push({ s, e, t: t.replace(/\s+/g, ' ').trim(), lang: this.curLang || this.lang() }); },
+  push(s, e) { const t = Book.rootText.slice(s, e); if (/[\p{L}\p{N}]/u.test(t)) this.segs.push({ s, e, t: t.replace(/\s+/g, ' ').trim(), lang: this.curLang || this.lang(), blk: this.curBlk, h: this.curHead }); },
   range(s, e) {
     const root = Book.flow.firstElementChild; if (!root) return null;
     const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT); let n, pos = 0; const r = document.createRange(); let started = false;

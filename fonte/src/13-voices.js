@@ -188,8 +188,8 @@ const NeuralPlayer = {
     const rec = Book.rec, ch = Book.ch;
     if (!(await AudioBook.has(rec, voice, ch))) {
       if (!TTS.segs.length) return TTS.nextChapter(); // nothing to read in this chapter
-      const live = (await Voices.listLive(TTS.lang()))[0]; if (!live) return TTS.fail(new Error(t('abMissing')));
-      return this.play(fromSeg, live.id, TTS.lang());
+      // no robotic stand-in: stop here and say the chapter isn't narrated yet
+      TTS.pause(); toast(t('abMissing'), 6000); return;
     }
     let m;
     try { TTS.loading(0); m = await AudioBook.chapter(rec, voice.slice(2), ch); }

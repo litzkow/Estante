@@ -64,7 +64,7 @@ const AudioBook = {
     const out = { title: Book.rec.title, key: this.key(Book.rec), lang: (Book.flow.lang || '').slice(0, 2), chapters: [] };
     for (let i = 0; i < Book.data.count; i++) {
       await Book.render(i, { frac: 0 }); TTS.build();
-      out.chapters.push({ i, label: Book.tocLabel ? Book.tocLabel(i) : '', len: (Book.rootText || '').length, segs: TTS.segs.map(s => [s.s, s.e, s.t, s.lang]) });
+      out.chapters.push({ i, label: Book.tocLabel ? Book.tocLabel(i) : '', len: (Book.rootText || '').length, segs: TTS.segs.map(s => [s.s, s.e, s.t, s.lang, s.blk, s.h ? 1 : 0]) });
     }
     return out;
   },
