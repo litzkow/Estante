@@ -1,0 +1,18 @@
+name: Baixar livro de domínio público
+on:
+  workflow_dispatch:
+    inputs:
+      url: { required: true }
+      nome: { required: true }
+permissions: { contents: write }
+jobs:
+  baixar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { sparse-checkout: "livros", sparse-checkout-cone-mode: false }
+      - run: |
+          curl -fsSL -A "Mozilla/5.0" -o "livros/${{ inputs.nome }}" "${{ inputs.url }}"
+          unzip -l "livros/${{ inputs.nome }}" | tail -3
+          git config user.name "estante-bot"; git config user.email "estante-bot@users.noreply.github.com"
+          git add livros && git commit -m "Livro: ${{ inputs.nome }}" && for i in 1 2 3; do git pull --rebase -q && git push && break; sleep 5; done
