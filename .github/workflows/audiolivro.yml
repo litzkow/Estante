@@ -43,7 +43,7 @@ jobs:
         run: |
           git config user.name "estante-bot"; git config user.email "estante-bot@users.noreply.github.com"
           for i in 1 2 3 4 5 6 7 8; do
-            git fetch -q origin main && git reset -q --hard origin/main
+            git fetch -q origin main && git reset -q --hard FETCH_HEAD
             python3 - <<'PY'
           import json, os, glob
           idx = {}
