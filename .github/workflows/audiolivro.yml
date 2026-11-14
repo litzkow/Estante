@@ -34,7 +34,6 @@ jobs:
   juntar:
     needs: narrar
     runs-on: ubuntu-latest
-    concurrency: { group: audio-push, cancel-in-progress: false }
     steps:
       - uses: actions/checkout@v4
         with: { sparse-checkout: "audio", sparse-checkout-cone-mode: false }
@@ -42,18 +41,19 @@ jobs:
         with: { pattern: "parte-*", merge-multiple: true, path: "audio/${{ inputs.livro }}/${{ inputs.voz }}" }
       - name: Guardar
         run: |
-          python3 - "${{ inputs.livro }}" "${{ inputs.voz }}" <<'PY'
-          import json, os, sys, glob
-          livro, voz = sys.argv[1], sys.argv[2]
-          p = 'audio/index.json'
-          idx = json.load(open(p)) if os.path.exists(p) else {}
-          caps = sorted(int(os.path.basename(f)[:3]) for f in glob.glob(f'audio/{livro}/{voz}/*.mp3'))
-          idx.setdefault(livro, {'voices': {}})['voices'][voz] = {'chapters': caps}
-          json.dump(idx, open(p, 'w'), ensure_ascii=False, indent=1)
-          print(livro, voz, len(caps), 'capítulos')
-          PY
-          du -sh audio/${{ inputs.livro }}/${{ inputs.voz }}
           git config user.name "estante-bot"; git config user.email "estante-bot@users.noreply.github.com"
-          git add audio
-          git commit -m "Audiolivro: ${{ inputs.livro }} (${{ inputs.voz }})"
-          for i in 1 2 3 4 5; do git pull --rebase -q && git push && break; sleep 5; done
+          for i in 1 2 3 4 5 6 7 8; do
+            git fetch -q origin main && git reset -q --hard origin/main
+            python3 - <<'PY'
+          import json, os, glob
+          idx = {}
+          for d in sorted(glob.glob('audio/*/*/')):
+              livro, voz = d.rstrip('/').split('/')[-2:]
+              caps = sorted(int(os.path.basename(f)[:3]) for f in glob.glob(d + '*.mp3'))
+              if caps: idx.setdefault(livro, {'voices': {}})['voices'][voz] = {'chapters': caps}
+          json.dump(idx, open('audio/index.json', 'w'), ensure_ascii=False, indent=1)
+          PY
+            git add audio && git commit -qm "Audiolivro: ${{ inputs.livro }} (${{ inputs.voz }})" && git push -q && break
+            sleep $((RANDOM % 10 + 3))
+          done
+          du -sh audio/${{ inputs.livro }}/${{ inputs.voz }}
