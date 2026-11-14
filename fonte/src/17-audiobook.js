@@ -10,7 +10,7 @@ const AB_VOICES = {
 const CHIRP_F = /^(Achernar|Aoede|Autonoe|Callirrhoe|Despina|Erinome|Gacrux|Kore|Laomedeia|Leda|Pulcherrima|Sulafat|Vindemiatrix|Zephyr)$/;
 function abVoice(v) {
   if (AB_VOICES[v]) return AB_VOICES[v];
-  const m = /^([a-z]{2})-[A-Z]{2}-Chirp3-HD-(\w+)$/.exec(v);
+  const m = /^([a-z]{2})-[A-Z]{2}-(?:Chirp3-HD|GeminiFlash|GeminiPro)-(\w+)$/.exec(v);
   if (m) return [m[2], CHIRP_F.test(m[2]) ? 'f' : 'm', m[1], true];
   return [v, '', ''];
 }
@@ -37,7 +37,7 @@ const AudioBook = {
   async voices(rec) {
     const e = (await this.index())[this.key(rec)]; if (!e) return [];
     // the most natural (Google) first
-    return Object.keys(e.voices || {}).map(v => { const x = abVoice(v); return { id: 'a:' + v, name: x[0], g: x[1], lang: x[2], hd: !!x[3], chapters: e.voices[v].chapters || [] }; }).sort((a, b) => b.hd - a.hd);
+    return Object.keys(e.voices || {}).map(v => { const x = abVoice(v); return { id: 'a:' + v, name: x[0], g: x[1], lang: x[2], hd: !!x[3], chapters: e.voices[v].chapters || [] }; }).sort((a, b) => (/Gemini/.test(b.id) - /Gemini/.test(a.id)) || (b.hd - a.hd));
   },
   async has(rec, voice, ch) { return (await this.voices(rec)).some(v => v.id === voice && v.chapters.includes(ch)); },
   async src(rec) { const e = (await this.index())[this.key(rec)]; return e ? e.src : 'pub'; },

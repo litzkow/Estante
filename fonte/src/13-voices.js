@@ -40,7 +40,7 @@ const Voices = {
     const want = S['ttsN_' + this.engine() + '_' + lang];
     // a book with a ready audiobook always plays it (the most natural one first); a picked audiobook voice is kept
     const abs = (list || []).filter(v => v.id.startsWith('a:'));
-    if (abs.length) return abs.find(v => v.id === want) || abs.find(v => /Chirp3-HD/.test(v.id)) || abs[0];
+    if (abs.length) return abs.find(v => v.id === want) || (abs.find(v => /Gemini/.test(v.id)) || abs.find(v => /Chirp3-HD/.test(v.id))) || abs[0];
     return (list || []).find(v => v.id === want) || (list || [])[0] || null;
   },
   // text → audio blob (wav or mp3)

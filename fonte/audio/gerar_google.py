@@ -7,13 +7,55 @@ src, out, voice = sys.argv[1], sys.argv[2], sys.argv[3]
 part, parts = (int(sys.argv[4]), int(sys.argv[5])) if len(sys.argv) > 5 else (0, 1)
 KEY = os.environ['GOOGLE_TTS_KEY']
 lang = '-'.join(voice.split('-')[:2])
+# vozes Gemini (pagas, mais expressivas): pt-BR-GeminiFlash-Enceladus / pt-BR-GeminiPro-Enceladus
+GEMINI = {'GeminiFlash': 'gemini-2.5-flash-tts', 'GeminiPro': 'gemini-2.5-pro-tts'}
+gm = next((m for k, m in GEMINI.items() if f'-{k}-' in voice), None)
+vname = voice.split('-')[-1] if gm else voice
+ESTILO = {
+    'pt': 'Narre como um narrador profissional de audiolivro brasileiro: voz calorosa e envolvente, ritmo calmo, entonação natural, '
+          'emoção nas falas dos personagens, pausas naturais nas vírgulas e entre as frases. Leia exatamente o texto, sem acrescentar nada.',
+    'en': 'Narrate like a professional audiobook narrator: warm, engaging voice, calm pace, natural intonation, '
+          'expressive character dialogue, natural pauses. Read the text exactly as written.',
+}
 SR = 24000
 book = json.load(open(src))
 CAPS = set(int(x) for x in os.environ.get('CAPS', '').split(',') if x.strip())  # só estes capítulos (vazio = todos)
 os.makedirs(out, exist_ok=True)
 
+GKEY = os.environ.get('GEMINI_KEY', '')
+GMODEL = {'gemini-2.5-flash-tts': ['gemini-2.5-flash-preview-tts', 'gemini-2.5-flash-tts'], 'gemini-2.5-pro-tts': ['gemini-2.5-pro-preview-tts', 'gemini-2.5-pro-tts']}
+
+def tts_gemini(text):
+    # API do Gemini (AI Studio): devolve áudio PCM 16 bits, 24 kHz
+    body = json.dumps({'contents': [{'parts': [{'text': ESTILO.get(lang[:2], ESTILO['en']) + '\n\n' + text}]}],
+                       'generationConfig': {'responseModalities': ['AUDIO'],
+                                            'speechConfig': {'voiceConfig': {'prebuiltVoiceConfig': {'voiceName': vname}}}}}).encode()
+    last = ''
+    for model in GMODEL[gm]:
+        for k in range(8):
+            try:
+                req = urllib.request.Request(f'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={GKEY}', body, {'Content-Type': 'application/json'})
+                j = json.load(urllib.request.urlopen(req, timeout=300))
+                part = j['candidates'][0]['content']['parts'][0]['inlineData']
+                return np.frombuffer(base64.b64decode(part['data']), np.int16).astype(np.float32) / 32768
+            except urllib.error.HTTPError as e:
+                last = e.read().decode('utf8', 'ignore')[:300]
+                if e.code == 404: break
+                if e.code in (429, 500, 503) and k < 7: time.sleep(10 * (k + 1)); continue
+                sys.exit('Gemini recusou (%s): %s' % (e.code, last))
+            except (KeyError, IndexError):
+                if k < 7: time.sleep(5); continue
+                raise
+            except Exception:
+                if k < 7: time.sleep(5 * (k + 1)); continue
+                raise
+    sys.exit('Gemini: modelo não encontrado. ' + last)
+
 def tts(text):
-    body = json.dumps({'input': {'text': text}, 'voice': {'languageCode': lang, 'name': voice},
+    if gm and GKEY: return tts_gemini(text)
+    inp = {'text': text, 'prompt': ESTILO.get(lang[:2], ESTILO['en'])} if gm else {'text': text}
+    vo = {'languageCode': lang, 'name': vname, 'modelName': gm} if gm else {'languageCode': lang, 'name': voice}
+    body = json.dumps({'input': inp, 'voice': vo,
                        'audioConfig': {'audioEncoding': 'LINEAR16', 'sampleRateHertz': SR}}).encode()
     for k in range(8):
         try:
@@ -24,7 +66,7 @@ def tts(text):
         except urllib.error.HTTPError as e:
             msg = e.read().decode('utf8', 'ignore')[:300]
             if e.code == 400 and 'too long' in msg: return None  # frase longa demais: quem chamou divide
-            if e.code in (429, 500, 503) and k < 7: time.sleep(5 * (k + 1)); continue
+            if e.code in (429, 500, 503) and k < 7: time.sleep(8 * (k + 1)); continue
             sys.exit('Google recusou (%s): %s' % (e.code, msg))
         except Exception as e:
             if k < 7: time.sleep(5 * (k + 1)); continue

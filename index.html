@@ -4632,7 +4632,7 @@ const Voices = {
     const want = S['ttsN_' + this.engine() + '_' + lang];
     // a book with a ready audiobook always plays it (the most natural one first); a picked audiobook voice is kept
     const abs = (list || []).filter(v => v.id.startsWith('a:'));
-    if (abs.length) return abs.find(v => v.id === want) || abs.find(v => /Chirp3-HD/.test(v.id)) || abs[0];
+    if (abs.length) return abs.find(v => v.id === want) || (abs.find(v => /Gemini/.test(v.id)) || abs.find(v => /Chirp3-HD/.test(v.id))) || abs[0];
     return (list || []).find(v => v.id === want) || (list || [])[0] || null;
   },
   // text → audio blob (wav or mp3)
@@ -5253,7 +5253,7 @@ const AB_VOICES = {
 const CHIRP_F = /^(Achernar|Aoede|Autonoe|Callirrhoe|Despina|Erinome|Gacrux|Kore|Laomedeia|Leda|Pulcherrima|Sulafat|Vindemiatrix|Zephyr)$/;
 function abVoice(v) {
   if (AB_VOICES[v]) return AB_VOICES[v];
-  const m = /^([a-z]{2})-[A-Z]{2}-Chirp3-HD-(\w+)$/.exec(v);
+  const m = /^([a-z]{2})-[A-Z]{2}-(?:Chirp3-HD|GeminiFlash|GeminiPro)-(\w+)$/.exec(v);
   if (m) return [m[2], CHIRP_F.test(m[2]) ? 'f' : 'm', m[1], true];
   return [v, '', ''];
 }
@@ -5280,7 +5280,7 @@ const AudioBook = {
   async voices(rec) {
     const e = (await this.index())[this.key(rec)]; if (!e) return [];
     // the most natural (Google) first
-    return Object.keys(e.voices || {}).map(v => { const x = abVoice(v); return { id: 'a:' + v, name: x[0], g: x[1], lang: x[2], hd: !!x[3], chapters: e.voices[v].chapters || [] }; }).sort((a, b) => b.hd - a.hd);
+    return Object.keys(e.voices || {}).map(v => { const x = abVoice(v); return { id: 'a:' + v, name: x[0], g: x[1], lang: x[2], hd: !!x[3], chapters: e.voices[v].chapters || [] }; }).sort((a, b) => (/Gemini/.test(b.id) - /Gemini/.test(a.id)) || (b.hd - a.hd));
   },
   async has(rec, voice, ch) { return (await this.voices(rec)).some(v => v.id === voice && v.chapters.includes(ch)); },
   async src(rec) { const e = (await this.index())[this.key(rec)]; return e ? e.src : 'pub'; },
