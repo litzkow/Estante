@@ -1,0 +1,34 @@
+name: Recuperar narração
+on:
+  workflow_dispatch:
+    inputs:
+      run: { description: 'Número da execução que narrou', required: true }
+      livro: { required: true }
+      voz: { required: true }
+permissions: { contents: write, actions: read }
+jobs:
+  juntar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { sparse-checkout: "audio", sparse-checkout-cone-mode: false }
+      - uses: actions/download-artifact@v4
+        with: { pattern: "parte-*", merge-multiple: true, path: "audio/${{ inputs.livro }}/${{ inputs.voz }}", run-id: "${{ inputs.run }}", github-token: "${{ github.token }}" }
+      - name: Guardar
+        run: |
+          git config user.name "estante-bot"; git config user.email "estante-bot@users.noreply.github.com"
+          for i in 1 2 3 4 5 6 7 8; do
+            git fetch -q origin main && git reset -q --hard origin/main
+            python3 - <<'PY'
+          import json, os, glob
+          idx = {}
+          for d in sorted(glob.glob('audio/*/*/')):
+              livro, voz = d.rstrip('/').split('/')[-2:]
+              caps = sorted(int(os.path.basename(f)[:3]) for f in glob.glob(d + '*.mp3'))
+              if caps: idx.setdefault(livro, {'voices': {}})['voices'][voz] = {'chapters': caps}
+          json.dump(idx, open('audio/index.json', 'w'), ensure_ascii=False, indent=1)
+          PY
+            git add audio && git commit -qm "Audiolivro: ${{ inputs.livro }} (${{ inputs.voz }})" && git push -q && break
+            sleep $((RANDOM % 10 + 3))
+          done
+          du -sh audio/${{ inputs.livro }}/${{ inputs.voz }}
