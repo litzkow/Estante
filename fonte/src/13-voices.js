@@ -40,7 +40,10 @@ const Voices = {
     const want = S['ttsN_' + this.engine() + '_' + lang];
     // a book with a narrated audiobook plays it, unless a live voice was picked on purpose for this language
     if ((list || []).some(v => v.id.startsWith('a:')) && !(want && S['ttsLive_' + lang])) {
-      return list.find(v => v.id === want) || list.find(v => v.id.startsWith('a:'));
+      const hd = list.find(v => v.id.startsWith('a:') && /Chirp3-HD/.test(v.id));
+      const w = list.find(v => v.id === want);
+      if (w && (!hd || /Chirp3-HD/.test(w.id) || S['ttsPicked_' + lang])) return w;
+      return hd || w || list.find(v => v.id.startsWith('a:'));
     }
     return (list || []).find(v => v.id === want) || (list || [])[0] || null;
   },

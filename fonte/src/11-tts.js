@@ -213,7 +213,7 @@ const TTS = {
           for (const v of vs) {
             const on = cur && v.id === cur.id;
             const sm = el('small', { text: v.desc });
-            L.append(el('button', { class: 'li' + (on ? ' cur' : ''), onclick: async () => { setS('ttsN_' + Voices.engine() + '_' + lang, v.id); setS('ttsLive_' + lang, !v.id.startsWith('a:')); this.vname = v.name; NeuralPlayer.stop(); L.querySelectorAll('.li').forEach(x => x.classList.toggle('cur', x === sm.closest('.li'))); this.ui(); await this.previewN(v, lang, pc => { sm.textContent = pc === -1 ? t('vozWarm') : t('ttsDownloading', { n: Math.max(0, pc) }); }); sm.textContent = v.desc + ' · ' + t('vozHave'); } },
+            L.append(el('button', { class: 'li' + (on ? ' cur' : ''), onclick: async () => { setS('ttsN_' + Voices.engine() + '_' + lang, v.id); setS('ttsLive_' + lang, !v.id.startsWith('a:')); setS('ttsPicked_' + lang, true); this.vname = v.name; NeuralPlayer.stop(); L.querySelectorAll('.li').forEach(x => x.classList.toggle('cur', x === sm.closest('.li'))); this.ui(); await this.previewN(v, lang, pc => { sm.textContent = pc === -1 ? t('vozWarm') : t('ttsDownloading', { n: Math.max(0, pc) }); }); sm.textContent = v.desc + ' · ' + t('vozHave'); } },
               icon(on ? 'check' : 'headphones'), el('div', { class: 'lt' }, v.name, sm)));
             // is it already on the phone?
             if (Voices.engine() === 'neural' && !v.id.startsWith('a:')) VozPack.ready(v.id[0], v.id.slice(2)).then(ok => { sm.textContent = v.desc + ' · ' + (ok ? t('vozHave') : t('vozGet', { n: VozPack.sizeMB(v.id[0]) })); });

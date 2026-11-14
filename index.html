@@ -4168,7 +4168,7 @@ const TTS = {
           for (const v of vs) {
             const on = cur && v.id === cur.id;
             const sm = el('small', { text: v.desc });
-            L.append(el('button', { class: 'li' + (on ? ' cur' : ''), onclick: async () => { setS('ttsN_' + Voices.engine() + '_' + lang, v.id); setS('ttsLive_' + lang, !v.id.startsWith('a:')); this.vname = v.name; NeuralPlayer.stop(); L.querySelectorAll('.li').forEach(x => x.classList.toggle('cur', x === sm.closest('.li'))); this.ui(); await this.previewN(v, lang, pc => { sm.textContent = pc === -1 ? t('vozWarm') : t('ttsDownloading', { n: Math.max(0, pc) }); }); sm.textContent = v.desc + ' · ' + t('vozHave'); } },
+            L.append(el('button', { class: 'li' + (on ? ' cur' : ''), onclick: async () => { setS('ttsN_' + Voices.engine() + '_' + lang, v.id); setS('ttsLive_' + lang, !v.id.startsWith('a:')); setS('ttsPicked_' + lang, true); this.vname = v.name; NeuralPlayer.stop(); L.querySelectorAll('.li').forEach(x => x.classList.toggle('cur', x === sm.closest('.li'))); this.ui(); await this.previewN(v, lang, pc => { sm.textContent = pc === -1 ? t('vozWarm') : t('ttsDownloading', { n: Math.max(0, pc) }); }); sm.textContent = v.desc + ' · ' + t('vozHave'); } },
               icon(on ? 'check' : 'headphones'), el('div', { class: 'lt' }, v.name, sm)));
             // is it already on the phone?
             if (Voices.engine() === 'neural' && !v.id.startsWith('a:')) VozPack.ready(v.id[0], v.id.slice(2)).then(ok => { sm.textContent = v.desc + ' · ' + (ok ? t('vozHave') : t('vozGet', { n: VozPack.sizeMB(v.id[0]) })); });
@@ -4546,7 +4546,10 @@ const Voices = {
     const want = S['ttsN_' + this.engine() + '_' + lang];
     // a book with a narrated audiobook plays it, unless a live voice was picked on purpose for this language
     if ((list || []).some(v => v.id.startsWith('a:')) && !(want && S['ttsLive_' + lang])) {
-      return list.find(v => v.id === want) || list.find(v => v.id.startsWith('a:'));
+      const hd = list.find(v => v.id.startsWith('a:') && /Chirp3-HD/.test(v.id));
+      const w = list.find(v => v.id === want);
+      if (w && (!hd || /Chirp3-HD/.test(w.id) || S['ttsPicked_' + lang])) return w;
+      return hd || w || list.find(v => v.id.startsWith('a:'));
     }
     return (list || []).find(v => v.id === want) || (list || [])[0] || null;
   },
