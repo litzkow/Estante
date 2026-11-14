@@ -12,29 +12,20 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
-      - name: Baixar modelos e bibliotecas
+      - name: Baixar o que ainda falta
         run: |
           set -e
           HF=https://huggingface.co
-          K=vozes/kokoro; mkdir -p $K/onnx $K/voices
-          for f in config.json tokenizer.json tokenizer_config.json onnx/model_quantized.onnx; do curl -fsSL -o $K/$f "$HF/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/$f"; done
-          for v in af_heart af_bella af_nicole am_michael am_fenrir am_puck bf_emma bm_george bm_fable; do curl -fsSL -o $K/voices/$v.bin "$HF/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/$v.bin"; done
-          P=vozes/piper; mkdir -p $P
-          curl -fsSL -o $P/voices.json "$HF/rhasspy/piper-voices/resolve/v1.0.0/voices.json" || true
-          for v in pt/pt_BR/faber/medium/pt_BR-faber-medium pt/pt_BR/cadu/medium/pt_BR-cadu-medium pt/pt_BR/jeff/medium/pt_BR-jeff-medium; do
-            n=$(basename $v); curl -fsSL -o $P/$n.onnx "$HF/rhasspy/piper-voices/resolve/main/$v.onnx" && curl -fsSL -o $P/$n.onnx.json "$HF/rhasspy/piper-voices/resolve/main/$v.onnx.json" || rm -f $P/$n.onnx $P/$n.onnx.json
-          done
-          mkdir -p /tmp/n && cd /tmp/n && npm init -y >/dev/null && npm i --no-audit --no-fund kokoro-js@1.2.1 @diffusionstudio/vits-web@1.0.3 >/dev/null
+          get() { [ -s "$1" ] || { mkdir -p "$(dirname "$1")"; curl -fsSL -o "$1" "$2"; }; }
+          K=vozes/kokoro
+          for f in config.json tokenizer.json tokenizer_config.json onnx/model_quantized.onnx; do get $K/$f "$HF/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/$f"; done
+          for v in af_heart af_bella af_nicole am_michael am_fenrir am_puck bf_emma bm_george bm_fable; do get $K/voices/$v.bin "$HF/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/$v.bin"; done
+          mkdir -p /tmp/n && cd /tmp/n && npm init -y >/dev/null && npm i --no-audit --no-fund @diffusionstudio/piper-wasm@1.0.0 >/dev/null
           cd $GITHUB_WORKSPACE
-          L=vozes/lib; mkdir -p $L
-          cp -r /tmp/n/node_modules/kokoro-js/dist $L/kokoro
-          cp -r /tmp/n/node_modules/@diffusionstudio/vits-web/dist $L/vits
-          ORT=$(find /tmp/n/node_modules -type d -name onnxruntime-web -path "*node_modules/onnxruntime-web" | head -1)
-          echo "ORT em $ORT"
-          mkdir -p $L/ort && cp $ORT/dist/*.wasm $ORT/dist/*.mjs $L/ort/ 2>/dev/null || true
-          node -e "console.log(require('$ORT/package.json').version)" > $L/ort/VERSION || true
-          ls /tmp/n/node_modules/@diffusionstudio/ > $L/vits-deps.txt; ls /tmp/n/node_modules > $L/all-deps.txt
-          du -ah vozes | sort -h | tail -40
+          mkdir -p vozes/lib/phonemize
+          ls -la /tmp/n/node_modules/@diffusionstudio/piper-wasm/build/ > vozes/lib/phonemize/LISTA.txt
+          cp /tmp/n/node_modules/@diffusionstudio/piper-wasm/build/piper_phonemize.* vozes/lib/phonemize/
+          du -ah vozes/lib/phonemize
       - name: Guardar no repositório
         run: |
           git config user.name "estante-bot"; git config user.email "estante-bot@users.noreply.github.com"
