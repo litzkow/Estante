@@ -896,7 +896,9 @@ const STR = {
   readIn: ['Ler em {l}', 'Read in {l}'],
   tapToPlay: ['Pronto! Toque no ▶ para começar a ouvir.', 'Ready! Tap ▶ to start listening.'],
   cDblT: ['Dois toques na tela', 'Double tap'], cDblZoom: ['Zoom (aproximar/afastar)', 'Zoom in/out'], cDblPanel: ['Ir para o quadro', 'Go to panel'],
-  abReady: ['audiolivro pronto · sem pausas', 'ready audiobook · no pauses'], abReadyHD: ['audiolivro pronto · voz mais natural', 'ready audiobook · most natural voice'], abDownloading: ['Baixando o capítulo… {n}% (só da primeira vez)', 'Downloading the chapter… {n}% (first time only)'], abMusic: ['Música na abertura e no fim do capítulo', 'Music at the start and end of each chapter'], abMusicYes: ['Sim', 'On'], abMusicNote: ['Só nos audiolivros prontos. A música toca antes do narrador começar e depois da última frase, nunca por baixo da voz.', 'Ready audiobooks only. The music plays before the narrator starts and after the last sentence, never under the voice.'], abMissing: ['Este capítulo ainda não foi narrado. Ele entra na fila e aparece aqui quando ficar pronto.', 'This chapter is not narrated yet. It will show up here when it is ready.'],
+  abReady: ['audiolivro pronto · sem pausas', 'ready audiobook · no pauses'], abReadyHD: ['audiolivro pronto · voz mais natural', 'ready audiobook · most natural voice'], abDownloading: ['Baixando o capítulo… {n}% (só da primeira vez)', 'Downloading the chapter… {n}% (first time only)'], abGetAll: ['Baixar o livro todo (ouvir sem internet)', 'Download the whole book (listen offline)'], abGetAllN: ['Baixando… capítulo {i} de {n}', 'Downloading… chapter {i} of {n}'], abGetAllDone: ['Pronto: {n} capítulos no celular', 'Done: {n} chapters on the phone'], abGetAllPub: ['Este livro já vem pelo site do app', 'This book streams from the app site'], abGetAllPick: ['Escolha primeiro uma voz de audiolivro pronto (a do narrador)', 'First pick a ready audiobook voice (the narrator)'],
+  famInvite: ['Convidar (mandar o link para outra pessoa)', 'Invite (send the link to someone)'], famInviteMsg: ['Abra este link para entrar na nossa biblioteca do Estante', 'Open this link to join our Estante library'], famInviteCopied: ['Link copiado. Mande para ela.', 'Link copied. Send it.'], famInviteCopy: ['Copie o link do convite:', 'Copy the invite link:'], famInviteNote: ['O link funciona como uma chave da biblioteca: mande só para quem pode entrar.', 'The link works like a key to the library: only send it to people who may join.'], famPastePh: ['Colar aqui o link do convite', 'Paste the invite link here'], famPaste: ['Entrar com o convite', 'Join with the invite'], famLinked: ['Conectado pelo convite.', 'Connected with the invite.'], famBadInvite: ['Esse link não é um convite do Estante.', 'That link is not an Estante invite.'],
+  abMusic: ['Música na abertura e no fim do capítulo', 'Music at the start and end of each chapter'], abMusicYes: ['Sim', 'On'], abMusicNote: ['Só nos audiolivros prontos. A música toca antes do narrador começar e depois da última frase, nunca por baixo da voz.', 'Ready audiobooks only. The music plays before the narrator starts and after the last sentence, never under the voice.'], abMissing: ['Este capítulo ainda não foi narrado. Ele entra na fila e aparece aqui quando ficar pronto.', 'This chapter is not narrated yet. It will show up here when it is ready.'],
   abNet: ['Não deu para tocar o audiolivro. Confira a internet e tente de novo.', "Couldn't play the audiobook. Check the internet and try again."],
   vozNatural: ['mais natural', 'most natural'], vozFast: ['rápida', 'fast'], vozWarm: ['Abrindo a voz… (só na primeira vez)', 'Opening the voice… (first time only)'],
   vozHave: ['no celular ✓', 'on this phone ✓'], vozGet: ['baixa uma vez (~{n} MB)', 'downloads once (~{n} MB)'], vozRetry: ['Tentar de novo', 'Try again'],
@@ -3747,6 +3749,7 @@ const App = {
     Splash.hide().then(async () => { Tour.maybe(); await splitCollections(); fixVolumes().catch(() => { }); await Starter.run(); Family.sync(true); });
     // platform capabilities arrive later
     AI.init();
+    Family.fromLink();
     Sync.init().then(async () => { if (Sync.on) { if (await Sync.pullPrefs()) { applyTheme(); applyComfort(); applyI18n(); } Lib.render(); } });
   },
 };
@@ -4233,6 +4236,15 @@ const TTS = {
         draw();
         b.append(wGroup(t('ttsEngine'), engSeg, azBox), wGroup(t('ttsVoice') + ' · ' + (lang === 'en' ? 'English' : 'Português'), L, note),
           wGroup(t('ttsSpeed'), wSlider(0.75, 3, 0.05, S.ttsRate || 1, v => { setS('ttsRate', Math.round(v * 100) / 100); NeuralPlayer.rate(S.ttsRate); this.ui(); }, v => (+v).toFixed(2).replace('.', ',') + '×', 'speed')),
+          Book.rec && el('button', { class: 'btn block', style: { margin: '4px 0 12px' }, text: t('abGetAll'), onclick: async ev => {
+            const btn = ev.currentTarget, lang = this.lang(), v = Voices.current(lang, await Voices.list(lang));
+            if (!v || !v.id.startsWith('a:')) { toast(t('abGetAllPick'), 5000); return; }
+            btn.disabled = true;
+            try {
+              const n = await AudioBook.downloadAll(Book.rec, v.id, (i, tot) => { btn.textContent = t('abGetAllN', { i, n: tot }); });
+              btn.textContent = n < 0 ? t('abGetAllPub') : t('abGetAllDone', { n });
+            } catch (e) { btn.disabled = false; btn.textContent = t('abGetAll'); toast(t('abNet'), 5000); }
+          } }),
           wGroup(t('abMusic'), wSeg([[1, t('abMusicYes')], [0, t('off')]], S.abMusic === false ? 0 : 1, x => setS('abMusic', !!x)), el('p', { class: 'muted', style: { fontSize: '12.5px', lineHeight: 1.45, margin: '8px 2px 0' }, text: t('abMusicNote') })),
           wGroup(t('ttsSleep'), wSeg([[0, t('off')], [15, '15 min'], [30, '30 min'], [60, '60 min']], this.sleepMin || 0, m => { this.sleepMin = m; this.sleepAt = m ? Date.now() + m * 60000 : 0; if (m) toast(t('ttsSleepSet', { n: m })); })),
           wGroup(t('ttsScreen'),
@@ -5093,6 +5105,22 @@ const Family = {
       catch (e) { toast(e.message || String(e)); }
     }
   },
+  convite() { return location.origin + location.pathname + '#familia=' + btoa(unescape(encodeURIComponent(JSON.stringify({ r: S.famRepo, t: S.famToken })))); },
+  // the invite works opened as a link or pasted in the family screen (the home-screen app doesn't share data with Safari)
+  async usarConvite(txt) {
+    const m = String(txt || '').match(/familia=([A-Za-z0-9+/=_-]+)/); if (!m) return false;
+    try {
+      const j = JSON.parse(decodeURIComponent(escape(atob(m[1].replace(/-/g, '+').replace(/_/g, '/')))));
+      if (!j.r || !j.t) return false;
+      setS('famRepo', j.r); setS('famToken', j.t); AudioBook.idx = null;
+      const n = (await this.list()).length; toast(t('famOk', { n }), 6000); this.sync(); return true;
+    } catch (e) { toast(e.message || String(e), 6000); return false; }
+  },
+  async fromLink() {
+    if (!/familia=/.test(location.hash)) return;
+    const h = location.hash; history.replaceState(null, '', location.pathname + location.search);
+    await this.usarConvite(h);
+  },
   sheet() {
     Sheets.open({
       title: t('famTitle'), body: b => {
@@ -5113,6 +5141,16 @@ const Family = {
             try { const n = await this.pushAll(name => { btn.textContent = t('famUploading', { f: name }); }); btn.textContent = t('famPushed', { n }); }
             catch (err) { btn.disabled = false; btn.textContent = t('famPushAll'); status.textContent = err.message || String(err); }
           } }),
+          this.on && el('button', { class: 'btn block', style: { marginTop: '8px' }, text: t('famInvite'), onclick: async () => {
+            const url = this.convite();
+            try { if (navigator.share) { await navigator.share({ title: 'Estante', text: t('famInviteMsg'), url }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+            try { await navigator.clipboard.writeText(url); toast(t('famInviteCopied'), 5000); } catch (e) { prompt(t('famInviteCopy'), url); }
+          } }),
+          this.on && el('p', { class: 'muted', style: { fontSize: '12.5px', lineHeight: 1.45 }, text: t('famInviteNote') }),
+          (() => { const inp = el('input', { class: 'inp', style: { marginTop: '14px' }, placeholder: t('famPastePh') });
+            return el('div', {}, inp, el('button', { class: 'btn block', style: { marginTop: '8px' }, text: t('famPaste'), onclick: async () => {
+              if (await this.usarConvite(inp.value)) { repo.value = S.famRepo; tok.value = S.famToken; status.textContent = t('famLinked'); } else status.textContent = t('famBadInvite');
+            } })); })(),
           wToggle(t('famAuto'), t('famAutoSub'), S.famAuto !== false, v => setS('famAuto', v)),
           el('p', { class: 'muted', style: { fontSize: '12.5px', lineHeight: 1.45 }, text: t('famWife') }));
       },
@@ -5351,6 +5389,24 @@ const AudioBook = {
     const k = 'm:' + this.key(rec) + '/' + kind + '/' + ch;
     if (!this.maps.has(k)) this.maps.set(k, this.getFile(rec, this.key(rec) + '/musica/' + kind + '-' + String(ch).padStart(3, '0') + '.mp3', false).then(url => ({ url })));
     try { return (await this.maps.get(k)).url; } catch (e) { this.maps.delete(k); return null; }
+  },
+  async downloadAll(rec, voice, onProg) {
+    if ((await this.src(rec)) !== 'priv') return -1; // books that came with the app stream from the site
+    const v = (await this.voices(rec)).find(x => x.id === voice); if (!v) return 0;
+    const e = (await this.index())[this.key(rec)] || {}, mus = e.musica || {}, pad = n => String(n).padStart(3, '0');
+    let n = 0;
+    for (const ch of v.chapters) {
+      onProg && onProg(n, v.chapters.length);
+      const k = this.key(rec) + '/' + voice.slice(2) + '/' + pad(ch);
+      const m = await this.getFile(rec, k + '.json', true);
+      if (!(await this.cached(k + '.mp3?v=' + m.dur))) URL.revokeObjectURL(await this.getFile(rec, k + '.mp3', false, null, m.dur));
+      for (const kind of ['inicio', 'fim']) if ((mus[kind] || []).includes(ch)) {
+        const p = this.key(rec) + '/musica/' + kind + '-' + pad(ch) + '.mp3';
+        if (!(await this.cached(p))) URL.revokeObjectURL(await this.getFile(rec, p, false));
+      }
+      n++;
+    }
+    onProg && onProg(n, v.chapters.length); return n;
   },
   posKey(rec, voice, ch) { return 'abpos:' + this.key(rec) + '|' + voice + '|' + ch; },
   savePos(rec, voice, ch, t, off) { try { localStorage.setItem(this.posKey(rec, voice, ch), JSON.stringify({ t: Math.round(t), off, at: Date.now() })); } catch (e) { } },

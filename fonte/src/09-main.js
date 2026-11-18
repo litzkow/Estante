@@ -149,6 +149,7 @@ const App = {
     Splash.hide().then(async () => { Tour.maybe(); await splitCollections(); fixVolumes().catch(() => { }); await Starter.run(); Family.sync(true); });
     // platform capabilities arrive later
     AI.init();
+    Family.fromLink();
     Sync.init().then(async () => { if (Sync.on) { if (await Sync.pullPrefs()) { applyTheme(); applyComfort(); applyI18n(); } Lib.render(); } });
   },
 };

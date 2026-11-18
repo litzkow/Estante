@@ -78,6 +78,24 @@ const AudioBook = {
     if (!this.maps.has(k)) this.maps.set(k, this.getFile(rec, this.key(rec) + '/musica/' + kind + '-' + String(ch).padStart(3, '0') + '.mp3', false).then(url => ({ url })));
     try { return (await this.maps.get(k)).url; } catch (e) { this.maps.delete(k); return null; }
   },
+  async downloadAll(rec, voice, onProg) {
+    if ((await this.src(rec)) !== 'priv') return -1; // books that came with the app stream from the site
+    const v = (await this.voices(rec)).find(x => x.id === voice); if (!v) return 0;
+    const e = (await this.index())[this.key(rec)] || {}, mus = e.musica || {}, pad = n => String(n).padStart(3, '0');
+    let n = 0;
+    for (const ch of v.chapters) {
+      onProg && onProg(n, v.chapters.length);
+      const k = this.key(rec) + '/' + voice.slice(2) + '/' + pad(ch);
+      const m = await this.getFile(rec, k + '.json', true);
+      if (!(await this.cached(k + '.mp3?v=' + m.dur))) URL.revokeObjectURL(await this.getFile(rec, k + '.mp3', false, null, m.dur));
+      for (const kind of ['inicio', 'fim']) if ((mus[kind] || []).includes(ch)) {
+        const p = this.key(rec) + '/musica/' + kind + '-' + pad(ch) + '.mp3';
+        if (!(await this.cached(p))) URL.revokeObjectURL(await this.getFile(rec, p, false));
+      }
+      n++;
+    }
+    onProg && onProg(n, v.chapters.length); return n;
+  },
   posKey(rec, voice, ch) { return 'abpos:' + this.key(rec) + '|' + voice + '|' + ch; },
   savePos(rec, voice, ch, t, off) { try { localStorage.setItem(this.posKey(rec, voice, ch), JSON.stringify({ t: Math.round(t), off, at: Date.now() })); } catch (e) { } },
   getPos(rec, voice, ch) { try { return JSON.parse(localStorage.getItem(this.posKey(rec, voice, ch)) || 'null'); } catch (e) { return null; } },

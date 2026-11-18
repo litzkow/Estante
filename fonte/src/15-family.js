@@ -77,6 +77,22 @@ const Family = {
       catch (e) { toast(e.message || String(e)); }
     }
   },
+  convite() { return location.origin + location.pathname + '#familia=' + btoa(unescape(encodeURIComponent(JSON.stringify({ r: S.famRepo, t: S.famToken })))); },
+  // the invite works opened as a link or pasted in the family screen (the home-screen app doesn't share data with Safari)
+  async usarConvite(txt) {
+    const m = String(txt || '').match(/familia=([A-Za-z0-9+/=_-]+)/); if (!m) return false;
+    try {
+      const j = JSON.parse(decodeURIComponent(escape(atob(m[1].replace(/-/g, '+').replace(/_/g, '/')))));
+      if (!j.r || !j.t) return false;
+      setS('famRepo', j.r); setS('famToken', j.t); AudioBook.idx = null;
+      const n = (await this.list()).length; toast(t('famOk', { n }), 6000); this.sync(); return true;
+    } catch (e) { toast(e.message || String(e), 6000); return false; }
+  },
+  async fromLink() {
+    if (!/familia=/.test(location.hash)) return;
+    const h = location.hash; history.replaceState(null, '', location.pathname + location.search);
+    await this.usarConvite(h);
+  },
   sheet() {
     Sheets.open({
       title: t('famTitle'), body: b => {
@@ -97,6 +113,16 @@ const Family = {
             try { const n = await this.pushAll(name => { btn.textContent = t('famUploading', { f: name }); }); btn.textContent = t('famPushed', { n }); }
             catch (err) { btn.disabled = false; btn.textContent = t('famPushAll'); status.textContent = err.message || String(err); }
           } }),
+          this.on && el('button', { class: 'btn block', style: { marginTop: '8px' }, text: t('famInvite'), onclick: async () => {
+            const url = this.convite();
+            try { if (navigator.share) { await navigator.share({ title: 'Estante', text: t('famInviteMsg'), url }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+            try { await navigator.clipboard.writeText(url); toast(t('famInviteCopied'), 5000); } catch (e) { prompt(t('famInviteCopy'), url); }
+          } }),
+          this.on && el('p', { class: 'muted', style: { fontSize: '12.5px', lineHeight: 1.45 }, text: t('famInviteNote') }),
+          (() => { const inp = el('input', { class: 'inp', style: { marginTop: '14px' }, placeholder: t('famPastePh') });
+            return el('div', {}, inp, el('button', { class: 'btn block', style: { marginTop: '8px' }, text: t('famPaste'), onclick: async () => {
+              if (await this.usarConvite(inp.value)) { repo.value = S.famRepo; tok.value = S.famToken; status.textContent = t('famLinked'); } else status.textContent = t('famBadInvite');
+            } })); })(),
           wToggle(t('famAuto'), t('famAutoSub'), S.famAuto !== false, v => setS('famAuto', v)),
           el('p', { class: 'muted', style: { fontSize: '12.5px', lineHeight: 1.45 }, text: t('famWife') }));
       },
