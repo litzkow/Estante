@@ -48,9 +48,10 @@ const Book = {
         const mk = e.target.closest && e.target.closest('mark[data-id]');
         if (mk) { this.hlMenu(mk.dataset.id); return; }
         const W = this.frame.clientWidth, z = (x - this.frame.getBoundingClientRect().left) / W;
-        if (z > 0.3 && z < 0.7) return this.toggleUI();
-        z >= 0.7 ? this.next() : this.prev();
+        if (z > 0.22 && z < 0.78) return this.toggleUI(); // only the edges turn the page (fewer accidental turns)
+        z >= 0.78 ? this.next() : this.prev();
       },
+      swipeMin: 70, swipeRatio: 1.6,
       swipe: d => { const sel = getSelection(); if (sel && !sel.isCollapsed) return; d === 'left' ? this.next() : this.prev(); },
       vswipe: d => { const sel = getSelection(); if (sel && !sel.isCollapsed) return; if (S.bTurn === 'vertical') d === 'up' ? this.next() : this.prev(); },
     });

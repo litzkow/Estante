@@ -258,8 +258,8 @@ function gestures(target, h) {
     const consumed = h.panEnd ? h.panEnd(dx, dy) : false;
     if (e.type === 'pointercancel') { st = null; return; }
     if (!moved && dt < 550 && !multi) h.tap && h.tap(e.clientX, e.clientY, e);
-    else if (!consumed && !multi && Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.2 && dt < 900) h.swipe && h.swipe(dx < 0 ? 'left' : 'right');
-    else if (!consumed && !multi && h.vswipe && Math.abs(dy) > 40 && Math.abs(dy) > Math.abs(dx) * 1.2 && dt < 900) h.vswipe(dy < 0 ? 'up' : 'down');
+    else if (!consumed && !multi && Math.abs(dx) > (h.swipeMin || 40) && Math.abs(dx) > Math.abs(dy) * (h.swipeRatio || 1.2) && dt < 900) h.swipe && h.swipe(dx < 0 ? 'left' : 'right');
+    else if (!consumed && !multi && h.vswipe && Math.abs(dy) > (h.swipeMin || 40) && Math.abs(dy) > Math.abs(dx) * (h.swipeRatio || 1.2) && dt < 900) h.vswipe(dy < 0 ? 'up' : 'down');
     st = null;
   };
   target.addEventListener('pointerup', up);
