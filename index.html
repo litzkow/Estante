@@ -460,19 +460,19 @@ html[data-view=v-comic],html[data-view=v-comic] body{background:#000}
 .fhead span{font-size:12px;color:var(--muted)}
 /* ouvir o livro */
 ::highlight(tts){background-color:rgba(232,163,61,.32);color:inherit}
-#tts-bar{position:absolute;z-index:7;left:50%;bottom:calc(var(--sb) + 36px);transform:translate(-50%,140%);opacity:0;pointer-events:none;width:min(420px,calc(100% - 24px));background:var(--bar);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);border:1px solid var(--line);border-radius:22px;padding:8px 10px 10px;box-shadow:0 14px 40px rgba(0,0,0,.25);transition:transform .35s cubic-bezier(.2,.8,.2,1),opacity .25s;color:var(--fg)}
+#tts-bar{position:absolute;z-index:7;left:50%;bottom:calc(var(--sb) + 38px);transform:translate(-50%,140%);opacity:0;pointer-events:none;width:min(440px,calc(100% - 20px));height:64px;display:flex;align-items:center;gap:4px;padding:0 8px 0 8px;background:var(--bar);-webkit-backdrop-filter:blur(22px) saturate(1.4);backdrop-filter:blur(22px) saturate(1.4);border:1px solid var(--line);border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,.35);overflow:hidden;transition:transform .32s cubic-bezier(.2,.8,.2,1),opacity .25s,bottom .25s}
 #v-book.tts-on #tts-bar{transform:translate(-50%,0);opacity:1;pointer-events:auto}
-#v-book.tts-on:not(.ui-off) #tts-bar{bottom:calc(var(--sb) + 96px)}
-.tvoice{display:block;margin:0 auto 4px;font-size:12px;color:var(--muted);max-width:90%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:2px 8px}
+#v-book.tts-on:not(.ui-off) #tts-bar{bottom:calc(var(--sb) + 84px)}
+
 .trow{display:flex;align-items:center;justify-content:space-between}
 /* nome da voz com cara de botão: toca e abre "Ouvir o livro" */
-.tvoice::after{content:' ›';opacity:.7}
+
 /* botão grande "Ouvir" no canto (o fone pequeno lá em cima era difícil de acertar) */
 #b-tts{display:none}
 #b-listen{position:absolute;z-index:6;right:16px;bottom:calc(var(--sb) + 92px);height:52px;padding:0 22px 0 18px;border-radius:999px;background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:16px;display:flex;align-items:center;gap:9px;box-shadow:0 8px 22px rgba(0,0,0,.35);transition:opacity .25s,transform .25s}
 #b-listen svg{width:22px;height:22px}
 #v-book.tts-on #b-listen,#v-book.ui-off #b-listen{opacity:0;pointer-events:none;transform:translateY(14px)}
-.tplay{width:54px;height:54px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px rgba(232,163,61,.4)}
+.tplay{flex:none;width:46px;height:46px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px rgba(232,163,61,.4)}
 .tplay svg{width:26px;height:26px}
 .trate{min-width:52px;height:34px;border-radius:999px;background:rgba(127,127,127,.16);font-weight:700;font-size:13px;font-variant-numeric:tabular-nums}
 #ttsdark{position:fixed;inset:0;z-index:120;background:#000;display:flex;align-items:flex-end;justify-content:center;padding-bottom:calc(var(--sb) + 40px)}
@@ -528,6 +528,71 @@ canvas.peel{position:absolute;z-index:4;pointer-events:none}
 .cline{padding:10px 0;border-bottom:1px solid var(--line)}.cline small{color:var(--muted)}.cline .co{font-size:14px;color:var(--muted);margin:3px 0}.cline .ct{font-size:16px;font-weight:600}.cline.low small{color:#e0782f}
 #b-flow .bilingual h1.bi-tr,#b-flow .bilingual h2.bi-tr,#b-flow .bilingual h3.bi-tr{border:0;padding:0;margin-top:-.6em}
 .rep .rr{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}.rep .rr span{color:var(--muted)}.rep .rr b{text-align:right}
+
+/* ===== mini player + tela cheia (no estilo Audible / Apple Books) ===== */
+.mp-main{flex:1;min-width:0;display:flex;align-items:center;gap:11px;text-align:left;height:100%;padding:0 4px;color:inherit}
+.mp-cover{flex:none;width:44px;height:44px;border-radius:8px;overflow:hidden;background:rgba(127,127,127,.2);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.mp-cover img,.fp-cover img{width:100%;height:100%;object-fit:cover;display:block}
+.fp-nocover{font-weight:800;font-size:20px;opacity:.6}
+.mp-txt{min-width:0;display:flex;flex-direction:column;gap:2px}
+.mp-t{font-size:14.5px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#tts-bar .tvoice{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+#tts-bar .mp-30{flex:none;width:42px;height:42px}
+#tts-bar .tx{flex:none;width:36px;height:36px;opacity:.6}
+#tts-bar .tx svg{width:18px;height:18px}
+.mp-prog{position:absolute;left:0;bottom:0;height:3px;width:0;background:var(--accent);border-radius:0 2px 2px 0;transition:width .5s linear}
+#fp{position:fixed;inset:0;z-index:45;display:flex;flex-direction:column;align-items:center;padding:calc(var(--st) + 8px) 24px calc(var(--sb) + 18px);background:linear-gradient(180deg,#2a2622 0%,#141210 70%);color:#f4efe8;transform:translateY(100%);transition:transform .38s cubic-bezier(.2,.85,.2,1);visibility:hidden;overflow-y:auto}
+#fp.on{transform:none;visibility:visible}
+#fp .icon{color:inherit}
+.fp-top{width:100%;max-width:520px;display:flex;align-items:center;justify-content:space-between}
+.fp-top .icon{width:44px;height:44px}
+.fp-kick{font-size:12px;letter-spacing:1.4px;text-transform:uppercase;opacity:.6;font-weight:600}
+.fp-cover{height:clamp(170px,calc(100vh - 460px),440px);height:clamp(170px,calc(100dvh - 460px),440px);max-width:72vw;aspect-ratio:2/3;margin:2vh 0 2.6vh;border-radius:12px;overflow:hidden;background:#3a342d;display:flex;align-items:center;justify-content:center;box-shadow:0 24px 50px rgba(0,0,0,.55);flex:none}
+.fp-cover .fp-nocover{font-size:64px}
+.fp-meta{width:100%;max-width:520px;text-align:center}
+.fp-book{font-size:13.5px;opacity:.62;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fp-ch{display:inline-flex;align-items:center;gap:6px;max-width:100%;padding:6px 14px;border-radius:999px;background:rgba(255,255,255,.09);color:inherit;font-size:19px;font-weight:700}
+.fp-ch span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fp-ch i{display:flex;opacity:.7}
+.fp-ch i svg{width:18px;height:18px}
+.fp-scrub{width:100%;max-width:520px;margin-top:3.2vh}
+#fp .fp-range{-webkit-appearance:none;appearance:none;width:100%;height:28px;background:transparent;margin:0;padding:0;border:0;box-shadow:none;accent-color:auto;--p:0%}
+#fp .fp-range::-webkit-slider-runnable-track{height:5px;border-radius:3px;background:linear-gradient(90deg,var(--accent) var(--p),rgba(255,255,255,.18) var(--p))}
+#fp .fp-range::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:#fff;margin-top:-5.5px;box-shadow:0 2px 6px rgba(0,0,0,.4)}
+#fp .fp-range::-moz-range-track{height:5px;border-radius:3px;background:linear-gradient(90deg,var(--accent) var(--p),rgba(255,255,255,.18) var(--p))}
+#fp .fp-range::-moz-range-thumb{width:16px;height:16px;border:0;border-radius:50%;background:#fff}
+.fp-times{display:flex;justify-content:space-between;font-size:12.5px;opacity:.7;font-variant-numeric:tabular-nums}
+.fp-chn{opacity:.85}
+.fp-ctl{width:100%;max-width:420px;display:flex;align-items:center;justify-content:space-between;margin-top:2.4vh}
+.fp-ctl .icon{width:52px;height:52px;border-radius:50%}
+.fp-ctl .icon:active{background:rgba(255,255,255,.1)}
+.fp-prev svg,.fp-next svg{width:26px;height:26px}
+.fp-play{width:78px;height:78px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;box-shadow:0 10px 26px rgba(232,163,61,.35);transition:transform .12s}
+.fp-play:active{transform:scale(.94)}
+.fp-play svg{width:34px;height:34px}
+.fp-tools{width:100%;max-width:460px;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:auto;padding-top:3vh}
+.fp-tool{display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 2px;border-radius:12px;color:inherit;font-size:11.5px;opacity:.85}
+.fp-tool:active{background:rgba(255,255,255,.08)}
+.fp-tool svg{width:22px;height:22px}
+.fp-tool b{font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--accent);min-height:15px}
+.fp-tool span{opacity:.75}
+.fp-list b{display:none}
+.fp-dark b{display:none}
+.fp-chrow{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:14px 6px;border-bottom:1px solid var(--line);color:inherit;font-size:15.5px}
+.fp-chrow .fp-chname{flex:1;min-width:0}
+.fp-chrow .fp-chst{font-size:12px;color:var(--muted);flex:none}
+.fp-chrow.on{color:var(--accent);font-weight:700}
+.fp-chrow.on .fp-chst{color:var(--accent)}
+.fp-chrow.off{opacity:.45}
+.fp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.fp-grid .btn{justify-content:center}
+/* nome do capítulo lá em cima: toca para trocar */
+#b-h1.chbtn{pointer-events:auto;cursor:pointer;padding:8px 10px;margin:-8px -10px;border-radius:10px}
+#b-h1.chbtn::after{content:' ⌄';opacity:.7}
+#b-title{display:flex;flex-direction:column;align-items:center;line-height:1.15;cursor:pointer}
+#b-title small{font-size:11.5px;font-weight:500;opacity:.6;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+#b-title span{max-width:100%;overflow:hidden;text-overflow:ellipsis}
+#b-title span::after{content:' ⌄';opacity:.6}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
@@ -590,7 +655,7 @@ canvas.peel{position:absolute;z-index:4;pointer-events:none}
   <button class="b-x" id="b-x" data-ic="x" data-tl="back"></button>
   <div id="b-frame"><div id="b-flow"></div></div>
   <div id="b-foot" class="b-meta"><span id="b-f1"></span><span id="b-f2"></span></div>
-  <div id="tts-bar"><button class="tvoice"></button><div class="trow"><button class="icon tx" data-ic="x"></button><button class="icon tback" data-ic="skipBack"></button><button class="tplay"></button><button class="icon tfwd" data-ic="skipFwd"></button><button class="trate"></button><button class="icon tmoon" data-ic="moon"></button><button class="icon tset" data-ic="sliders" data-tl="ttsTitle"></button></div></div>
+  <div id="tts-bar"><button class="mp-main"><span class="mp-cover"></span><span class="mp-txt"><b class="mp-t"></b><span class="tvoice"></span></span></button><button class="icon tback mp-30"></button><button class="tplay"></button><button class="icon tx" data-ic="x"></button><i class="mp-prog"></i></div>
   <button id="b-listen" data-ic="headphones"></button>
   <header class="r-top">
     <button class="icon r-back" data-ic="back" data-tl="back"></button>
@@ -964,6 +1029,12 @@ const STR = {
   ttsLockNote: ['A tela fica preta (quase não gasta bateria) e a leitura continua. Não bloqueie o iPhone: com a tela bloqueada o iOS pausa a voz de apps da internet.', 'The screen goes black (almost no battery use) and reading continues. Do not lock the iPhone: iOS pauses the voice of web apps when locked.'],
   ttsTip: ['Para vozes mais naturais no iPhone: Ajustes › Acessibilidade › Conteúdo Falado › Vozes › Português (ou Inglês) e baixe uma voz "Melhorada" ou "Premium". Depois ela aparece aqui.', 'For more natural voices on iPhone: Settings › Accessibility › Spoken Content › Voices › English and download an "Enhanced" or "Premium" voice. It will then appear here.'],
   ttsEnh: ['Melhorada', 'Enhanced'], ttsNoVoices: ['Nenhuma voz neste idioma no aparelho.', 'No voices for this language on this device.'], ttsNo: ['Este aparelho não lê em voz alta', 'This device cannot read aloud'],
+  fpNow: ['Ouvindo agora', 'Now playing'], fpMin: ['Minimizar', 'Minimize'], fpMusic: ['música de abertura', 'opening music'],
+  fpChapters: ['Capítulos', 'Chapters'], fpChN: ['Capítulo {n}', 'Chapter {n}'], fpChOf: ['{i} de {n}', '{i} of {n}'],
+  fpPlaying: ['tocando', 'playing'], fpHere: ['você está aqui', 'you are here'], fpNotYet: ['ainda sem voz', 'no audio yet'],
+  fpSpeed: ['Velocidade', 'Speed'], fpOff: ['Desligado', 'Off'], fpTimer: ['Timer', 'Sleep timer'], fpDark: ['Tela preta', 'Dark screen'],
+  fpEoc: ['Fim do capítulo', 'End of chapter'], fpEocShort: ['fim do cap.', 'end of ch.'], fpEocSet: ['Para no fim do capítulo', 'Stops at the end of the chapter'],
+  fpPrevCh: ['Capítulo anterior', 'Previous chapter'], fpNextCh: ['Próximo capítulo', 'Next chapter'], fpBack30: ['Voltar 30 segundos', 'Back 30 seconds'], fpFwd30: ['Avançar 30 segundos', 'Forward 30 seconds'],
   ttsEnd: ['Fim do livro', 'End of the book'], ttsSlept: ['Leitura pausada pelo timer', 'Paused by the sleep timer'], ttsSleepSet: ['Para em {n} min', 'Stops in {n} min'], shelfBack: ['Estante', 'Shelf'], nVolumes: ['{n} volumes', '{n} volumes'], nRead: ['{n} lidos', '{n} read'], volumeN: ['Volume {n}', 'Volume {n}'], hideGoal: ['Esconder da tela inicial', 'Hide from home screen'], hideGoalToast: ['Dá para mostrar de novo em Ajustes', 'You can show it again in Settings'],
   comfortAuto: ['Automático (recomendado)', 'Automatic (recommended)'], comfortAutoSub: ['Deixa a tela mais quente e um pouco mais escura à noite, como o Night Shift', 'Makes the screen warmer and slightly dimmer at night, like Night Shift'],
   homeScreen: ['Tela inicial e leitura', 'Home screen and reading'], showGoal: ['Mostrar meta de leitura', 'Show reading goal'], showGoalSub: ['Minutos lidos hoje e dias seguidos', 'Minutes read today and day streak'], showContinue: ['Mostrar "Continuar lendo"', 'Show "Continue reading"'],
@@ -2747,7 +2818,7 @@ const Book = {
       this.cum = [0]; for (const s of sz) this.cum.push(this.cum[this.cum.length - 1] + s);
       this.total = this.cum[this.cum.length - 1] || 1;
       this.chat = [];
-      $('#b-title').textContent = rec.title;
+      $('#b-title').replaceChildren(el('small', { text: rec.title }));
       this.flow.lang = (this.data.lang || rec.lang || (S.lang === 'en' ? 'en' : 'pt')).slice(0, 5);
       App.show('v-book');
       this.applyStyle();
@@ -3057,7 +3128,7 @@ const Book = {
     const pct = this.pct(), chapLabel = this.tocLabel(this.ch) || this.rec.title;
     const left = this.pages - this.page - 1, cpp = this.rootText.length / this.pages;
     const mins = Math.max(0, Math.round(left * cpp / (S.cpm || 1000)));
-    $('#b-h1').textContent = niceLabel(chapLabel);
+    $('#b-h1').textContent = niceLabel(chapLabel); { const bt = $('#b-title'); bt.replaceChildren(el('small', { text: this.rec.title }), el('span', { text: niceLabel(chapLabel) || t('contents') })); }
     $('#b-h2').textContent = '';
     $('#b-f1').textContent = left > 0 ? t(left === 1 ? 'pageLeft1' : 'pagesLeft', { n: left }) : t('lastPageCh');
     $('#b-f2').textContent = (left > 0 ? t('minLeft', { m: mins < 1 ? '<1' : mins }) + ' · ' : '') + Math.round(pct * 100) + '%';
@@ -4090,7 +4161,7 @@ const TTS = {
   start() {
     if (!this.engineAudio() && !this.supported()) { toast(t('ttsNo')); return; }
     if (this.engineAudio()) { NeuralPlayer.init(); this.unlock(); }
-    this.open = true; $('#v-book').classList.add('tts-on'); this.ui();
+    this.open = true; $('#v-book').classList.add('tts-on'); this.ui(); this.fpOpen();
     this.build();
     const off = Book.curOff || 0;
     this.i = Math.max(0, this.segs.findIndex(s => s.e > off));
@@ -4125,8 +4196,8 @@ const TTS = {
   },
   loading(pc, kind) {
     const tv = $('#tts-bar .tvoice'); if (!tv) return;
-    if (pc == null) { this.ui(); return; }
-    tv.textContent = pc === -1 ? t('vozWarm') : pc >= 0 && pc < 100 && pc !== 0 ? t(kind === 'ab' ? 'abDownloading' : 'ttsDownloading', { n: pc }) : t('ttsPreparing');
+    if (pc == null) { this.loadTxt = ''; this.ui(); return; }
+    this.loadTxt = tv.textContent = pc === -1 ? t('vozWarm') : pc >= 0 && pc < 100 && pc !== 0 ? t(kind === 'ab' ? 'abDownloading' : 'ttsDownloading', { n: pc }) : t('ttsPreparing');
   },
   fail(e) {
     this.pause(); this.loading(null);
@@ -4160,7 +4231,7 @@ const TTS = {
     try { speechSynthesis.cancel(); } catch (e) { }
     try { NeuralPlayer.stop(); } catch (e) { }
     this.mark(null); this.keepAwake(false); this.dark(false); this.sleepAt = 0;
-    $('#v-book').classList.remove('tts-on');
+    $('#v-book').classList.remove('tts-on'); this.fpClose();
   },
   follow(range) {
     const seg = range || this.segs[this.i]; this.mark(seg);
@@ -4182,6 +4253,7 @@ const TTS = {
     speechSynthesis.speak(u);
   },
   async nextChapter() {
+    if (this.sleepEoc) { this.sleepEoc = false; await Book.turnChapter(Math.min(Book.ch + 1, Book.data.count - 1), { frac: 0 }, 1); this.build(); this.i = 0; if (this.engineAudio()) NeuralPlayer.build(); this.pause(); toast(t('ttsSlept')); return; }
     if (Book.ch >= Book.data.count - 1) { this.pause(); toast(t('ttsEnd')); return; }
     await Book.turnChapter(Book.ch + 1, { frac: 0 }, 1);
     this.build(); this.i = 0;
@@ -4206,8 +4278,145 @@ const TTS = {
   ui() {
     const bar = $('#tts-bar'); if (!bar) return;
     bar.querySelector('.tplay').replaceChildren(icon(this.playing ? 'pause' : 'playF'));
-    bar.querySelector('.trate').textContent = (S.ttsRate || 1).toFixed(S.ttsRate % 1 ? (S.ttsRate * 10 % 1 ? 2 : 1) : 0).replace('.', ',') + '×';
-    const v = this.engineAudio() ? null : this.voice(); bar.querySelector('.tvoice').textContent = this.engineAudio() ? (this.vname || t('ttsVoice')) : (v ? v.name.replace(/\s*\(.*\)$/, '') : t('ttsVoice'));
+    const v = this.engineAudio() ? null : this.voice();
+    this.vlabel = this.engineAudio() ? (this.vname || t('ttsVoice')) : (v ? v.name.replace(/\s*\(.*\)$/, '') : t('ttsVoice'));
+    bar.querySelector('.mp-t').textContent = this.chLabel();
+    this.tick(); this.fpRender();
+  },
+  // ---------- player (mini at the bottom + full screen, like the big audiobook apps) ----------
+  chLabel(ch = Book.ch) { return niceLabel(Book.data && Book.tocLabel ? Book.tocLabel(ch) : '') || (Book.rec && Book.rec.title) || ''; },
+  rateTxt() { const r = S.ttsRate || 1; return String(r).replace('.', ',') + '×'; },
+  hms(x) { x = Math.max(0, Math.round(x || 0)); const h = Math.floor(x / 3600), m = Math.floor(x % 3600 / 60), s = x % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(s).padStart(2, '0'); },
+  // where we are in the chapter (only ready audiobooks have a real clock)
+  clock() {
+    const N = NeuralPlayer, A = N.ab, a = N.audio;
+    if (!this.engineAudio() || !A || !a) return null;
+    if (N.abPhase !== 'main') return { music: true };
+    const dur = A.dur || a.duration || 0; return { cur: a.currentTime || 0, dur };
+  },
+  tick() {
+    // sleep timer also works in the middle of a chapter
+    if (this.sleepAt && Date.now() > this.sleepAt && this.playing) { this.sleepAt = 0; this.pause(); toast(t('ttsSlept')); }
+    const c = this.clock(), bar = $('#tts-bar');
+    if (bar) {
+      const sub = bar.querySelector('.tvoice');
+      sub.textContent = this.loadTxt ? this.loadTxt : this.vlabel + (c && c.music ? ' · ' + t('fpMusic') : c && c.dur ? ' · −' + this.hms(c.dur - c.cur) : '');
+      bar.querySelector('.mp-prog').style.width = c && c.dur ? (100 * c.cur / c.dur).toFixed(2) + '%' : '0';
+    }
+    const fp = this.fp; if (!fp || !fp.classList.contains('on')) return;
+    const r = fp.querySelector('.fp-range'), sc = fp.querySelector('.fp-scrub');
+    sc.style.visibility = c ? '' : 'hidden';
+    if (c && !this.dragging) {
+      if (c.music) { r.max = 1; r.value = 0; fp.querySelector('.fp-el').textContent = t('fpMusic'); fp.querySelector('.fp-rest').textContent = ''; }
+      else { r.max = Math.max(1, c.dur); r.value = c.cur; fp.querySelector('.fp-el').textContent = this.hms(c.cur); fp.querySelector('.fp-rest').textContent = '−' + this.hms(c.dur - c.cur); }
+      r.style.setProperty('--p', (100 * r.value / r.max).toFixed(2) + '%');
+    }
+    const tm = fp.querySelector('.fp-timer b');
+    tm.textContent = this.sleepEoc ? t('fpEocShort') : this.sleepAt ? Math.max(1, Math.ceil((this.sleepAt - Date.now()) / 60000)) + ' min' : t('fpOff');
+  },
+  skip30(d) {
+    const c = this.clock(), N = NeuralPlayer;
+    if (c && c.music) { if (d > 0) N.next(); return; }
+    if (c) { N.audio.currentTime = clamp(c.cur + 30 * d, 0, Math.max(0, c.dur - 0.5)); this.tick(); return; }
+    this.skip(d);
+  },
+  async goChapter(ch, play = true) {
+    if (!Book.data) return;
+    ch = clamp(ch, 0, Book.data.count - 1);
+    if (!this.open) { Book.manualAt = Date.now(); await Book.turnChapter(ch, { frac: 0 }, ch >= Book.ch ? 1 : -1); return; }
+    Book.manualAt = Date.now(); // you chose the chapter: start it from the beginning
+    const was = this.playing || play;
+    if (this.engineAudio()) NeuralPlayer.stop();
+    await Book.turnChapter(ch, { frac: 0 }, ch >= Book.ch ? 1 : -1);
+    this.build(); this.i = 0;
+    if (this.engineAudio()) NeuralPlayer.build();
+    if (was) { this.playing = false; await this.play(); }
+    this.ui();
+  },
+  prevChapter() { const c = this.clock(); if (c && !c.music && c.cur > 5) { NeuralPlayer.audio.currentTime = 0; this.tick(); return; } this.goChapter(Book.ch - 1); },
+  fpBuild() {
+    if (this.fp) return this.fp;
+    const SVG = p => '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + p + '</svg>';
+    const R30 = (dir) => '<svg viewBox="0 0 32 32" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + (dir < 0 ? '<path d="M9 9a10 10 0 1 1-2.2 10"/><path d="M9 4v5H4"/>' : '<path d="M23 9a10 10 0 1 0 2.2 10"/><path d="M23 4v5h5"/>') + '<text x="16" y="20.5" text-anchor="middle" font-size="9" font-weight="700" fill="currentColor" stroke="none" font-family="system-ui">30</text></svg>';
+    const btn = (cls, html, on, label) => el('button', { class: cls, html, onclick: on, 'aria-label': label || '' });
+    const tool = (cls, ico, label, on) => el('button', { class: 'fp-tool ' + cls, onclick: on }, typeof ico === 'string' ? el('b', { text: ico }) : ico, el('span', { text: label }));
+    const range = el('input', { type: 'range', class: 'fp-range', min: 0, max: 1, step: 1, value: 0 });
+    range.addEventListener('input', () => { this.dragging = true; const c = this.clock(); range.style.setProperty('--p', (100 * range.value / range.max).toFixed(2) + '%'); if (c && c.dur) { this.fp.querySelector('.fp-el').textContent = this.hms(+range.value); this.fp.querySelector('.fp-rest').textContent = '−' + this.hms(c.dur - range.value); } });
+    range.addEventListener('change', () => { const c = this.clock(); if (c && !c.music) NeuralPlayer.audio.currentTime = +range.value; this.dragging = false; this.tick(); });
+    const fp = el('div', { id: 'fp' },
+      el('div', { class: 'fp-top' },
+        btn('icon fp-down', SVG('<path d="M6 9l6 6 6-6"/>'), () => this.fpClose(), t('fpMin')),
+        el('div', { class: 'fp-kick', text: t('fpNow') }),
+        btn('icon fp-more', '', () => this.sheet(), t('ttsTitle'))),
+      el('div', { class: 'fp-cover' }),
+      el('div', { class: 'fp-meta' }, el('div', { class: 'fp-book' }),
+        el('button', { class: 'fp-ch', onclick: () => this.chapters() }, el('span', { class: 'fp-chl' }), el('i', { html: SVG('<path d="M6 9l6 6 6-6"/>') }))),
+      el('div', { class: 'fp-scrub' }, range, el('div', { class: 'fp-times' }, el('span', { class: 'fp-el' }), el('span', { class: 'fp-chn' }), el('span', { class: 'fp-rest' }))),
+      el('div', { class: 'fp-ctl' },
+        btn('icon fp-prev', SVG('<path d="M6 5v14"/><path d="M19 6l-9 6 9 6z" fill="currentColor"/>'), () => this.prevChapter(), t('fpPrevCh')),
+        btn('icon fp-b30', R30(-1), () => this.skip30(-1), t('fpBack30')),
+        btn('fp-play', '', () => this.toggle(), 'play'),
+        btn('icon fp-f30', R30(1), () => this.skip30(1), t('fpFwd30')),
+        btn('icon fp-next', SVG('<path d="M18 5v14"/><path d="M5 6l9 6-9 6z" fill="currentColor"/>'), () => this.goChapter(Book.ch + 1), t('fpNextCh'))),
+      el('div', { class: 'fp-tools' },
+        tool('fp-speed', '1×', t('fpSpeed'), () => this.speedSheet()),
+        tool('fp-timer', '', t('fpTimer'), () => this.timerSheet()),
+        tool('fp-list', icon('list'), t('fpChapters'), () => this.chapters()),
+        tool('fp-dark', icon('eye'), t('fpDark'), () => { this.fpClose(); this.dark(true); })));
+    fp.querySelector('.fp-more').append(icon('more'));
+    fp.querySelector('.fp-timer b').before(icon('moon')); fp.querySelector('.fp-speed b').before(icon('speed'));
+    // swipe down to shrink (like Apple Books / Audible)
+    let y0 = null;
+    fp.addEventListener('pointerdown', e => { y0 = e.target.closest('.fp-range,.fp-ctl,.fp-tools') ? null : e.clientY; });
+    fp.addEventListener('pointerup', e => { if (y0 != null && e.clientY - y0 > 90) this.fpClose(); y0 = null; });
+    document.body.append(fp); this.fp = fp; return fp;
+  },
+  fpOpen() { this.fpBuild(); this.fp.classList.add('on'); this.fpRender(); this.tick(); },
+  fpClose() { if (this.fp) this.fp.classList.remove('on'); },
+  fpRender() {
+    const fp = this.fp; if (!fp) return;
+    const rec = Book.rec || {};
+    fp.querySelector('.fp-play').replaceChildren(icon(this.playing ? 'pause' : 'playF'));
+    fp.querySelector('.fp-book').textContent = rec.title || '';
+    fp.querySelector('.fp-chl').textContent = this.chLabel();
+    fp.querySelector('.fp-chn').textContent = Book.data ? t('fpChOf', { i: Book.ch + 1, n: Book.data.count }) : '';
+    fp.querySelector('.fp-speed b').textContent = this.rateTxt();
+    const cv = fp.querySelector('.fp-cover'), mc = $('#tts-bar .mp-cover');
+    if (this.coverFor !== rec.id) {
+      this.coverFor = rec.id; if (this.coverUrl) URL.revokeObjectURL(this.coverUrl); this.coverUrl = rec.cover instanceof Blob ? URL.createObjectURL(rec.cover) : null;
+      for (const c of [cv, mc]) { c.replaceChildren(this.coverUrl ? el('img', { src: this.coverUrl, alt: '' }) : el('span', { class: 'fp-nocover', text: (rec.title || '?').slice(0, 1) })); }
+    }
+  },
+  async chapters() {
+    if (!Book.data) return;
+    const lang = this.lang(), v = this.engineAudio() ? Voices.current(lang, await Voices.list(lang)) : null;
+    let pronto = null;
+    if (v && v.id.startsWith('a:')) { const x = (await AudioBook.voices(Book.rec)).find(y => y.id === v.id); pronto = x ? new Set(x.chapters) : null; }
+    const toc = (Book.data.toc || []).filter(e => e.idx >= 0 && e.idx < Book.data.count);
+    const itens = toc.length ? toc : Array.from({ length: Book.data.count }, (_, i) => ({ idx: i, label: t('fpChN', { n: i + 1 }) }));
+    Sheets.open({ title: t('fpChapters'), body: b => {
+      for (const e of itens) {
+        const atual = e.idx === Book.ch, falta = pronto && !pronto.has(e.idx);
+        b.append(el('button', { class: 'fp-chrow' + (atual ? ' on' : '') + (falta ? ' off' : ''), onclick: () => { Sheets.close(); this.goChapter(e.idx); } },
+          el('span', { class: 'fp-chname', text: niceLabel(e.label) || t('fpChN', { n: e.idx + 1 }) }),
+          el('span', { class: 'fp-chst', text: atual ? (this.playing ? t('fpPlaying') : t('fpHere')) : falta ? t('fpNotYet') : '' })));
+      }
+      setTimeout(() => { const on = b.querySelector('.fp-chrow.on'); if (on) on.scrollIntoView({ block: 'center' }); }, 60);
+    } });
+  },
+  speedSheet() {
+    const R = [0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2];
+    Sheets.open({ title: t('fpSpeed'), center: true, body: b => b.append(el('div', { class: 'fp-grid' }, ...R.map(r => el('button', { class: 'btn' + ((S.ttsRate || 1) === r ? ' primary' : ''), text: String(r).replace('.', ',') + '×', onclick: () => {
+      setS('ttsRate', r); if (this.engineAudio() && !(NeuralPlayer.ab && NeuralPlayer.abPhase !== 'main')) NeuralPlayer.rate(r); else if (!this.engineAudio() && this.playing) this.speak();
+      Sheets.close(); this.ui();
+    } })))) });
+  },
+  timerSheet() {
+    const set = (m, eoc) => { this.sleepEoc = !!eoc; this.sleepAt = m ? Date.now() + m * 60000 : 0; this.sleepMin = m; Sheets.close(); this.tick(); if (m) toast(t('ttsSleepSet', { n: m })); else if (eoc) toast(t('fpEocSet')); };
+    Sheets.open({ title: t('fpTimer'), center: true, body: b => b.append(el('div', { class: 'fp-grid' },
+      el('button', { class: 'btn' + (!this.sleepAt && !this.sleepEoc ? ' primary' : ''), text: t('fpOff'), onclick: () => set(0) }),
+      ...[15, 30, 45, 60].map(m => el('button', { class: 'btn', text: m + ' min', onclick: () => set(m) })),
+      el('button', { class: 'btn' + (this.sleepEoc ? ' primary' : ''), text: t('fpEoc'), onclick: () => set(0, true) }))) });
   },
   rateNext() {
     const R = [0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3];
@@ -4303,14 +4512,17 @@ const TTS = {
     // big, easy "Listen" button (the small headphones up top were hard to hit)
     const bl = $('#b-listen'); bl.append(el('span', { text: t('abOuvir') })); bl.onclick = () => this.open ? this.toggle() : this.start();
     const bar = $('#tts-bar');
-    bar.querySelector('.tback').onclick = () => this.skip(-1);
-    bar.querySelector('.tfwd').onclick = () => this.skip(1);
+    bar.querySelector('.mp-30').innerHTML = '<svg viewBox="0 0 32 32" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 9a10 10 0 1 1-2.2 10"/><path d="M9 4v5H4"/><text x="16" y="20.5" text-anchor="middle" font-size="9" font-weight="700" fill="currentColor" stroke="none" font-family="system-ui">30</text></svg>';
+    bar.querySelector('.mp-30').onclick = () => this.skip30(-1);
     bar.querySelector('.tplay').onclick = () => this.toggle();
-    bar.querySelector('.trate').onclick = () => this.rateNext();
-    bar.querySelector('.tvoice').onclick = () => this.sheet();
-    bar.querySelector('.tmoon').onclick = () => this.dark(true);
-    bar.querySelector('.tset').onclick = () => this.sheet();
-    bar.querySelector('.tx').onclick = () => this.stop();
+    bar.querySelector('.mp-main').onclick = () => this.fpOpen();
+    bar.querySelector('.tx').onclick = () => { this.fpClose(); this.stop(); };
+    // swipe the mini player up to open it big
+    let y0 = null; bar.addEventListener('pointerdown', e => { y0 = e.clientY; }); bar.addEventListener('pointerup', e => { if (y0 != null && y0 - e.clientY > 40) this.fpOpen(); y0 = null; });
+    setInterval(() => { if (this.open) this.tick(); }, 500);
+    // chapter name up top: tap to change chapter (like Audible / Apple Books)
+    const h1 = $('#b-h1'); h1.classList.add('chbtn'); h1.onclick = e => { e.stopPropagation(); this.chapters(); };
+    const bt = $('#b-title'); bt.onclick = () => this.chapters();
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && this.playing) { this.keepAwake(true); if (!speechSynthesis.speaking) this.speak(); } });
   },
 };

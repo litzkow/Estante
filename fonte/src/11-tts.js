@@ -82,7 +82,7 @@ const TTS = {
   start() {
     if (!this.engineAudio() && !this.supported()) { toast(t('ttsNo')); return; }
     if (this.engineAudio()) { NeuralPlayer.init(); this.unlock(); }
-    this.open = true; $('#v-book').classList.add('tts-on'); this.ui();
+    this.open = true; $('#v-book').classList.add('tts-on'); this.ui(); this.fpOpen();
     this.build();
     const off = Book.curOff || 0;
     this.i = Math.max(0, this.segs.findIndex(s => s.e > off));
@@ -117,8 +117,8 @@ const TTS = {
   },
   loading(pc, kind) {
     const tv = $('#tts-bar .tvoice'); if (!tv) return;
-    if (pc == null) { this.ui(); return; }
-    tv.textContent = pc === -1 ? t('vozWarm') : pc >= 0 && pc < 100 && pc !== 0 ? t(kind === 'ab' ? 'abDownloading' : 'ttsDownloading', { n: pc }) : t('ttsPreparing');
+    if (pc == null) { this.loadTxt = ''; this.ui(); return; }
+    this.loadTxt = tv.textContent = pc === -1 ? t('vozWarm') : pc >= 0 && pc < 100 && pc !== 0 ? t(kind === 'ab' ? 'abDownloading' : 'ttsDownloading', { n: pc }) : t('ttsPreparing');
   },
   fail(e) {
     this.pause(); this.loading(null);
@@ -152,7 +152,7 @@ const TTS = {
     try { speechSynthesis.cancel(); } catch (e) { }
     try { NeuralPlayer.stop(); } catch (e) { }
     this.mark(null); this.keepAwake(false); this.dark(false); this.sleepAt = 0;
-    $('#v-book').classList.remove('tts-on');
+    $('#v-book').classList.remove('tts-on'); this.fpClose();
   },
   follow(range) {
     const seg = range || this.segs[this.i]; this.mark(seg);
@@ -174,6 +174,7 @@ const TTS = {
     speechSynthesis.speak(u);
   },
   async nextChapter() {
+    if (this.sleepEoc) { this.sleepEoc = false; await Book.turnChapter(Math.min(Book.ch + 1, Book.data.count - 1), { frac: 0 }, 1); this.build(); this.i = 0; if (this.engineAudio()) NeuralPlayer.build(); this.pause(); toast(t('ttsSlept')); return; }
     if (Book.ch >= Book.data.count - 1) { this.pause(); toast(t('ttsEnd')); return; }
     await Book.turnChapter(Book.ch + 1, { frac: 0 }, 1);
     this.build(); this.i = 0;
@@ -198,8 +199,145 @@ const TTS = {
   ui() {
     const bar = $('#tts-bar'); if (!bar) return;
     bar.querySelector('.tplay').replaceChildren(icon(this.playing ? 'pause' : 'playF'));
-    bar.querySelector('.trate').textContent = (S.ttsRate || 1).toFixed(S.ttsRate % 1 ? (S.ttsRate * 10 % 1 ? 2 : 1) : 0).replace('.', ',') + '×';
-    const v = this.engineAudio() ? null : this.voice(); bar.querySelector('.tvoice').textContent = this.engineAudio() ? (this.vname || t('ttsVoice')) : (v ? v.name.replace(/\s*\(.*\)$/, '') : t('ttsVoice'));
+    const v = this.engineAudio() ? null : this.voice();
+    this.vlabel = this.engineAudio() ? (this.vname || t('ttsVoice')) : (v ? v.name.replace(/\s*\(.*\)$/, '') : t('ttsVoice'));
+    bar.querySelector('.mp-t').textContent = this.chLabel();
+    this.tick(); this.fpRender();
+  },
+  // ---------- player (mini at the bottom + full screen, like the big audiobook apps) ----------
+  chLabel(ch = Book.ch) { return niceLabel(Book.data && Book.tocLabel ? Book.tocLabel(ch) : '') || (Book.rec && Book.rec.title) || ''; },
+  rateTxt() { const r = S.ttsRate || 1; return String(r).replace('.', ',') + '×'; },
+  hms(x) { x = Math.max(0, Math.round(x || 0)); const h = Math.floor(x / 3600), m = Math.floor(x % 3600 / 60), s = x % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(s).padStart(2, '0'); },
+  // where we are in the chapter (only ready audiobooks have a real clock)
+  clock() {
+    const N = NeuralPlayer, A = N.ab, a = N.audio;
+    if (!this.engineAudio() || !A || !a) return null;
+    if (N.abPhase !== 'main') return { music: true };
+    const dur = A.dur || a.duration || 0; return { cur: a.currentTime || 0, dur };
+  },
+  tick() {
+    // sleep timer also works in the middle of a chapter
+    if (this.sleepAt && Date.now() > this.sleepAt && this.playing) { this.sleepAt = 0; this.pause(); toast(t('ttsSlept')); }
+    const c = this.clock(), bar = $('#tts-bar');
+    if (bar) {
+      const sub = bar.querySelector('.tvoice');
+      sub.textContent = this.loadTxt ? this.loadTxt : this.vlabel + (c && c.music ? ' · ' + t('fpMusic') : c && c.dur ? ' · −' + this.hms(c.dur - c.cur) : '');
+      bar.querySelector('.mp-prog').style.width = c && c.dur ? (100 * c.cur / c.dur).toFixed(2) + '%' : '0';
+    }
+    const fp = this.fp; if (!fp || !fp.classList.contains('on')) return;
+    const r = fp.querySelector('.fp-range'), sc = fp.querySelector('.fp-scrub');
+    sc.style.visibility = c ? '' : 'hidden';
+    if (c && !this.dragging) {
+      if (c.music) { r.max = 1; r.value = 0; fp.querySelector('.fp-el').textContent = t('fpMusic'); fp.querySelector('.fp-rest').textContent = ''; }
+      else { r.max = Math.max(1, c.dur); r.value = c.cur; fp.querySelector('.fp-el').textContent = this.hms(c.cur); fp.querySelector('.fp-rest').textContent = '−' + this.hms(c.dur - c.cur); }
+      r.style.setProperty('--p', (100 * r.value / r.max).toFixed(2) + '%');
+    }
+    const tm = fp.querySelector('.fp-timer b');
+    tm.textContent = this.sleepEoc ? t('fpEocShort') : this.sleepAt ? Math.max(1, Math.ceil((this.sleepAt - Date.now()) / 60000)) + ' min' : t('fpOff');
+  },
+  skip30(d) {
+    const c = this.clock(), N = NeuralPlayer;
+    if (c && c.music) { if (d > 0) N.next(); return; }
+    if (c) { N.audio.currentTime = clamp(c.cur + 30 * d, 0, Math.max(0, c.dur - 0.5)); this.tick(); return; }
+    this.skip(d);
+  },
+  async goChapter(ch, play = true) {
+    if (!Book.data) return;
+    ch = clamp(ch, 0, Book.data.count - 1);
+    if (!this.open) { Book.manualAt = Date.now(); await Book.turnChapter(ch, { frac: 0 }, ch >= Book.ch ? 1 : -1); return; }
+    Book.manualAt = Date.now(); // you chose the chapter: start it from the beginning
+    const was = this.playing || play;
+    if (this.engineAudio()) NeuralPlayer.stop();
+    await Book.turnChapter(ch, { frac: 0 }, ch >= Book.ch ? 1 : -1);
+    this.build(); this.i = 0;
+    if (this.engineAudio()) NeuralPlayer.build();
+    if (was) { this.playing = false; await this.play(); }
+    this.ui();
+  },
+  prevChapter() { const c = this.clock(); if (c && !c.music && c.cur > 5) { NeuralPlayer.audio.currentTime = 0; this.tick(); return; } this.goChapter(Book.ch - 1); },
+  fpBuild() {
+    if (this.fp) return this.fp;
+    const SVG = p => '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + p + '</svg>';
+    const R30 = (dir) => '<svg viewBox="0 0 32 32" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + (dir < 0 ? '<path d="M9 9a10 10 0 1 1-2.2 10"/><path d="M9 4v5H4"/>' : '<path d="M23 9a10 10 0 1 0 2.2 10"/><path d="M23 4v5h5"/>') + '<text x="16" y="20.5" text-anchor="middle" font-size="9" font-weight="700" fill="currentColor" stroke="none" font-family="system-ui">30</text></svg>';
+    const btn = (cls, html, on, label) => el('button', { class: cls, html, onclick: on, 'aria-label': label || '' });
+    const tool = (cls, ico, label, on) => el('button', { class: 'fp-tool ' + cls, onclick: on }, typeof ico === 'string' ? el('b', { text: ico }) : ico, el('span', { text: label }));
+    const range = el('input', { type: 'range', class: 'fp-range', min: 0, max: 1, step: 1, value: 0 });
+    range.addEventListener('input', () => { this.dragging = true; const c = this.clock(); range.style.setProperty('--p', (100 * range.value / range.max).toFixed(2) + '%'); if (c && c.dur) { this.fp.querySelector('.fp-el').textContent = this.hms(+range.value); this.fp.querySelector('.fp-rest').textContent = '−' + this.hms(c.dur - range.value); } });
+    range.addEventListener('change', () => { const c = this.clock(); if (c && !c.music) NeuralPlayer.audio.currentTime = +range.value; this.dragging = false; this.tick(); });
+    const fp = el('div', { id: 'fp' },
+      el('div', { class: 'fp-top' },
+        btn('icon fp-down', SVG('<path d="M6 9l6 6 6-6"/>'), () => this.fpClose(), t('fpMin')),
+        el('div', { class: 'fp-kick', text: t('fpNow') }),
+        btn('icon fp-more', '', () => this.sheet(), t('ttsTitle'))),
+      el('div', { class: 'fp-cover' }),
+      el('div', { class: 'fp-meta' }, el('div', { class: 'fp-book' }),
+        el('button', { class: 'fp-ch', onclick: () => this.chapters() }, el('span', { class: 'fp-chl' }), el('i', { html: SVG('<path d="M6 9l6 6 6-6"/>') }))),
+      el('div', { class: 'fp-scrub' }, range, el('div', { class: 'fp-times' }, el('span', { class: 'fp-el' }), el('span', { class: 'fp-chn' }), el('span', { class: 'fp-rest' }))),
+      el('div', { class: 'fp-ctl' },
+        btn('icon fp-prev', SVG('<path d="M6 5v14"/><path d="M19 6l-9 6 9 6z" fill="currentColor"/>'), () => this.prevChapter(), t('fpPrevCh')),
+        btn('icon fp-b30', R30(-1), () => this.skip30(-1), t('fpBack30')),
+        btn('fp-play', '', () => this.toggle(), 'play'),
+        btn('icon fp-f30', R30(1), () => this.skip30(1), t('fpFwd30')),
+        btn('icon fp-next', SVG('<path d="M18 5v14"/><path d="M5 6l9 6-9 6z" fill="currentColor"/>'), () => this.goChapter(Book.ch + 1), t('fpNextCh'))),
+      el('div', { class: 'fp-tools' },
+        tool('fp-speed', '1×', t('fpSpeed'), () => this.speedSheet()),
+        tool('fp-timer', '', t('fpTimer'), () => this.timerSheet()),
+        tool('fp-list', icon('list'), t('fpChapters'), () => this.chapters()),
+        tool('fp-dark', icon('eye'), t('fpDark'), () => { this.fpClose(); this.dark(true); })));
+    fp.querySelector('.fp-more').append(icon('more'));
+    fp.querySelector('.fp-timer b').before(icon('moon')); fp.querySelector('.fp-speed b').before(icon('speed'));
+    // swipe down to shrink (like Apple Books / Audible)
+    let y0 = null;
+    fp.addEventListener('pointerdown', e => { y0 = e.target.closest('.fp-range,.fp-ctl,.fp-tools') ? null : e.clientY; });
+    fp.addEventListener('pointerup', e => { if (y0 != null && e.clientY - y0 > 90) this.fpClose(); y0 = null; });
+    document.body.append(fp); this.fp = fp; return fp;
+  },
+  fpOpen() { this.fpBuild(); this.fp.classList.add('on'); this.fpRender(); this.tick(); },
+  fpClose() { if (this.fp) this.fp.classList.remove('on'); },
+  fpRender() {
+    const fp = this.fp; if (!fp) return;
+    const rec = Book.rec || {};
+    fp.querySelector('.fp-play').replaceChildren(icon(this.playing ? 'pause' : 'playF'));
+    fp.querySelector('.fp-book').textContent = rec.title || '';
+    fp.querySelector('.fp-chl').textContent = this.chLabel();
+    fp.querySelector('.fp-chn').textContent = Book.data ? t('fpChOf', { i: Book.ch + 1, n: Book.data.count }) : '';
+    fp.querySelector('.fp-speed b').textContent = this.rateTxt();
+    const cv = fp.querySelector('.fp-cover'), mc = $('#tts-bar .mp-cover');
+    if (this.coverFor !== rec.id) {
+      this.coverFor = rec.id; if (this.coverUrl) URL.revokeObjectURL(this.coverUrl); this.coverUrl = rec.cover instanceof Blob ? URL.createObjectURL(rec.cover) : null;
+      for (const c of [cv, mc]) { c.replaceChildren(this.coverUrl ? el('img', { src: this.coverUrl, alt: '' }) : el('span', { class: 'fp-nocover', text: (rec.title || '?').slice(0, 1) })); }
+    }
+  },
+  async chapters() {
+    if (!Book.data) return;
+    const lang = this.lang(), v = this.engineAudio() ? Voices.current(lang, await Voices.list(lang)) : null;
+    let pronto = null;
+    if (v && v.id.startsWith('a:')) { const x = (await AudioBook.voices(Book.rec)).find(y => y.id === v.id); pronto = x ? new Set(x.chapters) : null; }
+    const toc = (Book.data.toc || []).filter(e => e.idx >= 0 && e.idx < Book.data.count);
+    const itens = toc.length ? toc : Array.from({ length: Book.data.count }, (_, i) => ({ idx: i, label: t('fpChN', { n: i + 1 }) }));
+    Sheets.open({ title: t('fpChapters'), body: b => {
+      for (const e of itens) {
+        const atual = e.idx === Book.ch, falta = pronto && !pronto.has(e.idx);
+        b.append(el('button', { class: 'fp-chrow' + (atual ? ' on' : '') + (falta ? ' off' : ''), onclick: () => { Sheets.close(); this.goChapter(e.idx); } },
+          el('span', { class: 'fp-chname', text: niceLabel(e.label) || t('fpChN', { n: e.idx + 1 }) }),
+          el('span', { class: 'fp-chst', text: atual ? (this.playing ? t('fpPlaying') : t('fpHere')) : falta ? t('fpNotYet') : '' })));
+      }
+      setTimeout(() => { const on = b.querySelector('.fp-chrow.on'); if (on) on.scrollIntoView({ block: 'center' }); }, 60);
+    } });
+  },
+  speedSheet() {
+    const R = [0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2];
+    Sheets.open({ title: t('fpSpeed'), center: true, body: b => b.append(el('div', { class: 'fp-grid' }, ...R.map(r => el('button', { class: 'btn' + ((S.ttsRate || 1) === r ? ' primary' : ''), text: String(r).replace('.', ',') + '×', onclick: () => {
+      setS('ttsRate', r); if (this.engineAudio() && !(NeuralPlayer.ab && NeuralPlayer.abPhase !== 'main')) NeuralPlayer.rate(r); else if (!this.engineAudio() && this.playing) this.speak();
+      Sheets.close(); this.ui();
+    } })))) });
+  },
+  timerSheet() {
+    const set = (m, eoc) => { this.sleepEoc = !!eoc; this.sleepAt = m ? Date.now() + m * 60000 : 0; this.sleepMin = m; Sheets.close(); this.tick(); if (m) toast(t('ttsSleepSet', { n: m })); else if (eoc) toast(t('fpEocSet')); };
+    Sheets.open({ title: t('fpTimer'), center: true, body: b => b.append(el('div', { class: 'fp-grid' },
+      el('button', { class: 'btn' + (!this.sleepAt && !this.sleepEoc ? ' primary' : ''), text: t('fpOff'), onclick: () => set(0) }),
+      ...[15, 30, 45, 60].map(m => el('button', { class: 'btn', text: m + ' min', onclick: () => set(m) })),
+      el('button', { class: 'btn' + (this.sleepEoc ? ' primary' : ''), text: t('fpEoc'), onclick: () => set(0, true) }))) });
   },
   rateNext() {
     const R = [0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3];
@@ -295,14 +433,17 @@ const TTS = {
     // big, easy "Listen" button (the small headphones up top were hard to hit)
     const bl = $('#b-listen'); bl.append(el('span', { text: t('abOuvir') })); bl.onclick = () => this.open ? this.toggle() : this.start();
     const bar = $('#tts-bar');
-    bar.querySelector('.tback').onclick = () => this.skip(-1);
-    bar.querySelector('.tfwd').onclick = () => this.skip(1);
+    bar.querySelector('.mp-30').innerHTML = '<svg viewBox="0 0 32 32" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 9a10 10 0 1 1-2.2 10"/><path d="M9 4v5H4"/><text x="16" y="20.5" text-anchor="middle" font-size="9" font-weight="700" fill="currentColor" stroke="none" font-family="system-ui">30</text></svg>';
+    bar.querySelector('.mp-30').onclick = () => this.skip30(-1);
     bar.querySelector('.tplay').onclick = () => this.toggle();
-    bar.querySelector('.trate').onclick = () => this.rateNext();
-    bar.querySelector('.tvoice').onclick = () => this.sheet();
-    bar.querySelector('.tmoon').onclick = () => this.dark(true);
-    bar.querySelector('.tset').onclick = () => this.sheet();
-    bar.querySelector('.tx').onclick = () => this.stop();
+    bar.querySelector('.mp-main').onclick = () => this.fpOpen();
+    bar.querySelector('.tx').onclick = () => { this.fpClose(); this.stop(); };
+    // swipe the mini player up to open it big
+    let y0 = null; bar.addEventListener('pointerdown', e => { y0 = e.clientY; }); bar.addEventListener('pointerup', e => { if (y0 != null && y0 - e.clientY > 40) this.fpOpen(); y0 = null; });
+    setInterval(() => { if (this.open) this.tick(); }, 500);
+    // chapter name up top: tap to change chapter (like Audible / Apple Books)
+    const h1 = $('#b-h1'); h1.classList.add('chbtn'); h1.onclick = e => { e.stopPropagation(); this.chapters(); };
+    const bt = $('#b-title'); bt.onclick = () => this.chapters();
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && this.playing) { this.keepAwake(true); if (!speechSynthesis.speaking) this.speak(); } });
   },
 };

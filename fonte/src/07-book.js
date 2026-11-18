@@ -82,7 +82,7 @@ const Book = {
       this.cum = [0]; for (const s of sz) this.cum.push(this.cum[this.cum.length - 1] + s);
       this.total = this.cum[this.cum.length - 1] || 1;
       this.chat = [];
-      $('#b-title').textContent = rec.title;
+      $('#b-title').replaceChildren(el('small', { text: rec.title }));
       this.flow.lang = (this.data.lang || rec.lang || (S.lang === 'en' ? 'en' : 'pt')).slice(0, 5);
       App.show('v-book');
       this.applyStyle();
@@ -392,7 +392,7 @@ const Book = {
     const pct = this.pct(), chapLabel = this.tocLabel(this.ch) || this.rec.title;
     const left = this.pages - this.page - 1, cpp = this.rootText.length / this.pages;
     const mins = Math.max(0, Math.round(left * cpp / (S.cpm || 1000)));
-    $('#b-h1').textContent = niceLabel(chapLabel);
+    $('#b-h1').textContent = niceLabel(chapLabel); { const bt = $('#b-title'); bt.replaceChildren(el('small', { text: this.rec.title }), el('span', { text: niceLabel(chapLabel) || t('contents') })); }
     $('#b-h2').textContent = '';
     $('#b-f1').textContent = left > 0 ? t(left === 1 ? 'pageLeft1' : 'pagesLeft', { n: left }) : t('lastPageCh');
     $('#b-f2').textContent = (left > 0 ? t('minLeft', { m: mins < 1 ? '<1' : mins }) + ' · ' : '') + Math.round(pct * 100) + '%';
