@@ -192,7 +192,7 @@ const NeuralPlayer = {
       TTS.pause(); toast(t('abMissing'), 6000); return;
     }
     // where you stopped last time in this chapter (only if you didn't move to another page since)
-    const salvo = AudioBook.getPos(rec, voice, ch), volta = salvo && salvo.t > 15 && salvo.off === (Book.curOff || 0) ? salvo : null;
+    const salvo = AudioBook.getPos(rec, voice, ch), volta = salvo && salvo.t > 15 && !((Book.manualAt || 0) > salvo.at) ? salvo : null;
     const musica = S.abMusic !== false ? Promise.all([fromSeg > 0 || volta ? null : AudioBook.music(rec, 'inicio', ch), AudioBook.music(rec, 'fim', ch)]).catch(() => [null, null]) : null;
     let m;
     AudioBook.prog = (k, p) => { if (tok === this.token) TTS.loading(p >= 100 ? 0 : Math.max(1, p), 'ab'); };
@@ -200,7 +200,7 @@ const NeuralPlayer = {
     catch (e) { this.lastErr = 'download ' + (e && e.message); TTS.loading(null); if (tok === this.token) TTS.fail(new Error(t('abNet'))); return; }
     TTS.loading(null);
     if (tok !== this.token || !TTS.playing) return;
-    this.ab = Object.assign({}, m, { ch, sync: !m.len || m.len === (Book.rootText || '').length, volta: volta ? Math.max(0, volta.t - 10) : 0 });
+    this.ab = Object.assign({}, m, { ch, sync: !m.len || m.len === (Book.rootText || '').length || (m.times.length > 0 && m.times[m.times.length - 1][1] === TTS.segs.length - 1), volta: volta ? Math.max(0, volta.t - 10) : 0 });
     // music: before the narrator (only when the chapter starts from the beginning) and after the last sentence; never under the voice
     if (S.abMusic !== false) {
       const [ini, fim] = await musica;

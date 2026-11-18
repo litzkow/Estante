@@ -906,7 +906,7 @@ const STR = {
   cDblT: ['Dois toques na tela', 'Double tap'], cDblZoom: ['Zoom (aproximar/afastar)', 'Zoom in/out'], cDblPanel: ['Ir para o quadro', 'Go to panel'],
   abReady: ['audiolivro pronto · sem pausas', 'ready audiobook · no pauses'], abReadyHD: ['audiolivro pronto · voz mais natural', 'ready audiobook · most natural voice'], abDownloading: ['Baixando o capítulo… {n}% (só da primeira vez)', 'Downloading the chapter… {n}% (first time only)'], abGetAll: ['Baixar o livro todo (ouvir sem internet)', 'Download the whole book (listen offline)'], abGetAllN: ['Baixando… capítulo {i} de {n}', 'Downloading… chapter {i} of {n}'], abGetAllDone: ['Pronto: {n} capítulos no celular', 'Done: {n} chapters on the phone'], abGetAllPub: ['Este livro já vem pelo site do app', 'This book streams from the app site'], abGetAllPick: ['Escolha primeiro uma voz de audiolivro pronto (a do narrador)', 'First pick a ready audiobook voice (the narrator)'],
   famInvite: ['Convidar (mandar o link para outra pessoa)', 'Invite (send the link to someone)'], famInviteMsg: ['Abra este link para entrar na nossa biblioteca do Estante', 'Open this link to join our Estante library'], famInviteCopied: ['Link copiado. Mande para ela.', 'Link copied. Send it.'], famInviteCopy: ['Copie o link do convite:', 'Copy the invite link:'], famInviteNote: ['O link funciona como uma chave da biblioteca: mande só para quem pode entrar.', 'The link works like a key to the library: only send it to people who may join.'], famPastePh: ['Colar aqui o link do convite', 'Paste the invite link here'], famPaste: ['Entrar com o convite', 'Join with the invite'], famLinked: ['Conectado pelo convite.', 'Connected with the invite.'], famBadInvite: ['Esse link não é um convite do Estante.', 'That link is not an Estante invite.'],
-  abOuvir: ['Ouvir', 'Listen'], abMusic: ['Música na abertura e no fim do capítulo', 'Music at the start and end of each chapter'], abMusicYes: ['Sim', 'On'], abMusicNote: ['Só nos audiolivros prontos. A música toca antes do narrador começar e depois da última frase, nunca por baixo da voz.', 'Ready audiobooks only. The music plays before the narrator starts and after the last sentence, never under the voice.'], abMissing: ['Este capítulo ainda não foi narrado. Ele entra na fila e aparece aqui quando ficar pronto.', 'This chapter is not narrated yet. It will show up here when it is ready.'],
+  abDiag: ['Texto acompanha a voz: {s} · capítulo guardado no celular: {c} · ponto salvo: {p}', 'Text follows the voice: {s} · chapter saved on the phone: {c} · saved spot: {p}'], abYes: ['sim', 'yes'], abNo: ['não', 'no'], abOuvir: ['Ouvir', 'Listen'], abMusic: ['Música na abertura e no fim do capítulo', 'Music at the start and end of each chapter'], abMusicYes: ['Sim', 'On'], abMusicNote: ['Só nos audiolivros prontos. A música toca antes do narrador começar e depois da última frase, nunca por baixo da voz.', 'Ready audiobooks only. The music plays before the narrator starts and after the last sentence, never under the voice.'], abMissing: ['Este capítulo ainda não foi narrado. Ele entra na fila e aparece aqui quando ficar pronto.', 'This chapter is not narrated yet. It will show up here when it is ready.'],
   abNet: ['Não deu para tocar o audiolivro. Confira a internet e tente de novo.', "Couldn't play the audiobook. Check the internet and try again."],
   vozNatural: ['mais natural', 'most natural'], vozFast: ['rápida', 'fast'], vozWarm: ['Abrindo a voz… (só na primeira vez)', 'Opening the voice… (first time only)'],
   vozHave: ['no celular ✓', 'on this phone ✓'], vozGet: ['baixa uma vez (~{n} MB)', 'downloads once (~{n} MB)'], vozRetry: ['Tentar de novo', 'Try again'],
@@ -2885,12 +2885,14 @@ const Book = {
     this.afterMove();
   },
   next() {
+    this.manualAt = Date.now(); // you turned the page yourself (the narrator's page turns don't count)
     this.trackSpeed();
     if (this.page < this.pages - 1) this.showPage(this.page + 1, true);
     else if (this.ch < this.data.count - 1) this.turnChapter(this.ch + 1, { frac: 0 }, 1);
     else this.finish();
   },
   prev() {
+    this.manualAt = Date.now();
     this.turnAt = 0;
     if (this.page > 0) this.showPage(this.page - 1, true);
     else if (this.ch > 0) this.turnChapter(this.ch - 1, 'end', -1);
@@ -3004,7 +3006,7 @@ const Book = {
     draw(dir > 0 ? 0 : 1); raf = requestAnimationFrame(step);
     return { finished: pr, finish: end };
   },
-  async jumpTo(j) {
+  async jumpTo(j) { this.manualAt = Date.now();
     // same chapter number in the other language if possible, else same percentage
     if (j.num) { const e = this.data.toc.find(e => chapNum(e.label) === j.num); if (e) return this.render(e.idx, { frac: j.frac || 0 }); }
     return this.jumpPct(j.pct || 0);
@@ -4244,6 +4246,11 @@ const TTS = {
         draw();
         b.append(wGroup(t('ttsEngine'), engSeg, azBox), wGroup(t('ttsVoice') + ' · ' + (lang === 'en' ? 'English' : 'Português'), L, note),
           wGroup(t('ttsSpeed'), wSlider(0.75, 3, 0.05, S.ttsRate || 1, v => { setS('ttsRate', Math.round(v * 100) / 100); NeuralPlayer.rate(S.ttsRate); this.ui(); }, v => (+v).toFixed(2).replace('.', ',') + '×', 'speed')),
+          Book.rec && (() => { const d = el('p', { class: 'muted', style: { fontSize: '11.5px', margin: '0 2px 6px' } });
+            (async () => { const A = NeuralPlayer.ab; if (!A) return; const k = AudioBook.key(Book.rec) + '/' + NeuralPlayer.voice.slice(2) + '/' + String(A.ch).padStart(3, '0') + '.mp3?v=' + A.dur;
+              const g = await AudioBook.cached(k), p = AudioBook.getPos(Book.rec, NeuralPlayer.voice, A.ch);
+              d.textContent = t('abDiag', { s: t(A.sync ? 'abYes' : 'abNo'), c: t(g ? 'abYes' : 'abNo'), p: p ? Math.floor(p.t / 60) + ':' + String(Math.round(p.t % 60)).padStart(2, '0') : '–' }) + (A.sync ? '' : ' (' + (Book.rootText || '').length + '/' + A.len + ')'); })().catch(() => { });
+            return d; })(),
           Book.rec && el('button', { class: 'btn block', style: { margin: '4px 0 12px' }, text: t('abGetAll'), onclick: async ev => {
             const btn = ev.currentTarget, lang = this.lang(), v = Voices.current(lang, await Voices.list(lang));
             if (!v || !v.id.startsWith('a:')) { toast(t('abGetAllPick'), 5000); return; }
@@ -4810,7 +4817,7 @@ const NeuralPlayer = {
       TTS.pause(); toast(t('abMissing'), 6000); return;
     }
     // where you stopped last time in this chapter (only if you didn't move to another page since)
-    const salvo = AudioBook.getPos(rec, voice, ch), volta = salvo && salvo.t > 15 && salvo.off === (Book.curOff || 0) ? salvo : null;
+    const salvo = AudioBook.getPos(rec, voice, ch), volta = salvo && salvo.t > 15 && !((Book.manualAt || 0) > salvo.at) ? salvo : null;
     const musica = S.abMusic !== false ? Promise.all([fromSeg > 0 || volta ? null : AudioBook.music(rec, 'inicio', ch), AudioBook.music(rec, 'fim', ch)]).catch(() => [null, null]) : null;
     let m;
     AudioBook.prog = (k, p) => { if (tok === this.token) TTS.loading(p >= 100 ? 0 : Math.max(1, p), 'ab'); };
@@ -4818,7 +4825,7 @@ const NeuralPlayer = {
     catch (e) { this.lastErr = 'download ' + (e && e.message); TTS.loading(null); if (tok === this.token) TTS.fail(new Error(t('abNet'))); return; }
     TTS.loading(null);
     if (tok !== this.token || !TTS.playing) return;
-    this.ab = Object.assign({}, m, { ch, sync: !m.len || m.len === (Book.rootText || '').length, volta: volta ? Math.max(0, volta.t - 10) : 0 });
+    this.ab = Object.assign({}, m, { ch, sync: !m.len || m.len === (Book.rootText || '').length || (m.times.length > 0 && m.times[m.times.length - 1][1] === TTS.segs.length - 1), volta: volta ? Math.max(0, volta.t - 10) : 0 });
     // music: before the narrator (only when the chapter starts from the beginning) and after the last sentence; never under the voice
     if (S.abMusic !== false) {
       const [ini, fim] = await musica;
@@ -5365,8 +5372,11 @@ const AudioBook = {
   async has(rec, voice, ch) { return (await this.voices(rec)).some(v => v.id === voice && v.chapters.includes(ch)); },
   async src(rec) { const e = (await this.index())[this.key(rec)]; return e ? e.src : 'pub'; },
   // family audio is kept on the phone after the first download (Cache Storage), so a chapter downloads only once
-  async cached(id) { try { const c = await caches.open('estante-audio'); const r = await c.match('https://estante.local/' + id); return r ? await r.blob() : null; } catch (e) { return null; } },
-  async keep(id, blob) { try { const c = await caches.open('estante-audio'); await c.put('https://estante.local/' + id, new Response(blob, { headers: { 'Content-Type': 'audio/mpeg' } })); } catch (e) { } },
+  async cached(id) {
+    try { const b = await DB.get('files', 'aud:' + id); if (b && b.size > 1000) return b; } catch (e) { }
+    try { const c = await caches.open('estante-audio'); const r = await c.match('https://estante.local/' + id); return r ? await r.blob() : null; } catch (e) { return null; }
+  },
+  async keep(id, blob) { try { await DB.put('files', 'aud:' + id, blob); } catch (e) { } },
   async getFile(rec, path, asJson, onProg, ver) {
     if ((await this.src(rec)) === 'priv') {
       const id = path + (ver ? '?v=' + ver : '');

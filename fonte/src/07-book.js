@@ -225,12 +225,14 @@ const Book = {
     this.afterMove();
   },
   next() {
+    this.manualAt = Date.now(); // you turned the page yourself (the narrator's page turns don't count)
     this.trackSpeed();
     if (this.page < this.pages - 1) this.showPage(this.page + 1, true);
     else if (this.ch < this.data.count - 1) this.turnChapter(this.ch + 1, { frac: 0 }, 1);
     else this.finish();
   },
   prev() {
+    this.manualAt = Date.now();
     this.turnAt = 0;
     if (this.page > 0) this.showPage(this.page - 1, true);
     else if (this.ch > 0) this.turnChapter(this.ch - 1, 'end', -1);
@@ -344,7 +346,7 @@ const Book = {
     draw(dir > 0 ? 0 : 1); raf = requestAnimationFrame(step);
     return { finished: pr, finish: end };
   },
-  async jumpTo(j) {
+  async jumpTo(j) { this.manualAt = Date.now();
     // same chapter number in the other language if possible, else same percentage
     if (j.num) { const e = this.data.toc.find(e => chapNum(e.label) === j.num); if (e) return this.render(e.idx, { frac: j.frac || 0 }); }
     return this.jumpPct(j.pct || 0);

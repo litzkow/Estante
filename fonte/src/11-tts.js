@@ -244,6 +244,11 @@ const TTS = {
         draw();
         b.append(wGroup(t('ttsEngine'), engSeg, azBox), wGroup(t('ttsVoice') + ' · ' + (lang === 'en' ? 'English' : 'Português'), L, note),
           wGroup(t('ttsSpeed'), wSlider(0.75, 3, 0.05, S.ttsRate || 1, v => { setS('ttsRate', Math.round(v * 100) / 100); NeuralPlayer.rate(S.ttsRate); this.ui(); }, v => (+v).toFixed(2).replace('.', ',') + '×', 'speed')),
+          Book.rec && (() => { const d = el('p', { class: 'muted', style: { fontSize: '11.5px', margin: '0 2px 6px' } });
+            (async () => { const A = NeuralPlayer.ab; if (!A) return; const k = AudioBook.key(Book.rec) + '/' + NeuralPlayer.voice.slice(2) + '/' + String(A.ch).padStart(3, '0') + '.mp3?v=' + A.dur;
+              const g = await AudioBook.cached(k), p = AudioBook.getPos(Book.rec, NeuralPlayer.voice, A.ch);
+              d.textContent = t('abDiag', { s: t(A.sync ? 'abYes' : 'abNo'), c: t(g ? 'abYes' : 'abNo'), p: p ? Math.floor(p.t / 60) + ':' + String(Math.round(p.t % 60)).padStart(2, '0') : '–' }) + (A.sync ? '' : ' (' + (Book.rootText || '').length + '/' + A.len + ')'); })().catch(() => { });
+            return d; })(),
           Book.rec && el('button', { class: 'btn block', style: { margin: '4px 0 12px' }, text: t('abGetAll'), onclick: async ev => {
             const btn = ev.currentTarget, lang = this.lang(), v = Voices.current(lang, await Voices.list(lang));
             if (!v || !v.id.startsWith('a:')) { toast(t('abGetAllPick'), 5000); return; }

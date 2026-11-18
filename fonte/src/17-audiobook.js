@@ -42,8 +42,11 @@ const AudioBook = {
   async has(rec, voice, ch) { return (await this.voices(rec)).some(v => v.id === voice && v.chapters.includes(ch)); },
   async src(rec) { const e = (await this.index())[this.key(rec)]; return e ? e.src : 'pub'; },
   // family audio is kept on the phone after the first download (Cache Storage), so a chapter downloads only once
-  async cached(id) { try { const c = await caches.open('estante-audio'); const r = await c.match('https://estante.local/' + id); return r ? await r.blob() : null; } catch (e) { return null; } },
-  async keep(id, blob) { try { const c = await caches.open('estante-audio'); await c.put('https://estante.local/' + id, new Response(blob, { headers: { 'Content-Type': 'audio/mpeg' } })); } catch (e) { } },
+  async cached(id) {
+    try { const b = await DB.get('files', 'aud:' + id); if (b && b.size > 1000) return b; } catch (e) { }
+    try { const c = await caches.open('estante-audio'); const r = await c.match('https://estante.local/' + id); return r ? await r.blob() : null; } catch (e) { return null; }
+  },
+  async keep(id, blob) { try { await DB.put('files', 'aud:' + id, blob); } catch (e) { } },
   async getFile(rec, path, asJson, onProg, ver) {
     if ((await this.src(rec)) === 'priv') {
       const id = path + (ver ? '?v=' + ver : '');
