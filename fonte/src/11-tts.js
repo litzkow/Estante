@@ -115,10 +115,10 @@ const TTS = {
     if (this.engineAudio()) NeuralPlayer.pause(); else speechSynthesis.cancel();
     this.keepAwake(false); this.ui();
   },
-  loading(pc) {
+  loading(pc, kind) {
     const tv = $('#tts-bar .tvoice'); if (!tv) return;
     if (pc == null) { this.ui(); return; }
-    tv.textContent = pc === -1 ? t('vozWarm') : pc >= 0 && pc < 100 && pc !== 0 ? t('ttsDownloading', { n: pc }) : t('ttsPreparing');
+    tv.textContent = pc === -1 ? t('vozWarm') : pc >= 0 && pc < 100 && pc !== 0 ? t(kind === 'ab' ? 'abDownloading' : 'ttsDownloading', { n: pc }) : t('ttsPreparing');
   },
   fail(e) {
     this.pause(); this.loading(null);

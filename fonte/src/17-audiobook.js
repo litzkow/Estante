@@ -41,19 +41,32 @@ const AudioBook = {
   },
   async has(rec, voice, ch) { return (await this.voices(rec)).some(v => v.id === voice && v.chapters.includes(ch)); },
   async src(rec) { const e = (await this.index())[this.key(rec)]; return e ? e.src : 'pub'; },
-  async getFile(rec, path, asJson) {
+  // family audio is kept on the phone after the first download (Cache Storage), so a chapter downloads only once
+  async cached(id) { try { const c = await caches.open('estante-audio'); const r = await c.match('https://estante.local/' + id); return r ? await r.blob() : null; } catch (e) { return null; } },
+  async keep(id, blob) { try { const c = await caches.open('estante-audio'); await c.put('https://estante.local/' + id, new Response(blob, { headers: { 'Content-Type': 'audio/mpeg' } })); } catch (e) { } },
+  async getFile(rec, path, asJson, onProg, ver) {
     if ((await this.src(rec)) === 'priv') {
+      const id = path + (ver ? '?v=' + ver : '');
+      if (!asJson) { const hit = await this.cached(id); if (hit) { onProg && onProg(100); return URL.createObjectURL(new Blob([hit], { type: 'audio/mpeg' })); } }
       const r = await Family.api(Family.repo() + '/contents/audio/' + path, { raw: true });
       if (!r.ok) throw new Error('HTTP ' + r.status);
+      if (asJson) return r.json();
+      // read in pieces to show how much is left
+      const total = +r.headers.get('content-length') || 0, parts = []; let got = 0;
+      if (r.body && r.body.getReader) {
+        const rd = r.body.getReader();
+        for (;;) { const { done, value } = await rd.read(); if (done) break; parts.push(value); got += value.length; if (total && onProg) onProg(Math.min(99, Math.floor(got * 100 / total))); }
+      } else parts.push(new Uint8Array(await r.arrayBuffer()));
       // the iPhone only plays a downloaded file when it's labeled as MP3
-      return asJson ? r.json() : URL.createObjectURL(new Blob([await r.arrayBuffer()], { type: 'audio/mpeg' }));
+      const blob = new Blob(parts, { type: 'audio/mpeg' }); this.keep(id, blob);
+      return URL.createObjectURL(blob);
     }
     if (!asJson) return this.base() + path;
     const r = await fetch(this.base() + path); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json();
   },
   async chapter(rec, voice, ch) {
     const k = this.key(rec) + '/' + voice + '/' + String(ch).padStart(3, '0');
-    if (!this.maps.has(k)) this.maps.set(k, (async () => { const m = await this.getFile(rec, k + '.json', true); m.url = await this.getFile(rec, k + '.mp3', false); return m; })());
+    if (!this.maps.has(k)) this.maps.set(k, (async () => { const m = await this.getFile(rec, k + '.json', true); m.url = await this.getFile(rec, k + '.mp3', false, p => this.prog && this.prog(k, p), m.dur); return m; })());
     try { const m = await this.maps.get(k); return { url: m.url, times: m.times || [], dur: m.dur, len: m.len }; }
     catch (e) { this.maps.delete(k); throw e; }
   },
@@ -65,6 +78,10 @@ const AudioBook = {
     if (!this.maps.has(k)) this.maps.set(k, this.getFile(rec, this.key(rec) + '/musica/' + kind + '-' + String(ch).padStart(3, '0') + '.mp3', false).then(url => ({ url })));
     try { return (await this.maps.get(k)).url; } catch (e) { this.maps.delete(k); return null; }
   },
+  posKey(rec, voice, ch) { return 'abpos:' + this.key(rec) + '|' + voice + '|' + ch; },
+  savePos(rec, voice, ch, t, off) { try { localStorage.setItem(this.posKey(rec, voice, ch), JSON.stringify({ t: Math.round(t), off, at: Date.now() })); } catch (e) { } },
+  getPos(rec, voice, ch) { try { return JSON.parse(localStorage.getItem(this.posKey(rec, voice, ch)) || 'null'); } catch (e) { return null; } },
+  clearPos(rec, voice, ch) { try { localStorage.removeItem(this.posKey(rec, voice, ch)); } catch (e) { } },
   // the next chapter is fetched while this one plays, so the change is instant (even with the screen locked)
   prefetch(rec, voice, ch) { this.has(rec, 'a:' + voice, ch).then(ok => { if (ok) { this.chapter(rec, voice, ch).catch(() => { }); if (S.abMusic !== false) this.music(rec, 'inicio', ch).catch(() => { }); } }); if (this.maps.size > 6) { const [k0, p0] = this.maps.entries().next().value; this.maps.delete(k0); p0.then(m => { if (m.url.startsWith('blob:')) URL.revokeObjectURL(m.url); }).catch(() => { }); } },
   // export what the narrator needs: each chapter's sentences exactly as the app shows them

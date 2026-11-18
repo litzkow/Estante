@@ -191,15 +191,19 @@ const NeuralPlayer = {
       // no robotic stand-in: stop here and say the chapter isn't narrated yet
       TTS.pause(); toast(t('abMissing'), 6000); return;
     }
+    // where you stopped last time in this chapter (only if you didn't move to another page since)
+    const salvo = AudioBook.getPos(rec, voice, ch), volta = salvo && salvo.t > 15 && salvo.off === (Book.curOff || 0) ? salvo : null;
+    const musica = S.abMusic !== false ? Promise.all([fromSeg > 0 || volta ? null : AudioBook.music(rec, 'inicio', ch), AudioBook.music(rec, 'fim', ch)]).catch(() => [null, null]) : null;
     let m;
+    AudioBook.prog = (k, p) => { if (tok === this.token) TTS.loading(p >= 100 ? 0 : Math.max(1, p), 'ab'); };
     try { TTS.loading(0); m = await AudioBook.chapter(rec, voice.slice(2), ch); }
     catch (e) { this.lastErr = 'download ' + (e && e.message); TTS.loading(null); if (tok === this.token) TTS.fail(new Error(t('abNet'))); return; }
     TTS.loading(null);
     if (tok !== this.token || !TTS.playing) return;
-    this.ab = Object.assign({}, m, { ch, sync: !m.len || m.len === (Book.rootText || '').length });
+    this.ab = Object.assign({}, m, { ch, sync: !m.len || m.len === (Book.rootText || '').length, volta: volta ? Math.max(0, volta.t - 10) : 0 });
     // music: before the narrator (only when the chapter starts from the beginning) and after the last sentence; never under the voice
     if (S.abMusic !== false) {
-      const [ini, fim] = await Promise.all([fromSeg > 0 ? null : AudioBook.music(rec, 'inicio', ch), AudioBook.music(rec, 'fim', ch)]);
+      const [ini, fim] = await musica;
       if (tok !== this.token || !TTS.playing) return;
       this.ab.fim = fim;
       if (ini) {
@@ -214,6 +218,8 @@ const NeuralPlayer = {
     const m = this.ab, rec = Book.rec, voice = this.voice, ch = m.ch; this.abPhase = 'main';
     const a = this.audio; a.ontimeupdate = null; this.silent = false; a.src = m.url; a.playbackRate = S.ttsRate || 1;
     let st = 0; if (this.ab.sync && fromSeg > 0) { const x = m.times.find(x => x[1] >= fromSeg); if (x) st = x[0]; }
+    if (m.volta) st = m.volta; // continue 10 s before where you stopped
+    this.posAt = 0;
     try {
       if (st) { await new Promise(r => { if (a.readyState >= 1) r(); else a.addEventListener('loadedmetadata', r, { once: true }); }); a.currentTime = st; }
       await a.play();
@@ -224,14 +230,18 @@ const NeuralPlayer = {
     AudioBook.prefetch(rec, voice.slice(2), ch + 1);
   },
   abTick() {
-    const A = this.ab; if (!A || this.abPhase !== 'main' || !A.sync || !A.times.length) return;
-    const ct = this.audio.currentTime; let lo = 0, hi = A.times.length - 1;
+    const A = this.ab; if (!A || this.abPhase !== 'main') return;
+    const ct = this.audio.currentTime;
+    // remember the exact spot every few seconds (works even when the text can't follow the voice)
+    if (Date.now() - (this.posAt || 0) > 4000 && ct > 1) { this.posAt = Date.now(); AudioBook.savePos(Book.rec, this.voice, A.ch, ct, Book.curOff || 0); }
+    if (!A.sync || !A.times.length) return; let lo = 0, hi = A.times.length - 1;
     while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (A.times[mid][0] <= ct) lo = mid; else hi = mid - 1; }
     const si = A.times[lo][1];
     if (si !== TTS.i) { TTS.i = si; if (document.visibilityState === 'visible') TTS.follow(); }
   },
   next() {
     if (this.ab && this.abPhase === 'inicio') return this.abMain(0, this.token);
+    if (this.ab && this.abPhase === 'main') AudioBook.clearPos(Book.rec, this.voice, this.ab.ch);
     if (this.ab && this.abPhase === 'main' && this.ab.fim && S.abMusic !== false) { this.abPhase = 'fim'; const a = this.audio; a.ontimeupdate = null; this.silent = false; a.src = this.ab.fim; a.playbackRate = 1; a.play().catch(() => { }); return; }
     if (this.ab) { this.ab = null; this.abPhase = 'main'; this.audio.ontimeupdate = null; if (TTS.sleepAt && Date.now() > TTS.sleepAt) { TTS.sleepAt = 0; TTS.pause(); toast(t('ttsSlept')); return; } return TTS.nextChapter(); }
     if (this.long && this.audio.src === this.long.url) { this.long = null; this.audio.ontimeupdate = null; this.k = this.chunks.length; return TTS.nextChapter(); }
@@ -242,7 +252,7 @@ const NeuralPlayer = {
     if (this.ab && this.abPhase !== 'main') { if (d > 0) this.next(); return; } // skip the music
     if (this.ab) { const a = this.audio; a.currentTime = clamp(a.currentTime + d * 15, 0, Math.max(0, (a.duration || this.ab.dur || 0) - 0.5)); return; }
     this.k = clamp(this.k + d, 0, Math.max(0, this.chunks.length - 1)); if (this.long && this.k < this.long.from) { this.long = null; this.audio.ontimeupdate = null; } if (TTS.playing) this.start(++this.token); else { const c = this.chunks[this.k]; if (c) { TTS.i = c.first; TTS.follow(c); } } },
-  pause() { this.token++; if (this.audio) this.audio.pause(); },
+  pause() { this.token++; if (this.audio) this.audio.pause(); if (this.ab && this.abPhase === 'main' && this.audio.currentTime > 1) AudioBook.savePos(Book.rec, this.voice, this.ab.ch, this.audio.currentTime, Book.curOff || 0); },
   resume() { if (this.long && this.audio.src !== this.long.url) return false; if (this.audio && this.audio.src && this.audio.currentTime > 0 && !this.audio.ended) { this.audio.play().catch(() => { }); this.meta(); return true; } return false; },
   stop() { this.token++; this.ab = null; this.abPhase = 'main'; if (this.audio) { this.audio.pause(); this.audio.ontimeupdate = null; this.audio.removeAttribute('src'); } this.ahead.clear(); if (this.long) { URL.revokeObjectURL(this.long.url); this.long = null; } },
   rate(r) { if (this.audio) this.audio.playbackRate = r; },
