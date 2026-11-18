@@ -76,6 +76,8 @@ const DEFAULTS = {
   trTo: 'pt',
   // library
   sort: 'recent', filter: 'all', sync: true,
+  // audiobooks: music only before the narrator starts and after the last sentence of each chapter
+  abMusic: true,
   cpm: 1000, updated: 0,
 };
 const S = Object.assign({}, DEFAULTS);

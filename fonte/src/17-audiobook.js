@@ -10,7 +10,7 @@ const AB_VOICES = {
 const CHIRP_F = /^(Achernar|Aoede|Autonoe|Callirrhoe|Despina|Erinome|Gacrux|Kore|Laomedeia|Leda|Pulcherrima|Sulafat|Vindemiatrix|Zephyr)$/;
 function abVoice(v) {
   if (AB_VOICES[v]) return AB_VOICES[v];
-  const m = /^([a-z]{2})-[A-Z]{2}-(?:Chirp3-HD|GeminiFlash|GeminiPro)-(\w+)$/.exec(v);
+  const m = /^([a-z]{2})-[A-Z]{2}-(?:Chirp3-HD|Gemini38|GeminiFlash|GeminiPro)-(\w+)$/.exec(v);
   if (m) return [m[2], CHIRP_F.test(m[2]) ? 'f' : 'm', m[1], true];
   return [v, '', ''];
 }
@@ -57,8 +57,16 @@ const AudioBook = {
     try { const m = await this.maps.get(k); return { url: m.url, times: m.times || [], dur: m.dur, len: m.len }; }
     catch (e) { this.maps.delete(k); throw e; }
   },
+  // chapter music (opening / ending), when the book has it: audio/<book>/musica/inicio-001.mp3, fim-001.mp3
+  async music(rec, kind, ch) {
+    const e = (await this.index())[this.key(rec)];
+    if (!e || !e.musica || !(e.musica[kind] || []).includes(ch)) return null;
+    const k = 'm:' + this.key(rec) + '/' + kind + '/' + ch;
+    if (!this.maps.has(k)) this.maps.set(k, this.getFile(rec, this.key(rec) + '/musica/' + kind + '-' + String(ch).padStart(3, '0') + '.mp3', false).then(url => ({ url })));
+    try { return (await this.maps.get(k)).url; } catch (e) { this.maps.delete(k); return null; }
+  },
   // the next chapter is fetched while this one plays, so the change is instant (even with the screen locked)
-  prefetch(rec, voice, ch) { this.has(rec, 'a:' + voice, ch).then(ok => { if (ok) this.chapter(rec, voice, ch).catch(() => { }); }); if (this.maps.size > 6) { const [k0, p0] = this.maps.entries().next().value; this.maps.delete(k0); p0.then(m => { if (m.url.startsWith('blob:')) URL.revokeObjectURL(m.url); }).catch(() => { }); } },
+  prefetch(rec, voice, ch) { this.has(rec, 'a:' + voice, ch).then(ok => { if (ok) { this.chapter(rec, voice, ch).catch(() => { }); if (S.abMusic !== false) this.music(rec, 'inicio', ch).catch(() => { }); } }); if (this.maps.size > 6) { const [k0, p0] = this.maps.entries().next().value; this.maps.delete(k0); p0.then(m => { if (m.url.startsWith('blob:')) URL.revokeObjectURL(m.url); }).catch(() => { }); } },
   // export what the narrator needs: each chapter's sentences exactly as the app shows them
   async exportBook() {
     const out = { title: Book.rec.title, key: this.key(Book.rec), lang: (Book.flow.lang || '').slice(0, 2), chapters: [] };

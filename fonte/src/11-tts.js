@@ -244,6 +244,7 @@ const TTS = {
         draw();
         b.append(wGroup(t('ttsEngine'), engSeg, azBox), wGroup(t('ttsVoice') + ' · ' + (lang === 'en' ? 'English' : 'Português'), L, note),
           wGroup(t('ttsSpeed'), wSlider(0.75, 3, 0.05, S.ttsRate || 1, v => { setS('ttsRate', Math.round(v * 100) / 100); NeuralPlayer.rate(S.ttsRate); this.ui(); }, v => (+v).toFixed(2).replace('.', ',') + '×', 'speed')),
+          wGroup(t('abMusic'), wSeg([[1, t('abMusicYes')], [0, t('off')]], S.abMusic === false ? 0 : 1, x => setS('abMusic', !!x)), el('p', { class: 'muted', style: { fontSize: '12.5px', lineHeight: 1.45, margin: '8px 2px 0' }, text: t('abMusicNote') })),
           wGroup(t('ttsSleep'), wSeg([[0, t('off')], [15, '15 min'], [30, '30 min'], [60, '60 min']], this.sleepMin || 0, m => { this.sleepMin = m; this.sleepAt = m ? Date.now() + m * 60000 : 0; if (m) toast(t('ttsSleepSet', { n: m })); })),
           wGroup(t('ttsScreen'),
             this.engineAudio() ? el('button', { class: 'btn block primary', style: { marginBottom: '8px' }, onclick: async e => {

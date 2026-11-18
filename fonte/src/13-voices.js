@@ -183,7 +183,7 @@ const NeuralPlayer = {
   },
   // ---------- narrated audiobook ----------
   async abPlay(fromSeg, voice) {
-    this.init(); const tok = ++this.token; this.voice = voice; this.ab = null;
+    this.init(); const tok = ++this.token; this.voice = voice; this.ab = null; this.abPhase = 'main';
     if (this.long) { URL.revokeObjectURL(this.long.url); this.long = null; }
     const rec = Book.rec, ch = Book.ch;
     if (!(await AudioBook.has(rec, voice, ch))) {
@@ -197,6 +197,21 @@ const NeuralPlayer = {
     TTS.loading(null);
     if (tok !== this.token || !TTS.playing) return;
     this.ab = Object.assign({}, m, { ch, sync: !m.len || m.len === (Book.rootText || '').length });
+    // music: before the narrator (only when the chapter starts from the beginning) and after the last sentence; never under the voice
+    if (S.abMusic !== false) {
+      const [ini, fim] = await Promise.all([fromSeg > 0 ? null : AudioBook.music(rec, 'inicio', ch), AudioBook.music(rec, 'fim', ch)]);
+      if (tok !== this.token || !TTS.playing) return;
+      this.ab.fim = fim;
+      if (ini) {
+        this.abPhase = 'inicio'; const a = this.audio; a.ontimeupdate = null; this.silent = false; a.src = ini; a.playbackRate = 1;
+        try { await a.play(); this.unlocked = true; } catch (e) { this.lastErr = 'play ' + (e && e.name); if (tok === this.token) { TTS.pause(); if (e && e.name === 'NotAllowedError') toast(t('tapToPlay'), 5000); } return; }
+        this.meta(); return;
+      }
+    }
+    return this.abMain(fromSeg, tok);
+  },
+  async abMain(fromSeg, tok) {
+    const m = this.ab, rec = Book.rec, voice = this.voice, ch = m.ch; this.abPhase = 'main';
     const a = this.audio; a.ontimeupdate = null; this.silent = false; a.src = m.url; a.playbackRate = S.ttsRate || 1;
     let st = 0; if (this.ab.sync && fromSeg > 0) { const x = m.times.find(x => x[1] >= fromSeg); if (x) st = x[0]; }
     try {
@@ -209,24 +224,27 @@ const NeuralPlayer = {
     AudioBook.prefetch(rec, voice.slice(2), ch + 1);
   },
   abTick() {
-    const A = this.ab; if (!A || !A.sync || !A.times.length) return;
+    const A = this.ab; if (!A || this.abPhase !== 'main' || !A.sync || !A.times.length) return;
     const ct = this.audio.currentTime; let lo = 0, hi = A.times.length - 1;
     while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (A.times[mid][0] <= ct) lo = mid; else hi = mid - 1; }
     const si = A.times[lo][1];
     if (si !== TTS.i) { TTS.i = si; if (document.visibilityState === 'visible') TTS.follow(); }
   },
   next() {
-    if (this.ab) { this.ab = null; this.audio.ontimeupdate = null; if (TTS.sleepAt && Date.now() > TTS.sleepAt) { TTS.sleepAt = 0; TTS.pause(); toast(t('ttsSlept')); return; } return TTS.nextChapter(); }
+    if (this.ab && this.abPhase === 'inicio') return this.abMain(0, this.token);
+    if (this.ab && this.abPhase === 'main' && this.ab.fim && S.abMusic !== false) { this.abPhase = 'fim'; const a = this.audio; a.ontimeupdate = null; this.silent = false; a.src = this.ab.fim; a.playbackRate = 1; a.play().catch(() => { }); return; }
+    if (this.ab) { this.ab = null; this.abPhase = 'main'; this.audio.ontimeupdate = null; if (TTS.sleepAt && Date.now() > TTS.sleepAt) { TTS.sleepAt = 0; TTS.pause(); toast(t('ttsSlept')); return; } return TTS.nextChapter(); }
     if (this.long && this.audio.src === this.long.url) { this.long = null; this.audio.ontimeupdate = null; this.k = this.chunks.length; return TTS.nextChapter(); }
     if (TTS.sleepAt && Date.now() > TTS.sleepAt) { TTS.sleepAt = 0; TTS.pause(); toast(t('ttsSlept')); return; }
     this.k++; this.start(++this.token);
   },
   seek(d) {
+    if (this.ab && this.abPhase !== 'main') { if (d > 0) this.next(); return; } // skip the music
     if (this.ab) { const a = this.audio; a.currentTime = clamp(a.currentTime + d * 15, 0, Math.max(0, (a.duration || this.ab.dur || 0) - 0.5)); return; }
     this.k = clamp(this.k + d, 0, Math.max(0, this.chunks.length - 1)); if (this.long && this.k < this.long.from) { this.long = null; this.audio.ontimeupdate = null; } if (TTS.playing) this.start(++this.token); else { const c = this.chunks[this.k]; if (c) { TTS.i = c.first; TTS.follow(c); } } },
   pause() { this.token++; if (this.audio) this.audio.pause(); },
   resume() { if (this.long && this.audio.src !== this.long.url) return false; if (this.audio && this.audio.src && this.audio.currentTime > 0 && !this.audio.ended) { this.audio.play().catch(() => { }); this.meta(); return true; } return false; },
-  stop() { this.token++; this.ab = null; if (this.audio) { this.audio.pause(); this.audio.ontimeupdate = null; this.audio.removeAttribute('src'); } this.ahead.clear(); if (this.long) { URL.revokeObjectURL(this.long.url); this.long = null; } },
+  stop() { this.token++; this.ab = null; this.abPhase = 'main'; if (this.audio) { this.audio.pause(); this.audio.ontimeupdate = null; this.audio.removeAttribute('src'); } this.ahead.clear(); if (this.long) { URL.revokeObjectURL(this.long.url); this.long = null; } },
   rate(r) { if (this.audio) this.audio.playbackRate = r; },
   meta() {
     if (!('mediaSession' in navigator) || !window.MediaMetadata) return;
