@@ -146,7 +146,7 @@ const App = {
     await Goal.init();
     Lib.animNext = true;
     await Lib.render();
-    Splash.hide().then(async () => { Tour.maybe(); await splitCollections(); fixVolumes().catch(() => { }); await Starter.run(); Family.sync(true); });
+    Splash.hide().then(async () => { if (!Family.pendente) { await Family.perguntar(); Tour.maybe(); } await splitCollections(); fixVolumes().catch(() => { }); await Starter.run(); Family.sync(true); });
     // platform capabilities arrive later
     AI.init();
     Family.fromLink();

@@ -88,10 +88,55 @@ const Family = {
       const n = (await this.list()).length; toast(t('famOk', { n }), 6000); this.sync(); return true;
     } catch (e) { toast(e.message || String(e), 6000); return false; }
   },
+  // ---- guided invite: nothing is unlocked in Safari; only the installed app joins, after she accepts ----
+  standalone() { return navigator.standalone === true || !!(window.matchMedia && matchMedia('(display-mode: standalone)').matches); },
+  ios() { return /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); },
+  tela(titulo, corpo, botoes) {
+    const card = el('div', { class: 'tw-card in' }, el('div', { class: 'tw-art', html: TOUR_ART.welcome }),
+      el('div', { class: 'tw-txt' }, el('h2', { text: titulo }), corpo), el('div', { class: 'tw-btns', style: { flexDirection: 'column', gap: '8px', marginTop: '14px' } }, ...botoes.map(b => { b.style.flex = 'none'; b.style.width = '100%'; b.style.minHeight = '50px'; return b; })));
+    const bd = el('div', { class: 'tour' }, card); document.body.append(bd);
+    return () => { bd.classList.add('out'); setTimeout(() => bd.remove(), 300); };
+  },
+  passos(lista) {
+    const SHARE = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-3px;margin:0 2px"><path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>';
+    return el('ol', { style: { textAlign: 'left', margin: '12px 0 4px', paddingLeft: '22px', lineHeight: 1.55, fontSize: '15px' } },
+      ...lista.map(x => el('li', { style: { margin: '6px 0' }, html: esc(t(x)).replace('[c]', SHARE) })));
+  },
   async fromLink() {
     if (!/familia=/.test(location.hash)) return;
     const h = location.hash; history.replaceState(null, '', location.pathname + location.search);
-    await this.usarConvite(h);
+    this.pendente = location.origin + location.pathname + '#' + h.slice(h.indexOf('familia='));
+    await new Promise(r => setTimeout(r, 900)); // after the splash
+    if (this.ios() && !this.standalone()) {
+      // Safari: only explains how to install; the invite goes to the clipboard, the books stay locked
+      const msg = el('p', { text: t('famInvTx') }), lista = this.passos(['famInvS1', 'famInvS2', 'famInvS3']);
+      const btn = el('button', { class: 'btn primary', text: t('famInvGo'), onclick: async () => {
+        try { await navigator.clipboard.writeText(this.pendente); } catch (e) { }
+        msg.textContent = t('famInvCopied'); btn.textContent = t('famInvOk'); btn.onclick = () => fechar();
+      } });
+      const fechar = this.tela(t('famInvT'), el('div', {}, msg, lista), [btn]);
+    } else {
+      // installed app (or a computer/Android browser): asks before joining
+      const fechar = this.tela(t('famInvJoinT'), el('p', { text: t('famInvJoinTx') }), [
+        el('button', { class: 'btn primary', text: t('famInvEnter'), onclick: async () => { fechar(); await this.usarConvite(this.pendente); Lib.render(); } }),
+        el('button', { class: 'btn ghost', text: t('famInvLater'), onclick: () => fechar() })]);
+    }
+  },
+  // installed app, not connected yet: "Got an invite?" (reads the link she copied in Safari)
+  async perguntar() {
+    if (this.on || this.pendente || !this.standalone() || S.famNoAsk) return false;
+    return new Promise(res => {
+      const campo = el('input', { class: 'inp', style: { marginTop: '10px', display: 'none' }, placeholder: t('famPastePh') });
+      const msg = el('p', { text: t('famInvAppTx') });
+      const entrar = async txt => { if (await this.usarConvite(txt)) { fechar(); Lib.render(); res(true); return true; } return false; };
+      const fechar = this.tela(t('famInvAppT'), el('div', {}, msg, campo), [
+        el('button', { class: 'btn primary', text: t('famInvEnter'), onclick: async () => {
+          if (campo.style.display !== 'none' && campo.value) { if (!(await entrar(campo.value))) msg.textContent = t('famBadInvite'); return; }
+          let txt = ''; try { txt = await navigator.clipboard.readText(); } catch (e) { }
+          if (!(await entrar(txt))) { msg.textContent = t('famInvFail'); campo.style.display = ''; campo.focus(); }
+        } }),
+        el('button', { class: 'btn ghost', text: t('famInvNo'), onclick: () => { setS('famNoAsk', true); fechar(); res(false); } })]);
+    });
   },
   sheet() {
     Sheets.open({

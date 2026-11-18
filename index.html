@@ -906,7 +906,12 @@ const STR = {
   cDblT: ['Dois toques na tela', 'Double tap'], cDblZoom: ['Zoom (aproximar/afastar)', 'Zoom in/out'], cDblPanel: ['Ir para o quadro', 'Go to panel'],
   abReady: ['audiolivro pronto · sem pausas', 'ready audiobook · no pauses'], abReadyHD: ['audiolivro pronto · voz mais natural', 'ready audiobook · most natural voice'], abDownloading: ['Baixando o capítulo… {n}% (só da primeira vez)', 'Downloading the chapter… {n}% (first time only)'], abGetAll: ['Baixar o livro todo (ouvir sem internet)', 'Download the whole book (listen offline)'], abGetAllN: ['Baixando… capítulo {i} de {n}', 'Downloading… chapter {i} of {n}'], abGetAllDone: ['Pronto: {n} capítulos no celular', 'Done: {n} chapters on the phone'], abGetAllPub: ['Este livro já vem pelo site do app', 'This book streams from the app site'], abGetAllPick: ['Escolha primeiro uma voz de audiolivro pronto (a do narrador)', 'First pick a ready audiobook voice (the narrator)'],
   famInvite: ['Convidar (mandar o link para outra pessoa)', 'Invite (send the link to someone)'], famInviteMsg: ['Abra este link para entrar na nossa biblioteca do Estante', 'Open this link to join our Estante library'], famInviteCopied: ['Link copiado. Mande para ela.', 'Link copied. Send it.'], famInviteCopy: ['Copie o link do convite:', 'Copy the invite link:'], famInviteNote: ['O link funciona como uma chave da biblioteca: mande só para quem pode entrar.', 'The link works like a key to the library: only send it to people who may join.'], famPastePh: ['Colar aqui o link do convite', 'Paste the invite link here'], famPaste: ['Entrar com o convite', 'Join with the invite'], famLinked: ['Conectado pelo convite.', 'Connected with the invite.'], famBadInvite: ['Esse link não é um convite do Estante.', 'That link is not an Estante invite.'],
-  abDiag: ['Texto acompanha a voz: {s} · capítulo guardado no celular: {c} · ponto salvo: {p}', 'Text follows the voice: {s} · chapter saved on the phone: {c} · saved spot: {p}'], abYes: ['sim', 'yes'], abNo: ['não', 'no'], abOuvir: ['Ouvir', 'Listen'], abMusic: ['Música na abertura e no fim do capítulo', 'Music at the start and end of each chapter'], abMusicYes: ['Sim', 'On'], abMusicNote: ['Só nos audiolivros prontos. A música toca antes do narrador começar e depois da última frase, nunca por baixo da voz.', 'Ready audiobooks only. The music plays before the narrator starts and after the last sentence, never under the voice.'], abMissing: ['Este capítulo ainda não foi narrado. Ele entra na fila e aparece aqui quando ficar pronto.', 'This chapter is not narrated yet. It will show up here when it is ready.'],
+  abDiag: ['Texto acompanha a voz: {s} · capítulo guardado no celular: {c} · ponto salvo: {p}', 'Text follows the voice: {s} · chapter saved on the phone: {c} · saved spot: {p}'], abYes: ['sim', 'yes'], abNo: ['não', 'no'], famInvT: ['Você recebeu um convite', 'You got an invite'], famInvTx: ['Para entrar na biblioteca da família, com os livros e os áudios, instale o Estante no seu iPhone. Toque no botão abaixo e siga os passos:', 'To join the family library, with the books and the audio, install Estante on your iPhone. Tap the button below and follow the steps:'],
+  famInvS1: ['Toque em [c] Compartilhar, na barra do Safari', 'Tap [c] Share, in the Safari bar'], famInvS2: ['Role e toque em “Adicionar à Tela de Início”', 'Scroll and tap “Add to Home Screen”'], famInvS3: ['Abra o Estante pelo ícone novo na Tela de Início e toque em “Entrar com o convite”', 'Open Estante from the new Home Screen icon and tap “Join with the invite”'],
+  famInvGo: ['Aceitar e instalar', 'Accept and install'], famInvCopied: ['Convite guardado ✓ Agora siga os 3 passos abaixo.', 'Invite saved ✓ Now follow the 3 steps below.'], famInvOk: ['Entendi', 'Got it'],
+  famInvJoinT: ['Entrar na biblioteca da família?', 'Join the family library?'], famInvJoinTx: ['Você foi convidado para a biblioteca da família no Estante, com os livros e os áudios.', 'You were invited to the family library in Estante, with the books and the audio.'], famInvLater: ['Agora não', 'Not now'],
+  famInvAppT: ['Recebeu um convite da família?', 'Got a family invite?'], famInvAppTx: ['Toque em “Entrar com o convite” e depois em “Colar”. Os livros e os áudios da família aparecem na sua estante.', 'Tap “Join with the invite” and then “Paste”. The family books and audio show up on your shelf.'], famInvEnter: ['Entrar com o convite', 'Join with the invite'], famInvNo: ['Não recebi convite', 'I didn’t get one'], famInvFail: ['Não achei o convite. Abra a mensagem com o link, copie e cole aqui embaixo.', 'Couldn’t find the invite. Open the message with the link, copy it and paste it below.'],
+  abOuvir: ['Ouvir', 'Listen'], abMusic: ['Música na abertura e no fim do capítulo', 'Music at the start and end of each chapter'], abMusicYes: ['Sim', 'On'], abMusicNote: ['Só nos audiolivros prontos. A música toca antes do narrador começar e depois da última frase, nunca por baixo da voz.', 'Ready audiobooks only. The music plays before the narrator starts and after the last sentence, never under the voice.'], abMissing: ['Este capítulo ainda não foi narrado. Ele entra na fila e aparece aqui quando ficar pronto.', 'This chapter is not narrated yet. It will show up here when it is ready.'],
   abNet: ['Não deu para tocar o audiolivro. Confira a internet e tente de novo.', "Couldn't play the audiobook. Check the internet and try again."],
   vozNatural: ['mais natural', 'most natural'], vozFast: ['rápida', 'fast'], vozWarm: ['Abrindo a voz… (só na primeira vez)', 'Opening the voice… (first time only)'],
   vozHave: ['no celular ✓', 'on this phone ✓'], vozGet: ['baixa uma vez (~{n} MB)', 'downloads once (~{n} MB)'], vozRetry: ['Tentar de novo', 'Try again'],
@@ -3756,7 +3761,7 @@ const App = {
     await Goal.init();
     Lib.animNext = true;
     await Lib.render();
-    Splash.hide().then(async () => { Tour.maybe(); await splitCollections(); fixVolumes().catch(() => { }); await Starter.run(); Family.sync(true); });
+    Splash.hide().then(async () => { if (!Family.pendente) { await Family.perguntar(); Tour.maybe(); } await splitCollections(); fixVolumes().catch(() => { }); await Starter.run(); Family.sync(true); });
     // platform capabilities arrive later
     AI.init();
     Family.fromLink();
@@ -5134,10 +5139,55 @@ const Family = {
       const n = (await this.list()).length; toast(t('famOk', { n }), 6000); this.sync(); return true;
     } catch (e) { toast(e.message || String(e), 6000); return false; }
   },
+  // ---- guided invite: nothing is unlocked in Safari; only the installed app joins, after she accepts ----
+  standalone() { return navigator.standalone === true || !!(window.matchMedia && matchMedia('(display-mode: standalone)').matches); },
+  ios() { return /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); },
+  tela(titulo, corpo, botoes) {
+    const card = el('div', { class: 'tw-card in' }, el('div', { class: 'tw-art', html: TOUR_ART.welcome }),
+      el('div', { class: 'tw-txt' }, el('h2', { text: titulo }), corpo), el('div', { class: 'tw-btns', style: { flexDirection: 'column', gap: '8px', marginTop: '14px' } }, ...botoes.map(b => { b.style.flex = 'none'; b.style.width = '100%'; b.style.minHeight = '50px'; return b; })));
+    const bd = el('div', { class: 'tour' }, card); document.body.append(bd);
+    return () => { bd.classList.add('out'); setTimeout(() => bd.remove(), 300); };
+  },
+  passos(lista) {
+    const SHARE = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-3px;margin:0 2px"><path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>';
+    return el('ol', { style: { textAlign: 'left', margin: '12px 0 4px', paddingLeft: '22px', lineHeight: 1.55, fontSize: '15px' } },
+      ...lista.map(x => el('li', { style: { margin: '6px 0' }, html: esc(t(x)).replace('[c]', SHARE) })));
+  },
   async fromLink() {
     if (!/familia=/.test(location.hash)) return;
     const h = location.hash; history.replaceState(null, '', location.pathname + location.search);
-    await this.usarConvite(h);
+    this.pendente = location.origin + location.pathname + '#' + h.slice(h.indexOf('familia='));
+    await new Promise(r => setTimeout(r, 900)); // after the splash
+    if (this.ios() && !this.standalone()) {
+      // Safari: only explains how to install; the invite goes to the clipboard, the books stay locked
+      const msg = el('p', { text: t('famInvTx') }), lista = this.passos(['famInvS1', 'famInvS2', 'famInvS3']);
+      const btn = el('button', { class: 'btn primary', text: t('famInvGo'), onclick: async () => {
+        try { await navigator.clipboard.writeText(this.pendente); } catch (e) { }
+        msg.textContent = t('famInvCopied'); btn.textContent = t('famInvOk'); btn.onclick = () => fechar();
+      } });
+      const fechar = this.tela(t('famInvT'), el('div', {}, msg, lista), [btn]);
+    } else {
+      // installed app (or a computer/Android browser): asks before joining
+      const fechar = this.tela(t('famInvJoinT'), el('p', { text: t('famInvJoinTx') }), [
+        el('button', { class: 'btn primary', text: t('famInvEnter'), onclick: async () => { fechar(); await this.usarConvite(this.pendente); Lib.render(); } }),
+        el('button', { class: 'btn ghost', text: t('famInvLater'), onclick: () => fechar() })]);
+    }
+  },
+  // installed app, not connected yet: "Got an invite?" (reads the link she copied in Safari)
+  async perguntar() {
+    if (this.on || this.pendente || !this.standalone() || S.famNoAsk) return false;
+    return new Promise(res => {
+      const campo = el('input', { class: 'inp', style: { marginTop: '10px', display: 'none' }, placeholder: t('famPastePh') });
+      const msg = el('p', { text: t('famInvAppTx') });
+      const entrar = async txt => { if (await this.usarConvite(txt)) { fechar(); Lib.render(); res(true); return true; } return false; };
+      const fechar = this.tela(t('famInvAppT'), el('div', {}, msg, campo), [
+        el('button', { class: 'btn primary', text: t('famInvEnter'), onclick: async () => {
+          if (campo.style.display !== 'none' && campo.value) { if (!(await entrar(campo.value))) msg.textContent = t('famBadInvite'); return; }
+          let txt = ''; try { txt = await navigator.clipboard.readText(); } catch (e) { }
+          if (!(await entrar(txt))) { msg.textContent = t('famInvFail'); campo.style.display = ''; campo.focus(); }
+        } }),
+        el('button', { class: 'btn ghost', text: t('famInvNo'), onclick: () => { setS('famNoAsk', true); fechar(); res(false); } })]);
+    });
   },
   sheet() {
     Sheets.open({
