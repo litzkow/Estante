@@ -287,6 +287,8 @@ const TTS = {
       speechSynthesis.addEventListener && speechSynthesis.addEventListener('voiceschanged', () => this.ui());
     }
     $('#b-tts').onclick = () => this.open ? this.toggle() : this.start();
+    // big, easy "Listen" button (the small headphones up top were hard to hit)
+    const bl = $('#b-listen'); bl.append(el('span', { text: t('abOuvir') })); bl.onclick = () => this.open ? this.toggle() : this.start();
     const bar = $('#tts-bar');
     bar.querySelector('.tback').onclick = () => this.skip(-1);
     bar.querySelector('.tfwd').onclick = () => this.skip(1);
@@ -294,6 +296,7 @@ const TTS = {
     bar.querySelector('.trate').onclick = () => this.rateNext();
     bar.querySelector('.tvoice').onclick = () => this.sheet();
     bar.querySelector('.tmoon').onclick = () => this.dark(true);
+    bar.querySelector('.tset').onclick = () => this.sheet();
     bar.querySelector('.tx').onclick = () => this.stop();
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && this.playing) { this.keepAwake(true); if (!speechSynthesis.speaking) this.speak(); } });
   },

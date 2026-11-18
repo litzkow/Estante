@@ -465,6 +465,13 @@ html[data-view=v-comic],html[data-view=v-comic] body{background:#000}
 #v-book.tts-on:not(.ui-off) #tts-bar{bottom:calc(var(--sb) + 96px)}
 .tvoice{display:block;margin:0 auto 4px;font-size:12px;color:var(--muted);max-width:90%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:2px 8px}
 .trow{display:flex;align-items:center;justify-content:space-between}
+/* nome da voz com cara de botão: toca e abre "Ouvir o livro" */
+.tvoice::after{content:' ›';opacity:.7}
+/* botão grande "Ouvir" no canto (o fone pequeno lá em cima era difícil de acertar) */
+#b-tts{display:none}
+#b-listen{position:absolute;z-index:6;right:16px;bottom:calc(var(--sb) + 92px);height:52px;padding:0 22px 0 18px;border-radius:999px;background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:16px;display:flex;align-items:center;gap:9px;box-shadow:0 8px 22px rgba(0,0,0,.35);transition:opacity .25s,transform .25s}
+#b-listen svg{width:22px;height:22px}
+#v-book.tts-on #b-listen,#v-book.ui-off #b-listen{opacity:0;pointer-events:none;transform:translateY(14px)}
 .tplay{width:54px;height:54px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px rgba(232,163,61,.4)}
 .tplay svg{width:26px;height:26px}
 .trate{min-width:52px;height:34px;border-radius:999px;background:rgba(127,127,127,.16);font-weight:700;font-size:13px;font-variant-numeric:tabular-nums}
@@ -583,7 +590,8 @@ canvas.peel{position:absolute;z-index:4;pointer-events:none}
   <button class="b-x" id="b-x" data-ic="x" data-tl="back"></button>
   <div id="b-frame"><div id="b-flow"></div></div>
   <div id="b-foot" class="b-meta"><span id="b-f1"></span><span id="b-f2"></span></div>
-  <div id="tts-bar"><button class="tvoice"></button><div class="trow"><button class="icon tx" data-ic="x"></button><button class="icon tback" data-ic="skipBack"></button><button class="tplay"></button><button class="icon tfwd" data-ic="skipFwd"></button><button class="trate"></button><button class="icon tmoon" data-ic="moon"></button></div></div>
+  <div id="tts-bar"><button class="tvoice"></button><div class="trow"><button class="icon tx" data-ic="x"></button><button class="icon tback" data-ic="skipBack"></button><button class="tplay"></button><button class="icon tfwd" data-ic="skipFwd"></button><button class="trate"></button><button class="icon tmoon" data-ic="moon"></button><button class="icon tset" data-ic="sliders" data-tl="ttsTitle"></button></div></div>
+  <button id="b-listen" data-ic="headphones"></button>
   <header class="r-top">
     <button class="icon r-back" data-ic="back" data-tl="back"></button>
     <div class="r-title" id="b-title"></div>
@@ -898,7 +906,7 @@ const STR = {
   cDblT: ['Dois toques na tela', 'Double tap'], cDblZoom: ['Zoom (aproximar/afastar)', 'Zoom in/out'], cDblPanel: ['Ir para o quadro', 'Go to panel'],
   abReady: ['audiolivro pronto · sem pausas', 'ready audiobook · no pauses'], abReadyHD: ['audiolivro pronto · voz mais natural', 'ready audiobook · most natural voice'], abDownloading: ['Baixando o capítulo… {n}% (só da primeira vez)', 'Downloading the chapter… {n}% (first time only)'], abGetAll: ['Baixar o livro todo (ouvir sem internet)', 'Download the whole book (listen offline)'], abGetAllN: ['Baixando… capítulo {i} de {n}', 'Downloading… chapter {i} of {n}'], abGetAllDone: ['Pronto: {n} capítulos no celular', 'Done: {n} chapters on the phone'], abGetAllPub: ['Este livro já vem pelo site do app', 'This book streams from the app site'], abGetAllPick: ['Escolha primeiro uma voz de audiolivro pronto (a do narrador)', 'First pick a ready audiobook voice (the narrator)'],
   famInvite: ['Convidar (mandar o link para outra pessoa)', 'Invite (send the link to someone)'], famInviteMsg: ['Abra este link para entrar na nossa biblioteca do Estante', 'Open this link to join our Estante library'], famInviteCopied: ['Link copiado. Mande para ela.', 'Link copied. Send it.'], famInviteCopy: ['Copie o link do convite:', 'Copy the invite link:'], famInviteNote: ['O link funciona como uma chave da biblioteca: mande só para quem pode entrar.', 'The link works like a key to the library: only send it to people who may join.'], famPastePh: ['Colar aqui o link do convite', 'Paste the invite link here'], famPaste: ['Entrar com o convite', 'Join with the invite'], famLinked: ['Conectado pelo convite.', 'Connected with the invite.'], famBadInvite: ['Esse link não é um convite do Estante.', 'That link is not an Estante invite.'],
-  abMusic: ['Música na abertura e no fim do capítulo', 'Music at the start and end of each chapter'], abMusicYes: ['Sim', 'On'], abMusicNote: ['Só nos audiolivros prontos. A música toca antes do narrador começar e depois da última frase, nunca por baixo da voz.', 'Ready audiobooks only. The music plays before the narrator starts and after the last sentence, never under the voice.'], abMissing: ['Este capítulo ainda não foi narrado. Ele entra na fila e aparece aqui quando ficar pronto.', 'This chapter is not narrated yet. It will show up here when it is ready.'],
+  abOuvir: ['Ouvir', 'Listen'], abMusic: ['Música na abertura e no fim do capítulo', 'Music at the start and end of each chapter'], abMusicYes: ['Sim', 'On'], abMusicNote: ['Só nos audiolivros prontos. A música toca antes do narrador começar e depois da última frase, nunca por baixo da voz.', 'Ready audiobooks only. The music plays before the narrator starts and after the last sentence, never under the voice.'], abMissing: ['Este capítulo ainda não foi narrado. Ele entra na fila e aparece aqui quando ficar pronto.', 'This chapter is not narrated yet. It will show up here when it is ready.'],
   abNet: ['Não deu para tocar o audiolivro. Confira a internet e tente de novo.', "Couldn't play the audiobook. Check the internet and try again."],
   vozNatural: ['mais natural', 'most natural'], vozFast: ['rápida', 'fast'], vozWarm: ['Abrindo a voz… (só na primeira vez)', 'Opening the voice… (first time only)'],
   vozHave: ['no celular ✓', 'on this phone ✓'], vozGet: ['baixa uma vez (~{n} MB)', 'downloads once (~{n} MB)'], vozRetry: ['Tentar de novo', 'Try again'],
@@ -4279,6 +4287,8 @@ const TTS = {
       speechSynthesis.addEventListener && speechSynthesis.addEventListener('voiceschanged', () => this.ui());
     }
     $('#b-tts').onclick = () => this.open ? this.toggle() : this.start();
+    // big, easy "Listen" button (the small headphones up top were hard to hit)
+    const bl = $('#b-listen'); bl.append(el('span', { text: t('abOuvir') })); bl.onclick = () => this.open ? this.toggle() : this.start();
     const bar = $('#tts-bar');
     bar.querySelector('.tback').onclick = () => this.skip(-1);
     bar.querySelector('.tfwd').onclick = () => this.skip(1);
@@ -4286,6 +4296,7 @@ const TTS = {
     bar.querySelector('.trate').onclick = () => this.rateNext();
     bar.querySelector('.tvoice').onclick = () => this.sheet();
     bar.querySelector('.tmoon').onclick = () => this.dark(true);
+    bar.querySelector('.tset').onclick = () => this.sheet();
     bar.querySelector('.tx').onclick = () => this.stop();
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && this.playing) { this.keepAwake(true); if (!speechSynthesis.speaking) this.speak(); } });
   },

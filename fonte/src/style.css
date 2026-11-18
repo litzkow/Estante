@@ -447,6 +447,13 @@ html[data-view=v-comic],html[data-view=v-comic] body{background:#000}
 #v-book.tts-on:not(.ui-off) #tts-bar{bottom:calc(var(--sb) + 96px)}
 .tvoice{display:block;margin:0 auto 4px;font-size:12px;color:var(--muted);max-width:90%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:2px 8px}
 .trow{display:flex;align-items:center;justify-content:space-between}
+/* nome da voz com cara de botão: toca e abre "Ouvir o livro" */
+.tvoice::after{content:' ›';opacity:.7}
+/* botão grande "Ouvir" no canto (o fone pequeno lá em cima era difícil de acertar) */
+#b-tts{display:none}
+#b-listen{position:absolute;z-index:6;right:16px;bottom:calc(var(--sb) + 92px);height:52px;padding:0 22px 0 18px;border-radius:999px;background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:16px;display:flex;align-items:center;gap:9px;box-shadow:0 8px 22px rgba(0,0,0,.35);transition:opacity .25s,transform .25s}
+#b-listen svg{width:22px;height:22px}
+#v-book.tts-on #b-listen,#v-book.ui-off #b-listen{opacity:0;pointer-events:none;transform:translateY(14px)}
 .tplay{width:54px;height:54px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px rgba(232,163,61,.4)}
 .tplay svg{width:26px;height:26px}
 .trate{min-width:52px;height:34px;border-radius:999px;background:rgba(127,127,127,.16);font-weight:700;font-size:13px;font-variant-numeric:tabular-nums}
