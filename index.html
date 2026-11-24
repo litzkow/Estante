@@ -593,6 +593,26 @@ canvas.peel{position:absolute;z-index:4;pointer-events:none}
 #b-title small{font-size:11.5px;font-weight:500;opacity:.6;max-width:100%;overflow:hidden;text-overflow:ellipsis}
 #b-title span{max-width:100%;overflow:hidden;text-overflow:ellipsis}
 #b-title span::after{content:' ⌄';opacity:.6}
+/* ===== início em prateleiras (como Apple Books / Kindle) ===== */
+#l-home{margin-top:4px}
+.shelf{margin:4px 0 26px}
+.shelf-h{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:0 0 12px}
+.shelf-t{min-width:0}
+.shelf-h h2{font-size:21px;font-weight:750;letter-spacing:-.2px;margin:0;line-height:1.15}
+.shelf-sub{font-size:13px;color:var(--muted);margin-top:3px}
+.shelf-more{flex:none;display:inline-flex;align-items:center;gap:2px;font-size:14.5px;font-weight:600;color:var(--accent);padding:6px 0 6px 10px}
+.shelf-more svg{width:16px;height:16px}
+.shelf-row{display:flex;gap:14px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-padding-left:var(--pad,18px);margin:0 calc(-1 * var(--pad,18px));padding:2px var(--pad,18px) 6px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.shelf-row::-webkit-scrollbar{display:none}
+.shelf-row .card{flex:none;width:118px;scroll-snap-align:start}
+.shelf.fresh .shelf-row .card{width:136px}
+.shelf.series .shelf-row .card{width:112px}
+#l-home.anim .card{animation:cardIn .42s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0) * 35ms)}
+.newtag{position:absolute;top:7px;left:7px;z-index:2;background:var(--accent);color:var(--accent-ink,#1a1208);font-size:10px;font-weight:800;letter-spacing:.7px;padding:3px 7px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.35);text-transform:uppercase}
+.fstack .newtag{top:auto;bottom:8px;left:8px}
+.pinch-tip{position:fixed;left:50%;top:calc(var(--st) + 70px);transform:translate(-50%,-10px);background:rgba(20,18,16,.88);color:#fff;font-weight:700;font-size:15px;padding:9px 16px;border-radius:999px;opacity:0;pointer-events:none;transition:opacity .15s,transform .15s;z-index:95}
+.pinch-tip.on{opacity:1;transform:translate(-50%,0)}
+#b-frame{transform-origin:center;transition:transform .12s}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
@@ -620,6 +640,7 @@ canvas.peel{position:absolute;z-index:4;pointer-events:none}
     <div id="l-banner"></div>
     <div id="l-hero"></div>
     <div class="chips" id="l-chips"></div>
+    <div id="l-home"></div>
     <div id="l-grid" class="grid"></div>
     <div id="l-ghosts"></div>
     <div id="l-empty" class="empty hide"></div>
@@ -1056,6 +1077,8 @@ const STR = {
   search: ['Buscar', 'Search'], searchPh: ['Título, autor ou coleção', 'Title, author or collection'], sort: ['Ordenar', 'Sort'], settings: ['Ajustes', 'Settings'],
   back: ['Voltar', 'Back'], close: ['Fechar', 'Close'], cancel: ['Cancelar', 'Cancel'], save: ['Salvar', 'Save'], create: ['Criar', 'Create'], done: ['Pronto', 'Done'], stop: ['Parar', 'Stop'], skip: ['Pular', 'Skip'], options: ['Opções', 'Options'],
   copy: ['Copiar', 'Copy'], copied: ['Copiado', 'Copied'], copyFail: ['Não deu para copiar aqui', 'Copy is not available here'],
+  home: ['Início', 'Home'], newPl: ['Novos', 'New'], newTag: ['NOVO', 'NEW'], nNew: ['{n} novo(s)', '{n} new'], shNew: ['Chegaram agora', 'Just added'], shReading: ['Lendo agora', 'Reading now'], seeAll: ['Ver tudo', 'See all'], shOtherEn: ['Em inglês', 'In English'], shOtherPt: ['Em português', 'In Portuguese'],
+  pinchSize: ['Letra {n}', 'Text size {n}'], pinchHint: ['Dica: junte ou afaste dois dedos na página para mudar o tamanho da letra', 'Tip: pinch the page to change the text size'],
   comic: ['HQ', 'Comic'], book: ['Livro', 'Book'], comics: ['Quadrinhos', 'Comics'], books: ['Livros', 'Books'], all: ['Tudo', 'All'], reading: ['Lendo', 'Reading'], finishedPl: ['Concluídos', 'Finished'],
   finished: ['Concluído', 'Finished'], started: ['Começado', 'Started'], notStarted: ['Novo', 'New'],
   continue: ['Continuar lendo', 'Continue reading'], continueReading: ['Continuar leitura', 'Continue reading'], startReading: ['Começar a ler', 'Start reading'],
@@ -1239,7 +1262,7 @@ const DEFAULTS = {
   // translation
   trTo: 'pt',
   // library
-  sort: 'recent', filter: 'all', sync: true,
+  sort: 'recent', filter: 'home', sync: true,
   // audiobooks: music only before the narrator starts and after the last sentence of each chapter
   abMusic: true,
   cpm: 1000, updated: 0,
@@ -1255,7 +1278,7 @@ async function loadSettings() {
   if (v) Object.assign(S, v);
   if (v && !v.comicV) { S.cSplit = false; S.cFullFirst = true; S.comicV = 1; }
   if (v && !v.typoV) { S.bSize = 18; S.bJustify = false; S.bLh = 1.6; S.bTurn = S.bAnim === false ? 'none' : 'slide'; S.typoV = 1; }
-  else { const l = (navigator.language || 'pt').toLowerCase(); S.lang = l.startsWith('pt') ? 'pt' : 'pt'; }
+  if (!v || !v.ptV) { S.lang = 'pt'; S.ptV = 1; } // the household reads in Portuguese: app in Portuguese by default (English stays in Settings)
 }
 
 /* ================= cloud sync (Claude db) ================= */
@@ -1868,7 +1891,7 @@ const Lib = {
     if (b.cover instanceof Blob) {
       const u = URL.createObjectURL(b.cover); this.urls.push(u);
       // iPhone sometimes loses a saved picture: show a drawn cover and fetch the real one again
-      return el('img', { src: u, alt: '', loading: 'lazy', decoding: 'async', onerror: e => { const g = this.coverEl({ title: b.title, author: b.author, kind: b.kind }); e.target.replaceWith(g); if (b.id) this.repairCover(b); } });
+      return el('img', { src: u, alt: '', decoding: 'async', onerror: e => { const g = this.coverEl({ title: b.title, author: b.author, kind: b.kind }); e.target.replaceWith(g); if (b.id) this.repairCover(b); } });
     }
     return el('div', { class: 'gen', style: { background: genCoverColor(b.title || '') } }, el('div', { class: 'gt', text: b.title || '' }), el('div', { class: 'ga', text: b.author || (b.kind === 'comic' ? t('comic') : t('book')) }));
   },
@@ -1896,12 +1919,17 @@ const Lib = {
     if (rec.series && rec.snum) { const k = seriesKey(rec.series); return this.books.find(b => b.id !== rec.id && b.snum === rec.snum && b.series && seriesKey(b.series) === k && b.lang && rec.lang && b.lang !== rec.lang) || null; }
     return null;
   },
+  // new = arrived in the last 3 weeks and never opened (like the NEW tag in Apple Books)
+  isNew(b) { return !b.opened && !b.pct && b.added && Date.now() - b.added < 21 * 864e5; },
+  unique() {
+    const list = this.books.slice(), pick = new Map();
+    for (const b of list) if (b.work) { const o = pick.get(b.work); const score = x => ((x.lang || '').startsWith(S.lang === 'en' ? 'en' : 'pt') ? 1e14 : 0) + (x.opened || 0); if (!o || score(b) > score(o)) pick.set(b.work, b); }
+    return list.filter(b => !b.work || pick.get(b.work) === b);
+  },
   filtered() {
-    let list = this.books.slice();
-    const pick = new Map();
-    for (const b of list) if (b.work) { const o = pick.get(b.work); const score = x => (x.opened || 0) * 10 + ((x.lang || '').startsWith(S.lang === 'en' ? 'en' : 'pt') ? 1 : 0); if (!o || score(b) > score(o)) pick.set(b.work, b); }
-    list = list.filter(b => !b.work || pick.get(b.work) === b);
-    const f = S.filter;
+    let list = this.unique();
+    const f = S.filter === 'home' ? 'all' : S.filter;
+    if (f === 'new') list = list.filter(b => this.isNew(b));
     if (f === 'comic' || f === 'book') list = list.filter(b => b.kind === f);
     else if (f === 'reading') list = list.filter(b => b.pct > 0 && !b.finished);
     else if (f === 'done') list = list.filter(b => b.finished);
@@ -1967,16 +1995,23 @@ const Lib = {
       }
     }
     if (!this.series) {
-    const cdefs = [['all', t('all')], ['comic', t('comics'), 'comic'], ['book', t('books'), 'book'], ['reading', t('reading')], ['done', t('finishedPl')]];
+    const nNew = this.unique().filter(b => this.isNew(b)).length;
+    const cdefs = [['home', t('home'), 'shelf'], ...(nNew ? [['new', t('newPl') + ' · ' + nNew]] : []), ['all', t('all')], ['book', t('books'), 'book'], ['comic', t('comics'), 'comic'], ['reading', t('reading')], ['done', t('finishedPl')]];
     for (const c of this.collections()) cdefs.push(['c:' + c, c, 'folder']);
-    if (!cdefs.some(c => c[0] === S.filter)) S.filter = 'all';
+    if (!S.homeV) { setS('homeV', 1); if (S.filter === 'all') setS('filter', 'home'); }
+    if (!cdefs.some(c => c[0] === S.filter)) S.filter = 'home';
     for (const [v, label, ic] of cdefs) chips.append(el('button', { class: 'chip' + (S.filter === v ? ' on' : ''), onclick: () => { setS('filter', v); this.animNext = true; this.render(); } }, ic ? icon(ic) : null, label));
     }
     // grid
     const grid = $('#l-grid'); grid.replaceChildren();
-    const list = this.filtered();
-    grid.classList.toggle('anim', !!this.animNext && !reduceMotion()); this.animNext = false;
-    list.forEach((b, i) => { const c = b.folder ? this.folderCard(b) : this.card(b); c.style.setProperty('--i', Math.min(i, 18)); grid.append(c); });
+    const home = $('#l-home'); home.replaceChildren();
+    const isHome = S.filter === 'home' && !this.q && !this.series && this.books.length;
+    grid.classList.toggle('hide', !!isHome);
+    const list = isHome ? [1] : this.filtered();
+    const anim = !!this.animNext && !reduceMotion(); this.animNext = false;
+    grid.classList.toggle('anim', anim); home.classList.toggle('anim', anim);
+    if (isHome) this.renderHome(home, cont);
+    else list.forEach((b, i) => { const c = b.folder ? this.folderCard(b) : this.card(b); c.style.setProperty('--i', Math.min(i, 18)); grid.append(c); });
     // empty
     const em = $('#l-empty');
     if (!this.books.length) {
@@ -1994,6 +2029,41 @@ const Lib = {
       else em.classList.add('hide');
     }
     this.renderGhosts();
+  },
+  // the home screen: horizontal shelves, like Apple Books / Kindle (just added, reading, each series, books, comics, finished)
+  renderHome(box, cont) {
+    const all = this.unique();
+    const shelf = (title, items, opts = {}) => {
+      if (!items.length) return;
+      const row = el('div', { class: 'shelf-row' });
+      items.forEach((b, i) => { const c = b.folder ? this.folderCard(b) : this.card(b); c.style.setProperty('--i', Math.min(i, 10)); row.append(c); });
+      box.append(el('section', { class: 'shelf' + (opts.cls ? ' ' + opts.cls : '') },
+        el('div', { class: 'shelf-h' },
+          el('div', { class: 'shelf-t' }, el('h2', { text: title }), opts.sub ? el('div', { class: 'shelf-sub', text: opts.sub }) : null),
+          opts.more ? el('button', { class: 'shelf-more', onclick: opts.more }, t('seeAll'), icon('chevR')) : null),
+        row));
+    };
+    const go = f => () => { setS('filter', f); this.animNext = true; this.render(); $('#v-lib').scrollTo({ top: 0, behavior: 'smooth' }); };
+    const byRecent = (a, b) => (b.opened || b.added || 0) - (a.opened || a.added || 0);
+    const fresh = all.filter(b => this.isNew(b)).sort((a, b) => (b.added || 0) - (a.added || 0));
+    shelf(t('shNew'), fresh, { cls: 'fresh', sub: t('nNew', { n: fresh.length }), more: fresh.length > 3 ? go('new') : null });
+    shelf(t('shReading'), all.filter(b => b.pct > 0 && !b.finished && (!cont || b.id !== cont.id)).sort(byRecent));
+    // every series (Harry Potter, Off-Campus…) gets its own shelf, in reading order
+    const series = new Map();
+    for (const b of all) if (b.series) { if (!series.has(b.series)) series.set(b.series, []); series.get(b.series).push(b); }
+    const last = bs => Math.max(...bs.map(x => x.opened || x.added || 0));
+    for (const [name, bs] of [...series.entries()].sort((a, b) => last(b[1]) - last(a[1]))) {
+      bs.sort((a, b) => (a.snum || 0) - (b.snum || 0) || natCmp(a.title, b.title));
+      const read = bs.filter(b => b.finished).length;
+      shelf(name, bs, { cls: 'series', sub: t('nVolumes', { n: bs.length }) + (read ? ' · ' + t('nRead', { n: read }) : ''), more: () => this.openFolder(name) });
+    }
+    const loose = all.filter(b => !b.series && !b.finished);
+    // books that only exist in the other language go to their own shelf, so the app reads all in Portuguese
+    const other = b => b.kind !== 'comic' && b.lang && !b.lang.startsWith(S.lang === 'en' ? 'en' : 'pt') && !this.sibling(b);
+    shelf(t('books'), loose.filter(b => b.kind !== 'comic' && !other(b)).sort(byRecent), { more: go('book') });
+    shelf(t('comics'), loose.filter(b => b.kind === 'comic').sort(byRecent), { more: go('comic') });
+    shelf(S.lang === 'en' ? t('shOtherPt') : t('shOtherEn'), loose.filter(other).sort(byRecent));
+    shelf(t('finishedPl'), all.filter(b => b.finished).sort(byRecent), { more: go('done') });
   },
   async renderGhosts() {
     const box = $('#l-ghosts'); box.replaceChildren();
@@ -2030,7 +2100,8 @@ const Lib = {
     const read = bs.filter(b => b.finished).length, started = bs.some(b => b.pct > 0);
     const stack = el('button', { class: 'cover fstack', 'aria-label': f.series, onclick: () => this.openFolder(f.series) },
       ...top.map((b, i) => el('div', { class: 'fs', style: { '--k': top.length - 1 - i } }, this.coverEl(b))),
-      el('span', { class: 'fcount' }, icon('folder'), String(bs.length)));
+      el('span', { class: 'fcount' }, icon('folder'), String(bs.length)),
+      bs.some(b => this.isNew(b)) ? el('span', { class: 'newtag', text: t('nNew', { n: bs.filter(b => this.isNew(b)).length }) }) : null);
     return el('div', { class: 'card folder' }, stack,
       el('div', { class: 'crow' }, el('div', { class: 'ctext' }, el('div', { class: 'ctitle', text: f.series }),
         el('div', { class: 'cmeta', text: t('nVolumes', { n: bs.length }) + (read ? ' · ' + t('nRead', { n: read }) : started ? ' · ' + t('reading').toLowerCase() : '') }))));
@@ -2038,6 +2109,7 @@ const Lib = {
   card(b) {
     const cover = el('button', { class: 'cover', 'aria-label': b.title, onclick: e => this.open(b.id, e.currentTarget) }, this.coverEl(b),
       this.sibling(b) ? el('span', { class: 'badge', text: 'PT · EN' }) : null,
+      this.isNew(b) ? el('span', { class: 'newtag', text: t('newTag') }) : null,
       b.finished ? el('span', { class: 'done' }, icon('check')) : null,
       (b.pct > 0 && !b.finished) ? el('div', { class: 'cbar' }, el('i', { style: { width: Math.round(b.pct * 100) + '%' } })) : null);
     return el('div', { class: 'card' }, cover,
@@ -2792,6 +2864,15 @@ const Book = {
       vswipe: d => { const sel = getSelection(); if (sel && !sel.isCollapsed) return; if (S.bTurn === 'vertical') d === 'up' ? this.next() : this.prev(); },
     });
     $('#b-x').onclick = () => this.close();
+    // pinch the page: smaller text = more words per page, bigger = easier to read (like Kindle / Apple Books)
+    {
+      const st = $('#b-frame'); let d0 = 0, s0 = 0, tip = null, nv = 0, tf0 = '';
+      const dist = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+      st.addEventListener('touchstart', e => { if (e.touches.length === 2 && this.data) { d0 = dist(e.touches); s0 = S.bSize; nv = s0; if (!tip) { tip = el('div', { class: 'pinch-tip' }); document.body.append(tip); } tip.textContent = t('pinchSize', { n: s0 }); tip.classList.add('on'); tf0 = this.flow.style.transform; $('#b-frame').style.transition = 'none'; } }, { passive: true });
+      st.addEventListener('touchmove', e => { if (e.touches.length === 2 && d0) { e.preventDefault(); nv = clamp(Math.round(s0 * dist(e.touches) / d0), 11, 40); tip.textContent = t('pinchSize', { n: nv }); $('#b-frame').style.transform = 'scale(' + (nv / s0).toFixed(3) + ')'; } }, { passive: false });
+      const end = () => { if (!d0) return; d0 = 0; tip && tip.classList.remove('on'); $('#b-frame').style.transform = ''; if (nv && nv !== S.bSize) { setS('bSize', nv); this.relayout(); } };
+      st.addEventListener('touchend', end); st.addEventListener('touchcancel', end);
+    }
     $('#b-lang').onclick = () => this.switchLang();
     // tap zones in the top/bottom margins as well
     for (const id of ['#b-head', '#b-foot']) $(id).style.pointerEvents = 'none';
@@ -2930,7 +3011,13 @@ const Book = {
     this.flow.classList.toggle('opener', (node.textContent || '').trim().length < 160 && !node.querySelector('img,svg'));
     this.applyHighlights();
     await this.waitImgs();
-    if (document.fonts && document.fonts.ready) await Promise.race([document.fonts.ready, sleep(1500)]);
+    // the reading font must be really loaded before pages are cut, so every book looks the same
+    if (document.fonts) {
+      const fam = (FONTS[S.bFont] || FONTS.literata).split(',')[0];
+      const want = ['400 1em ' + fam, 'italic 400 1em ' + fam, '700 1em ' + fam];
+      await Promise.race([Promise.all(want.map(f => document.fonts.load(f).catch(() => null))), sleep(4000)]);
+      if (!this.fontHook) { this.fontHook = true; document.fonts.addEventListener('loadingdone', () => { if (this.data && $('#v-book').classList.contains('on')) this.relayout(); }); }
+    }
     if (tok !== this.tok) return;
     this.measure(); this.buildTN();
     let p = 0;
@@ -3279,7 +3366,7 @@ const Book = {
     Sheets.open({
       title: t('textSettings'), body: b => {
         const v = el('div', { class: 'v', text: S.bSize });
-        const setSize = d => { setS('bSize', clamp(S.bSize + d, 13, 34)); v.textContent = S.bSize; this.relayout(); };
+        const setSize = d => { setS('bSize', clamp(S.bSize + d, 11, 40)); v.textContent = S.bSize; this.relayout(); };
         const fonts = el('div', { class: 'fonts' });
         for (const [k, label] of [['literata', 'Literata'], ['source', 'Source Serif'], ['merri', 'Merriweather'], ['georgia', 'Georgia'], ['inter', 'Inter'], ['atkinson', 'Atkinson']]) {
           const btn = el('button', { class: S.bFont === k ? 'on' : '', style: { fontFamily: FONTS[k] }, text: label, onclick: () => { setS('bFont', k); fonts.querySelectorAll('button').forEach(x => x.classList.remove('on')); btn.classList.add('on'); this.relayout(); } });
@@ -4064,6 +4151,7 @@ const Starter = {
       const x = cat.find(x => x.file === b.fname);
       if (!x) continue;
       if (x.work && (b.work !== x.work || b.lang !== x.lang)) { b.work = x.work; b.lang = x.lang; await DB.put('books', b.id, b); ch = true; }
+      else if (!x.work && x.lang && b.lang !== x.lang) { b.lang = x.lang; await DB.put('books', b.id, b); ch = true; }
       if (x.series && (b.series !== x.series || b.snum !== x.num)) { b.series = x.series; b.snum = x.num; await DB.put('books', b.id, b); ch = true; }
       if (x.cover && b.cv !== x.cv) {
         try { const r = await fetch(this.base + x.cover); const bl = r.ok ? await r.blob() : null; if (bl && bl.size > 2000) { b.cover = new Blob([bl], { type: 'image/jpeg' }); b.cv = x.cv; await DB.put('books', b.id, b); ch = true; } } catch (e) { }
@@ -5312,12 +5400,41 @@ const Family = {
     }
     return n;
   },
+  // obras.json in the family library: which files are the same book in two languages, series order, covers, fixed versions
+  async catalog() {
+    try { const c = await this.api(this.repo() + '/contents/obras.json', { raw: true, ok404: true }); if (!c.ok) return null; const j = await c.json(); return Array.isArray(j) ? j : null; } catch (e) { console.warn('obras', e); return null; }
+  },
+  async tag(cat) {
+    let ch = false; const covers = new Map();
+    for (const b of await DB.all('books')) {
+      const x = cat.find(x => this.safe(x.file) === this.safe(b.fname || '')); if (!x) continue;
+      let dirty = false;
+      if (x.work && (b.work !== x.work || b.lang !== x.lang)) { b.work = x.work; b.lang = x.lang; dirty = true; }
+      if (x.series && (b.series !== x.series || b.snum !== x.num)) { b.series = x.series; b.snum = x.num; dirty = true; }
+      if (x.v && b.fv !== x.v) { b.fv = x.v; dirty = true; }
+      if (x.cover && b.cv !== x.cover + '#' + (x.cv || 1)) {
+        try {
+          let bl = covers.get(x.cover);
+          if (!bl) { const r = await this.api(this.repo() + '/contents/' + x.cover.split('/').map(encodeURIComponent).join('/'), { raw: true, ok404: true }); bl = r.ok ? await r.blob() : null; if (bl) covers.set(x.cover, bl); }
+          if (bl && bl.size > 2000) { b.cover = new Blob([bl], { type: 'image/jpeg' }); b.cv = x.cover + '#' + (x.cv || 1); dirty = true; }
+        } catch (e) { console.warn('capa', e); }
+      }
+      if (dirty) { await DB.put('books', b.id, b); ch = true; }
+    }
+    if (ch) await Lib.render();
+  },
   // new files from the family library → this phone
   async sync(quiet) {
     if (!this.on || this.syncing) return;
     this.syncing = true;
     try {
       const remote = await this.list();
+      const cat = await this.catalog();
+      // a file that was fixed in the family library (v changed): drop the old copy so the new one comes down
+      if (cat) for (const x of cat.filter(x => x.v)) {
+        const all = await DB.all('books'), b = all.find(b => this.safe(b.fname || '') === this.safe(x.file));
+        if (b && b.fv !== x.v) for (const d of all.filter(d => d.id === b.id || d.fileOf === b.id)) { await DB.del('books', d.id); await DB.del('files', d.id); await DB.delPrefix('kv', 'pn:' + d.id + ':'); }
+      }
       const have = new Set((await DB.all('books')).map(b => this.safe(b.fname || '')));
       const got = new Set(S.famGot || []);
       const todo = remote.filter(f => !have.has(f.name) && !got.has(f.sha));
@@ -5330,8 +5447,7 @@ const Family = {
         got.add(f.sha); setS('famGot', [...got]);
       }
       if (todo.length) { await splitCollections(); await Lib.render(); }
-      // obras.json: the same book in two languages becomes one book with a PT · EN switch
-      try { const c = await this.api(this.repo() + '/contents/obras.json', { raw: true, ok404: true }); if (c.ok) { const cat = await c.json(); if (Array.isArray(cat)) await Starter.tag(cat.filter(x => !x.cover)); } } catch (e) { console.warn('obras', e); }
+      if (cat) await this.tag(cat);
     } catch (e) { if (!quiet) toast(e.message || String(e)); console.warn('family', e); }
     finally { this.syncing = false; }
   },

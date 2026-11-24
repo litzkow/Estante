@@ -75,7 +75,7 @@ const DEFAULTS = {
   // translation
   trTo: 'pt',
   // library
-  sort: 'recent', filter: 'all', sync: true,
+  sort: 'recent', filter: 'home', sync: true,
   // audiobooks: music only before the narrator starts and after the last sentence of each chapter
   abMusic: true,
   cpm: 1000, updated: 0,
@@ -91,7 +91,7 @@ async function loadSettings() {
   if (v) Object.assign(S, v);
   if (v && !v.comicV) { S.cSplit = false; S.cFullFirst = true; S.comicV = 1; }
   if (v && !v.typoV) { S.bSize = 18; S.bJustify = false; S.bLh = 1.6; S.bTurn = S.bAnim === false ? 'none' : 'slide'; S.typoV = 1; }
-  else { const l = (navigator.language || 'pt').toLowerCase(); S.lang = l.startsWith('pt') ? 'pt' : 'pt'; }
+  if (!v || !v.ptV) { S.lang = 'pt'; S.ptV = 1; } // the household reads in Portuguese: app in Portuguese by default (English stays in Settings)
 }
 
 /* ================= cloud sync (Claude db) ================= */

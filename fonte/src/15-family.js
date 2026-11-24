@@ -48,12 +48,41 @@ const Family = {
     }
     return n;
   },
+  // obras.json in the family library: which files are the same book in two languages, series order, covers, fixed versions
+  async catalog() {
+    try { const c = await this.api(this.repo() + '/contents/obras.json', { raw: true, ok404: true }); if (!c.ok) return null; const j = await c.json(); return Array.isArray(j) ? j : null; } catch (e) { console.warn('obras', e); return null; }
+  },
+  async tag(cat) {
+    let ch = false; const covers = new Map();
+    for (const b of await DB.all('books')) {
+      const x = cat.find(x => this.safe(x.file) === this.safe(b.fname || '')); if (!x) continue;
+      let dirty = false;
+      if (x.work && (b.work !== x.work || b.lang !== x.lang)) { b.work = x.work; b.lang = x.lang; dirty = true; }
+      if (x.series && (b.series !== x.series || b.snum !== x.num)) { b.series = x.series; b.snum = x.num; dirty = true; }
+      if (x.v && b.fv !== x.v) { b.fv = x.v; dirty = true; }
+      if (x.cover && b.cv !== x.cover + '#' + (x.cv || 1)) {
+        try {
+          let bl = covers.get(x.cover);
+          if (!bl) { const r = await this.api(this.repo() + '/contents/' + x.cover.split('/').map(encodeURIComponent).join('/'), { raw: true, ok404: true }); bl = r.ok ? await r.blob() : null; if (bl) covers.set(x.cover, bl); }
+          if (bl && bl.size > 2000) { b.cover = new Blob([bl], { type: 'image/jpeg' }); b.cv = x.cover + '#' + (x.cv || 1); dirty = true; }
+        } catch (e) { console.warn('capa', e); }
+      }
+      if (dirty) { await DB.put('books', b.id, b); ch = true; }
+    }
+    if (ch) await Lib.render();
+  },
   // new files from the family library → this phone
   async sync(quiet) {
     if (!this.on || this.syncing) return;
     this.syncing = true;
     try {
       const remote = await this.list();
+      const cat = await this.catalog();
+      // a file that was fixed in the family library (v changed): drop the old copy so the new one comes down
+      if (cat) for (const x of cat.filter(x => x.v)) {
+        const all = await DB.all('books'), b = all.find(b => this.safe(b.fname || '') === this.safe(x.file));
+        if (b && b.fv !== x.v) for (const d of all.filter(d => d.id === b.id || d.fileOf === b.id)) { await DB.del('books', d.id); await DB.del('files', d.id); await DB.delPrefix('kv', 'pn:' + d.id + ':'); }
+      }
       const have = new Set((await DB.all('books')).map(b => this.safe(b.fname || '')));
       const got = new Set(S.famGot || []);
       const todo = remote.filter(f => !have.has(f.name) && !got.has(f.sha));
@@ -66,8 +95,7 @@ const Family = {
         got.add(f.sha); setS('famGot', [...got]);
       }
       if (todo.length) { await splitCollections(); await Lib.render(); }
-      // obras.json: the same book in two languages becomes one book with a PT · EN switch
-      try { const c = await this.api(this.repo() + '/contents/obras.json', { raw: true, ok404: true }); if (c.ok) { const cat = await c.json(); if (Array.isArray(cat)) await Starter.tag(cat.filter(x => !x.cover)); } } catch (e) { console.warn('obras', e); }
+      if (cat) await this.tag(cat);
     } catch (e) { if (!quiet) toast(e.message || String(e)); console.warn('family', e); }
     finally { this.syncing = false; }
   },

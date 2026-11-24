@@ -143,7 +143,9 @@
   "big": true,
   "lang": "pt",
   "series": "Pepper&Carrot",
-  "num": 1
+  "num": 1,
+  "cover": "capas/Pepper-and-Carrot-1.jpg",
+  "cv": 1
  },
  {
   "file": "Pepper-and-Carrot-2.cbz",
@@ -152,7 +154,9 @@
   "big": true,
   "lang": "pt",
   "series": "Pepper&Carrot",
-  "num": 2
+  "num": 2,
+  "cover": "capas/Pepper-and-Carrot-2.jpg",
+  "cv": 1
  },
  {
   "file": "Alices-Adventures-in-Wonderland.epub",
@@ -170,7 +174,9 @@
   "big": true,
   "lang": "pt",
   "series": "Pepper&Carrot",
-  "num": 3
+  "num": 3,
+  "cover": "capas/Pepper-and-Carrot-3.jpg",
+  "cv": 1
  },
  {
   "file": "Pepper-and-Carrot-4.cbz",
@@ -179,6 +185,8 @@
   "big": true,
   "lang": "pt",
   "series": "Pepper&Carrot",
-  "num": 4
+  "num": 4,
+  "cover": "capas/Pepper-and-Carrot-4.jpg",
+  "cv": 1
  }
 ]

@@ -56,6 +56,15 @@ const Book = {
       vswipe: d => { const sel = getSelection(); if (sel && !sel.isCollapsed) return; if (S.bTurn === 'vertical') d === 'up' ? this.next() : this.prev(); },
     });
     $('#b-x').onclick = () => this.close();
+    // pinch the page: smaller text = more words per page, bigger = easier to read (like Kindle / Apple Books)
+    {
+      const st = $('#b-frame'); let d0 = 0, s0 = 0, tip = null, nv = 0, tf0 = '';
+      const dist = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+      st.addEventListener('touchstart', e => { if (e.touches.length === 2 && this.data) { d0 = dist(e.touches); s0 = S.bSize; nv = s0; if (!tip) { tip = el('div', { class: 'pinch-tip' }); document.body.append(tip); } tip.textContent = t('pinchSize', { n: s0 }); tip.classList.add('on'); tf0 = this.flow.style.transform; $('#b-frame').style.transition = 'none'; } }, { passive: true });
+      st.addEventListener('touchmove', e => { if (e.touches.length === 2 && d0) { e.preventDefault(); nv = clamp(Math.round(s0 * dist(e.touches) / d0), 11, 40); tip.textContent = t('pinchSize', { n: nv }); $('#b-frame').style.transform = 'scale(' + (nv / s0).toFixed(3) + ')'; } }, { passive: false });
+      const end = () => { if (!d0) return; d0 = 0; tip && tip.classList.remove('on'); $('#b-frame').style.transform = ''; if (nv && nv !== S.bSize) { setS('bSize', nv); this.relayout(); } };
+      st.addEventListener('touchend', end); st.addEventListener('touchcancel', end);
+    }
     $('#b-lang').onclick = () => this.switchLang();
     // tap zones in the top/bottom margins as well
     for (const id of ['#b-head', '#b-foot']) $(id).style.pointerEvents = 'none';
@@ -194,7 +203,13 @@ const Book = {
     this.flow.classList.toggle('opener', (node.textContent || '').trim().length < 160 && !node.querySelector('img,svg'));
     this.applyHighlights();
     await this.waitImgs();
-    if (document.fonts && document.fonts.ready) await Promise.race([document.fonts.ready, sleep(1500)]);
+    // the reading font must be really loaded before pages are cut, so every book looks the same
+    if (document.fonts) {
+      const fam = (FONTS[S.bFont] || FONTS.literata).split(',')[0];
+      const want = ['400 1em ' + fam, 'italic 400 1em ' + fam, '700 1em ' + fam];
+      await Promise.race([Promise.all(want.map(f => document.fonts.load(f).catch(() => null))), sleep(4000)]);
+      if (!this.fontHook) { this.fontHook = true; document.fonts.addEventListener('loadingdone', () => { if (this.data && $('#v-book').classList.contains('on')) this.relayout(); }); }
+    }
     if (tok !== this.tok) return;
     this.measure(); this.buildTN();
     let p = 0;
@@ -543,7 +558,7 @@ const Book = {
     Sheets.open({
       title: t('textSettings'), body: b => {
         const v = el('div', { class: 'v', text: S.bSize });
-        const setSize = d => { setS('bSize', clamp(S.bSize + d, 13, 34)); v.textContent = S.bSize; this.relayout(); };
+        const setSize = d => { setS('bSize', clamp(S.bSize + d, 11, 40)); v.textContent = S.bSize; this.relayout(); };
         const fonts = el('div', { class: 'fonts' });
         for (const [k, label] of [['literata', 'Literata'], ['source', 'Source Serif'], ['merri', 'Merriweather'], ['georgia', 'Georgia'], ['inter', 'Inter'], ['atkinson', 'Atkinson']]) {
           const btn = el('button', { class: S.bFont === k ? 'on' : '', style: { fontFamily: FONTS[k] }, text: label, onclick: () => { setS('bFont', k); fonts.querySelectorAll('button').forEach(x => x.classList.remove('on')); btn.classList.add('on'); this.relayout(); } });

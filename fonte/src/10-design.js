@@ -211,6 +211,7 @@ const Starter = {
       const x = cat.find(x => x.file === b.fname);
       if (!x) continue;
       if (x.work && (b.work !== x.work || b.lang !== x.lang)) { b.work = x.work; b.lang = x.lang; await DB.put('books', b.id, b); ch = true; }
+      else if (!x.work && x.lang && b.lang !== x.lang) { b.lang = x.lang; await DB.put('books', b.id, b); ch = true; }
       if (x.series && (b.series !== x.series || b.snum !== x.num)) { b.series = x.series; b.snum = x.num; await DB.put('books', b.id, b); ch = true; }
       if (x.cover && b.cv !== x.cv) {
         try { const r = await fetch(this.base + x.cover); const bl = r.ok ? await r.blob() : null; if (bl && bl.size > 2000) { b.cover = new Blob([bl], { type: 'image/jpeg' }); b.cv = x.cv; await DB.put('books', b.id, b); ch = true; } } catch (e) { }

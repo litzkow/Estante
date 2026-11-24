@@ -6,7 +6,7 @@ const Lib = {
     if (b.cover instanceof Blob) {
       const u = URL.createObjectURL(b.cover); this.urls.push(u);
       // iPhone sometimes loses a saved picture: show a drawn cover and fetch the real one again
-      return el('img', { src: u, alt: '', loading: 'lazy', decoding: 'async', onerror: e => { const g = this.coverEl({ title: b.title, author: b.author, kind: b.kind }); e.target.replaceWith(g); if (b.id) this.repairCover(b); } });
+      return el('img', { src: u, alt: '', decoding: 'async', onerror: e => { const g = this.coverEl({ title: b.title, author: b.author, kind: b.kind }); e.target.replaceWith(g); if (b.id) this.repairCover(b); } });
     }
     return el('div', { class: 'gen', style: { background: genCoverColor(b.title || '') } }, el('div', { class: 'gt', text: b.title || '' }), el('div', { class: 'ga', text: b.author || (b.kind === 'comic' ? t('comic') : t('book')) }));
   },
@@ -34,12 +34,17 @@ const Lib = {
     if (rec.series && rec.snum) { const k = seriesKey(rec.series); return this.books.find(b => b.id !== rec.id && b.snum === rec.snum && b.series && seriesKey(b.series) === k && b.lang && rec.lang && b.lang !== rec.lang) || null; }
     return null;
   },
+  // new = arrived in the last 3 weeks and never opened (like the NEW tag in Apple Books)
+  isNew(b) { return !b.opened && !b.pct && b.added && Date.now() - b.added < 21 * 864e5; },
+  unique() {
+    const list = this.books.slice(), pick = new Map();
+    for (const b of list) if (b.work) { const o = pick.get(b.work); const score = x => ((x.lang || '').startsWith(S.lang === 'en' ? 'en' : 'pt') ? 1e14 : 0) + (x.opened || 0); if (!o || score(b) > score(o)) pick.set(b.work, b); }
+    return list.filter(b => !b.work || pick.get(b.work) === b);
+  },
   filtered() {
-    let list = this.books.slice();
-    const pick = new Map();
-    for (const b of list) if (b.work) { const o = pick.get(b.work); const score = x => (x.opened || 0) * 10 + ((x.lang || '').startsWith(S.lang === 'en' ? 'en' : 'pt') ? 1 : 0); if (!o || score(b) > score(o)) pick.set(b.work, b); }
-    list = list.filter(b => !b.work || pick.get(b.work) === b);
-    const f = S.filter;
+    let list = this.unique();
+    const f = S.filter === 'home' ? 'all' : S.filter;
+    if (f === 'new') list = list.filter(b => this.isNew(b));
     if (f === 'comic' || f === 'book') list = list.filter(b => b.kind === f);
     else if (f === 'reading') list = list.filter(b => b.pct > 0 && !b.finished);
     else if (f === 'done') list = list.filter(b => b.finished);
@@ -105,16 +110,23 @@ const Lib = {
       }
     }
     if (!this.series) {
-    const cdefs = [['all', t('all')], ['comic', t('comics'), 'comic'], ['book', t('books'), 'book'], ['reading', t('reading')], ['done', t('finishedPl')]];
+    const nNew = this.unique().filter(b => this.isNew(b)).length;
+    const cdefs = [['home', t('home'), 'shelf'], ...(nNew ? [['new', t('newPl') + ' · ' + nNew]] : []), ['all', t('all')], ['book', t('books'), 'book'], ['comic', t('comics'), 'comic'], ['reading', t('reading')], ['done', t('finishedPl')]];
     for (const c of this.collections()) cdefs.push(['c:' + c, c, 'folder']);
-    if (!cdefs.some(c => c[0] === S.filter)) S.filter = 'all';
+    if (!S.homeV) { setS('homeV', 1); if (S.filter === 'all') setS('filter', 'home'); }
+    if (!cdefs.some(c => c[0] === S.filter)) S.filter = 'home';
     for (const [v, label, ic] of cdefs) chips.append(el('button', { class: 'chip' + (S.filter === v ? ' on' : ''), onclick: () => { setS('filter', v); this.animNext = true; this.render(); } }, ic ? icon(ic) : null, label));
     }
     // grid
     const grid = $('#l-grid'); grid.replaceChildren();
-    const list = this.filtered();
-    grid.classList.toggle('anim', !!this.animNext && !reduceMotion()); this.animNext = false;
-    list.forEach((b, i) => { const c = b.folder ? this.folderCard(b) : this.card(b); c.style.setProperty('--i', Math.min(i, 18)); grid.append(c); });
+    const home = $('#l-home'); home.replaceChildren();
+    const isHome = S.filter === 'home' && !this.q && !this.series && this.books.length;
+    grid.classList.toggle('hide', !!isHome);
+    const list = isHome ? [1] : this.filtered();
+    const anim = !!this.animNext && !reduceMotion(); this.animNext = false;
+    grid.classList.toggle('anim', anim); home.classList.toggle('anim', anim);
+    if (isHome) this.renderHome(home, cont);
+    else list.forEach((b, i) => { const c = b.folder ? this.folderCard(b) : this.card(b); c.style.setProperty('--i', Math.min(i, 18)); grid.append(c); });
     // empty
     const em = $('#l-empty');
     if (!this.books.length) {
@@ -132,6 +144,41 @@ const Lib = {
       else em.classList.add('hide');
     }
     this.renderGhosts();
+  },
+  // the home screen: horizontal shelves, like Apple Books / Kindle (just added, reading, each series, books, comics, finished)
+  renderHome(box, cont) {
+    const all = this.unique();
+    const shelf = (title, items, opts = {}) => {
+      if (!items.length) return;
+      const row = el('div', { class: 'shelf-row' });
+      items.forEach((b, i) => { const c = b.folder ? this.folderCard(b) : this.card(b); c.style.setProperty('--i', Math.min(i, 10)); row.append(c); });
+      box.append(el('section', { class: 'shelf' + (opts.cls ? ' ' + opts.cls : '') },
+        el('div', { class: 'shelf-h' },
+          el('div', { class: 'shelf-t' }, el('h2', { text: title }), opts.sub ? el('div', { class: 'shelf-sub', text: opts.sub }) : null),
+          opts.more ? el('button', { class: 'shelf-more', onclick: opts.more }, t('seeAll'), icon('chevR')) : null),
+        row));
+    };
+    const go = f => () => { setS('filter', f); this.animNext = true; this.render(); $('#v-lib').scrollTo({ top: 0, behavior: 'smooth' }); };
+    const byRecent = (a, b) => (b.opened || b.added || 0) - (a.opened || a.added || 0);
+    const fresh = all.filter(b => this.isNew(b)).sort((a, b) => (b.added || 0) - (a.added || 0));
+    shelf(t('shNew'), fresh, { cls: 'fresh', sub: t('nNew', { n: fresh.length }), more: fresh.length > 3 ? go('new') : null });
+    shelf(t('shReading'), all.filter(b => b.pct > 0 && !b.finished && (!cont || b.id !== cont.id)).sort(byRecent));
+    // every series (Harry Potter, Off-Campus…) gets its own shelf, in reading order
+    const series = new Map();
+    for (const b of all) if (b.series) { if (!series.has(b.series)) series.set(b.series, []); series.get(b.series).push(b); }
+    const last = bs => Math.max(...bs.map(x => x.opened || x.added || 0));
+    for (const [name, bs] of [...series.entries()].sort((a, b) => last(b[1]) - last(a[1]))) {
+      bs.sort((a, b) => (a.snum || 0) - (b.snum || 0) || natCmp(a.title, b.title));
+      const read = bs.filter(b => b.finished).length;
+      shelf(name, bs, { cls: 'series', sub: t('nVolumes', { n: bs.length }) + (read ? ' · ' + t('nRead', { n: read }) : ''), more: () => this.openFolder(name) });
+    }
+    const loose = all.filter(b => !b.series && !b.finished);
+    // books that only exist in the other language go to their own shelf, so the app reads all in Portuguese
+    const other = b => b.kind !== 'comic' && b.lang && !b.lang.startsWith(S.lang === 'en' ? 'en' : 'pt') && !this.sibling(b);
+    shelf(t('books'), loose.filter(b => b.kind !== 'comic' && !other(b)).sort(byRecent), { more: go('book') });
+    shelf(t('comics'), loose.filter(b => b.kind === 'comic').sort(byRecent), { more: go('comic') });
+    shelf(S.lang === 'en' ? t('shOtherPt') : t('shOtherEn'), loose.filter(other).sort(byRecent));
+    shelf(t('finishedPl'), all.filter(b => b.finished).sort(byRecent), { more: go('done') });
   },
   async renderGhosts() {
     const box = $('#l-ghosts'); box.replaceChildren();
@@ -168,7 +215,8 @@ const Lib = {
     const read = bs.filter(b => b.finished).length, started = bs.some(b => b.pct > 0);
     const stack = el('button', { class: 'cover fstack', 'aria-label': f.series, onclick: () => this.openFolder(f.series) },
       ...top.map((b, i) => el('div', { class: 'fs', style: { '--k': top.length - 1 - i } }, this.coverEl(b))),
-      el('span', { class: 'fcount' }, icon('folder'), String(bs.length)));
+      el('span', { class: 'fcount' }, icon('folder'), String(bs.length)),
+      bs.some(b => this.isNew(b)) ? el('span', { class: 'newtag', text: t('nNew', { n: bs.filter(b => this.isNew(b)).length }) }) : null);
     return el('div', { class: 'card folder' }, stack,
       el('div', { class: 'crow' }, el('div', { class: 'ctext' }, el('div', { class: 'ctitle', text: f.series }),
         el('div', { class: 'cmeta', text: t('nVolumes', { n: bs.length }) + (read ? ' · ' + t('nRead', { n: read }) : started ? ' · ' + t('reading').toLowerCase() : '') }))));
@@ -176,6 +224,7 @@ const Lib = {
   card(b) {
     const cover = el('button', { class: 'cover', 'aria-label': b.title, onclick: e => this.open(b.id, e.currentTarget) }, this.coverEl(b),
       this.sibling(b) ? el('span', { class: 'badge', text: 'PT · EN' }) : null,
+      this.isNew(b) ? el('span', { class: 'newtag', text: t('newTag') }) : null,
       b.finished ? el('span', { class: 'done' }, icon('check')) : null,
       (b.pct > 0 && !b.finished) ? el('div', { class: 'cbar' }, el('i', { style: { width: Math.round(b.pct * 100) + '%' } })) : null);
     return el('div', { class: 'card' }, cover,
