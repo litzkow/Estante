@@ -66,7 +66,7 @@ const STR = {
   fpNow: ['Ouvindo agora', 'Now playing'], fpMin: ['Minimizar', 'Minimize'], fpMusic: ['música de abertura', 'opening music'],
   fpChapters: ['Capítulos', 'Chapters'], fpChN: ['Capítulo {n}', 'Chapter {n}'], fpChOf: ['{i} de {n}', '{i} of {n}'],
   fpPlaying: ['tocando', 'playing'], fpHere: ['você está aqui', 'you are here'], fpNotYet: ['ainda sem voz', 'no audio yet'],
-  fpSpeed: ['Velocidade', 'Speed'], fpOff: ['Desligado', 'Off'], fpTimer: ['Timer', 'Sleep timer'], fpDark: ['Tela preta', 'Dark screen'],
+  fpSpeed: ['Velocidade', 'Speed'], fpOff: ['Desligado', 'Off'], fpVoice: ['Voz', 'Voice'], fpTimer: ['Timer', 'Sleep timer'], fpDark: ['Tela preta', 'Dark screen'],
   fpEoc: ['Fim do capítulo', 'End of chapter'], fpEocShort: ['fim do cap.', 'end of ch.'], fpEocSet: ['Para no fim do capítulo', 'Stops at the end of the chapter'],
   fpPrevCh: ['Capítulo anterior', 'Previous chapter'], fpNextCh: ['Próximo capítulo', 'Next chapter'], fpBack30: ['Voltar 30 segundos', 'Back 30 seconds'], fpFwd30: ['Avançar 30 segundos', 'Forward 30 seconds'],
   ttsEnd: ['Fim do livro', 'End of the book'], ttsSlept: ['Leitura pausada pelo timer', 'Paused by the sleep timer'], ttsSleepSet: ['Para em {n} min', 'Stops in {n} min'], shelfBack: ['Estante', 'Shelf'], nVolumes: ['{n} volumes', '{n} volumes'], nRead: ['{n} lidos', '{n} read'], volumeN: ['Volume {n}', 'Volume {n}'], hideGoal: ['Esconder da tela inicial', 'Hide from home screen'], hideGoalToast: ['Dá para mostrar de novo em Ajustes', 'You can show it again in Settings'],

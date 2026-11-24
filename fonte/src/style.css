@@ -523,7 +523,7 @@ canvas.peel{position:absolute;z-index:4;pointer-events:none}
 #tts-bar .tx{flex:none;width:36px;height:36px;opacity:.6}
 #tts-bar .tx svg{width:18px;height:18px}
 .mp-prog{position:absolute;left:0;bottom:0;height:3px;width:0;background:var(--accent);border-radius:0 2px 2px 0;transition:width .5s linear}
-#fp{position:fixed;inset:0;z-index:45;display:flex;flex-direction:column;align-items:center;padding:calc(var(--st) + 8px) 24px calc(var(--sb) + 18px);background:linear-gradient(180deg,#2a2622 0%,#141210 70%);color:#f4efe8;transform:translateY(100%);transition:transform .38s cubic-bezier(.2,.85,.2,1);visibility:hidden;overflow-y:auto}
+#fp{position:fixed;top:0;left:0;right:0;bottom:0;height:100%;min-height:100vh;min-height:100lvh;z-index:45;box-shadow:0 300px 0 300px #141210;display:flex;flex-direction:column;align-items:center;padding:calc(var(--st) + 8px) 24px calc(var(--sb) + 18px);background:linear-gradient(180deg,#2a2622 0%,#141210 70%);color:#f4efe8;transform:translateY(100%);transition:transform .38s cubic-bezier(.2,.85,.2,1);visibility:hidden;overflow-y:auto}
 #fp.on{transform:none;visibility:visible}
 #fp .icon{color:inherit}
 .fp-top{width:100%;max-width:520px;display:flex;align-items:center;justify-content:space-between}
@@ -552,13 +552,13 @@ canvas.peel{position:absolute;z-index:4;pointer-events:none}
 .fp-play{width:78px;height:78px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;box-shadow:0 10px 26px rgba(232,163,61,.35);transition:transform .12s}
 .fp-play:active{transform:scale(.94)}
 .fp-play svg{width:34px;height:34px}
-.fp-tools{width:100%;max-width:460px;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:auto;padding-top:3vh}
+.fp-tools{width:100%;max-width:480px;display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:auto;padding-top:3vh}
 .fp-tool{display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 2px;border-radius:12px;color:inherit;font-size:11.5px;opacity:.85}
 .fp-tool:active{background:rgba(255,255,255,.08)}
 .fp-tool svg{width:22px;height:22px}
 .fp-tool b{font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--accent);min-height:15px}
 .fp-tool span{opacity:.75}
-.fp-list b{display:none}
+.fp-list b,.fp-voice b{display:none}
 .fp-dark b{display:none}
 .fp-chrow{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:14px 6px;border-bottom:1px solid var(--line);color:inherit;font-size:15.5px}
 .fp-chrow .fp-chname{flex:1;min-width:0}

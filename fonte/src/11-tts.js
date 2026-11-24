@@ -205,7 +205,7 @@ const TTS = {
     this.tick(); this.fpRender();
   },
   // ---------- player (mini at the bottom + full screen, like the big audiobook apps) ----------
-  chLabel(ch = Book.ch) { return niceLabel(Book.data && Book.tocLabel ? Book.tocLabel(ch) : '') || (Book.rec && Book.rec.title) || ''; },
+  chLabel(ch = Book.ch) { const l = niceLabel(Book.data && Book.tocLabel ? Book.tocLabel(ch) : ''); if (/^\d{1,3}\.?$/.test(l)) return t('fpChN', { n: parseInt(l) }); return l || (Book.rec && Book.rec.title) || ''; },
   rateTxt() { const r = S.ttsRate || 1; return String(r).replace('.', ',') + '×'; },
   hms(x) { x = Math.max(0, Math.round(x || 0)); const h = Math.floor(x / 3600), m = Math.floor(x % 3600 / 60), s = x % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(s).padStart(2, '0'); },
   // where we are in the chapter (only ready audiobooks have a real clock)
@@ -283,8 +283,9 @@ const TTS = {
         tool('fp-speed', '1×', t('fpSpeed'), () => this.speedSheet()),
         tool('fp-timer', '', t('fpTimer'), () => this.timerSheet()),
         tool('fp-list', icon('list'), t('fpChapters'), () => this.chapters()),
-        tool('fp-dark', icon('eye'), t('fpDark'), () => { this.fpClose(); this.dark(true); })));
-    fp.querySelector('.fp-more').append(icon('more'));
+        tool('fp-dark', icon('eye'), t('fpDark'), () => { this.fpClose(); this.dark(true); }),
+        tool('fp-voice', icon('sliders'), t('fpVoice'), () => this.sheet())));
+    fp.querySelector('.fp-more').append(icon('sliders'));
     fp.querySelector('.fp-timer b').before(icon('moon')); fp.querySelector('.fp-speed b').before(icon('speed'));
     // swipe down to shrink (like Apple Books / Audible)
     let y0 = null;
@@ -319,7 +320,7 @@ const TTS = {
       for (const e of itens) {
         const atual = e.idx === Book.ch, falta = pronto && !pronto.has(e.idx);
         b.append(el('button', { class: 'fp-chrow' + (atual ? ' on' : '') + (falta ? ' off' : ''), onclick: () => { Sheets.close(); this.goChapter(e.idx); } },
-          el('span', { class: 'fp-chname', text: niceLabel(e.label) || t('fpChN', { n: e.idx + 1 }) }),
+          el('span', { class: 'fp-chname', text: /^\d{1,3}\.?$/.test(niceLabel(e.label)) ? t('fpChN', { n: parseInt(niceLabel(e.label)) }) : (niceLabel(e.label) || t('fpChN', { n: e.idx + 1 })) }),
           el('span', { class: 'fp-chst', text: atual ? (this.playing ? t('fpPlaying') : t('fpHere')) : falta ? t('fpNotYet') : '' })));
       }
       setTimeout(() => { const on = b.querySelector('.fp-chrow.on'); if (on) on.scrollIntoView({ block: 'center' }); }, 60);
