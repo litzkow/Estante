@@ -59,11 +59,13 @@ const Family = {
   async shareKey(key) {
     await this.putJSON('voz.json', { gemKey: key, at: Date.now() }, 'Estante: voz de IA da família');
     setS('gemNotify', true); // whoever shares the key is the one who pays: spending alerts come to this device only
+    setS('gemSharedKey', key);
   },
   async takeKey() {
     try {
       const r = await this.api(this.repo() + '/contents/voz.json', { raw: true, ok404: true }); if (!r.ok) return;
       const j = await r.json(); if (!j || !j.gemKey) return;
+      if (S.gemKey && S.gemKey === j.gemKey && !S.gemKeyFam && S.gemSharedKey !== j.gemKey) { setS('gemSharedKey', j.gemKey); setS('gemNotify', true); }
       if (!S.gemKey || (S.gemKeyFam && S.gemKey !== j.gemKey)) { setS('gemKey', j.gemKey); setS('gemKeyFam', true); if (!S.ttsEngine) setS('ttsEngine', 'gemini'); }
     } catch (e) { console.warn('voz', e); }
   },

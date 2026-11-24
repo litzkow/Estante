@@ -607,3 +607,5 @@ canvas.peel{position:absolute;z-index:4;pointer-events:none}
 
 /* the strip under the page (iPhone home bar area) takes the player's color while it is open */
 html.fp-open,html.fp-open body{background:#141210 !important}
+.gem-ok{margin:10px 2px 0;font-size:14px;font-weight:650;color:#3a9d5d}
+html.sheet-open,html.sheet-open body{background:var(--card) !important}

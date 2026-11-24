@@ -95,7 +95,7 @@ const STR = {
   gemMode: ['Narração', 'Narration'], gemDual: ['Duas vozes (ele e ela)', 'Two voices (him and her)'], gemOne: ['Uma voz', 'One voice'],
   gemVoiceOne: ['Voz', 'Voice'], gemVoiceF: ['Voz dos capítulos dela', 'Voice for her chapters'], gemVoiceM: ['Voz dos capítulos dele', 'Voice for his chapters'],
   gemPovNow: ['Este capítulo é de {n}: voz {g}', 'This chapter is {n}\'s: {g} voice'], gemPovSwap: ['Trocar', 'Switch'], gemThisBook: ['Neste livro ou série: {n}', 'For this book or series: {n}'], gemShare: ['Liberar a voz de IA para a família', 'Turn on the AI voice for the family'],
-  gemTablet: ['Tablet', 'Tablet'], gemPhone: ['Celular', 'Phone'], gemFamMonth: ['Família neste mês', 'Household this month'],
+  gemSharedOk: ['Voz de IA liberada para a família', 'AI voice shared with the family'], gemFromFam: ['Voz de IA recebida da família', 'AI voice received from the family'], gemTablet: ['Tablet', 'Tablet'], gemPhone: ['Celular', 'Phone'], gemFamMonth: ['Família neste mês', 'Household this month'],
   gemNotifyLbl: ['Avisos de gasto neste aparelho', 'Spending alerts on this device'], gemNotifySub: ['Só quem paga: a cada $5 gastos pela família, e aos 80% e 100% do limite do Google', 'Only for the payer: every $5 spent by the household, and at 80% and 100% of the Google limit'],
   gemNotifyOn: ['Pronto: os avisos de gasto chegam só neste aparelho', 'Done: spending alerts come to this device only'],
   gemNStepT: ['Voz de IA: {u} gastos este mês', 'AI voice: {u} spent this month'], gemNStepB: ['Total da família: {u} de {c}. {p}', 'Household total: {u} of {c}. {p}'],

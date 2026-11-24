@@ -625,6 +625,8 @@ canvas.peel{position:absolute;z-index:4;pointer-events:none}
 
 /* the strip under the page (iPhone home bar area) takes the player's color while it is open */
 html.fp-open,html.fp-open body{background:#141210 !important}
+.gem-ok{margin:10px 2px 0;font-size:14px;font-weight:650;color:#3a9d5d}
+html.sheet-open,html.sheet-open body{background:var(--card) !important}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
@@ -891,14 +893,14 @@ const Sheets = {
     sh.addEventListener('touchend', e => { if (sy == null) return; const dy = (e.changedTouches[0].clientY - sy); sh.style.transform = ''; if (dy > 110 && !center) this.close(entry); sy = null; });
     if (typeof body === 'function') body(b, entry); else if (body) b.append(body);
     $('#sheets').append(bd);
-    this.stack.push(entry);
+    this.stack.push(entry); document.documentElement.classList.add('sheet-open');
     return entry;
   },
   close(entry) {
     entry = entry || this.stack[this.stack.length - 1];
     if (!entry) return;
     const i = this.stack.indexOf(entry); if (i >= 0) this.stack.splice(i, 1);
-    entry.bd.remove();
+    entry.bd.remove(); if (!this.stack.length) document.documentElement.classList.remove('sheet-open');
     try { entry.onClose && entry.onClose(); } catch (e) { console.warn(e); }
   },
   closeAll() { while (this.stack.length) this.close(); },
@@ -1094,7 +1096,7 @@ const STR = {
   gemMode: ['Narração', 'Narration'], gemDual: ['Duas vozes (ele e ela)', 'Two voices (him and her)'], gemOne: ['Uma voz', 'One voice'],
   gemVoiceOne: ['Voz', 'Voice'], gemVoiceF: ['Voz dos capítulos dela', 'Voice for her chapters'], gemVoiceM: ['Voz dos capítulos dele', 'Voice for his chapters'],
   gemPovNow: ['Este capítulo é de {n}: voz {g}', 'This chapter is {n}\'s: {g} voice'], gemPovSwap: ['Trocar', 'Switch'], gemThisBook: ['Neste livro ou série: {n}', 'For this book or series: {n}'], gemShare: ['Liberar a voz de IA para a família', 'Turn on the AI voice for the family'],
-  gemTablet: ['Tablet', 'Tablet'], gemPhone: ['Celular', 'Phone'], gemFamMonth: ['Família neste mês', 'Household this month'],
+  gemSharedOk: ['Voz de IA liberada para a família', 'AI voice shared with the family'], gemFromFam: ['Voz de IA recebida da família', 'AI voice received from the family'], gemTablet: ['Tablet', 'Tablet'], gemPhone: ['Celular', 'Phone'], gemFamMonth: ['Família neste mês', 'Household this month'],
   gemNotifyLbl: ['Avisos de gasto neste aparelho', 'Spending alerts on this device'], gemNotifySub: ['Só quem paga: a cada $5 gastos pela família, e aos 80% e 100% do limite do Google', 'Only for the payer: every $5 spent by the household, and at 80% and 100% of the Google limit'],
   gemNotifyOn: ['Pronto: os avisos de gasto chegam só neste aparelho', 'Done: spending alerts come to this device only'],
   gemNStepT: ['Voz de IA: {u} gastos este mês', 'AI voice: {u} spent this month'], gemNStepB: ['Total da família: {u} de {c}. {p}', 'Household total: {u} of {c}. {p}'],
@@ -5453,11 +5455,13 @@ const Family = {
   async shareKey(key) {
     await this.putJSON('voz.json', { gemKey: key, at: Date.now() }, 'Estante: voz de IA da família');
     setS('gemNotify', true); // whoever shares the key is the one who pays: spending alerts come to this device only
+    setS('gemSharedKey', key);
   },
   async takeKey() {
     try {
       const r = await this.api(this.repo() + '/contents/voz.json', { raw: true, ok404: true }); if (!r.ok) return;
       const j = await r.json(); if (!j || !j.gemKey) return;
+      if (S.gemKey && S.gemKey === j.gemKey && !S.gemKeyFam && S.gemSharedKey !== j.gemKey) { setS('gemSharedKey', j.gemKey); setS('gemNotify', true); }
       if (!S.gemKey || (S.gemKeyFam && S.gemKey !== j.gemKey)) { setS('gemKey', j.gemKey); setS('gemKeyFam', true); if (!S.ttsEngine) setS('ttsEngine', 'gemini'); }
     } catch (e) { console.warn('voz', e); }
   },
@@ -6071,10 +6075,12 @@ const GemTTS = {
     return el('div', { class: 'gem-box' },
       el('input', { class: 'inp', type: 'password', autocomplete: 'off', placeholder: t('gemKeyPh'), value: S.gemKey || '', oninput: e => { setS('gemKey', e.target.value.trim()); if (S.gemKey.length > 20) { setS('ttsEngine', 'gemini'); NeuralPlayer.vcache = {}; } } }),
       el('p', { class: 'muted', style: { fontSize: '12px', lineHeight: 1.45, margin: '6px 2px 0' }, text: t('gemKeyHelp') }),
+      Family.on && S.gemKeyFam && !S.gemSharedKey ? el('p', { class: 'gem-ok', text: '✓ ' + t('gemFromFam') }) :
+      Family.on && S.gemSharedKey && S.gemSharedKey === S.gemKey ? el('p', { class: 'gem-ok', text: '✓ ' + t('gemSharedOk') }) :
       Family.on ? el('button', { class: 'btn block', style: { marginTop: '8px' }, text: t('gemShare'), onclick: async e => {
         const b = e.currentTarget; if (!S.gemKey) { toast(t('gemNoKey')); return; }
         b.disabled = true; b.textContent = t('gemSharing');
-        try { await Family.shareKey(S.gemKey); b.textContent = t('gemShared'); } catch (err) { b.disabled = false; b.textContent = t('gemShare'); toast(err.message || String(err), 5000); }
+        try { await Family.shareKey(S.gemKey); b.replaceWith(el('p', { class: 'gem-ok', text: '✓ ' + t('gemSharedOk') })); toast(t('gemShared'), 5000); } catch (err) { b.disabled = false; b.textContent = t('gemShare'); toast(err.message || String(err), 5000); }
       } }) : '',
       lbl(t('gemMode')),
       wSeg([[1, t('gemDual')], [0, t('gemOne')]], S.gemDual ? 1 : 0, x => { setS('gemDual', !!x); single.classList.toggle('hide', !!x); dual.classList.toggle('hide', !x); NeuralPlayer.vcache = {}; onChange && onChange(); }),

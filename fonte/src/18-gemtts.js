@@ -176,10 +176,12 @@ const GemTTS = {
     return el('div', { class: 'gem-box' },
       el('input', { class: 'inp', type: 'password', autocomplete: 'off', placeholder: t('gemKeyPh'), value: S.gemKey || '', oninput: e => { setS('gemKey', e.target.value.trim()); if (S.gemKey.length > 20) { setS('ttsEngine', 'gemini'); NeuralPlayer.vcache = {}; } } }),
       el('p', { class: 'muted', style: { fontSize: '12px', lineHeight: 1.45, margin: '6px 2px 0' }, text: t('gemKeyHelp') }),
+      Family.on && S.gemKeyFam && !S.gemSharedKey ? el('p', { class: 'gem-ok', text: '✓ ' + t('gemFromFam') }) :
+      Family.on && S.gemSharedKey && S.gemSharedKey === S.gemKey ? el('p', { class: 'gem-ok', text: '✓ ' + t('gemSharedOk') }) :
       Family.on ? el('button', { class: 'btn block', style: { marginTop: '8px' }, text: t('gemShare'), onclick: async e => {
         const b = e.currentTarget; if (!S.gemKey) { toast(t('gemNoKey')); return; }
         b.disabled = true; b.textContent = t('gemSharing');
-        try { await Family.shareKey(S.gemKey); b.textContent = t('gemShared'); } catch (err) { b.disabled = false; b.textContent = t('gemShare'); toast(err.message || String(err), 5000); }
+        try { await Family.shareKey(S.gemKey); b.replaceWith(el('p', { class: 'gem-ok', text: '✓ ' + t('gemSharedOk') })); toast(t('gemShared'), 5000); } catch (err) { b.disabled = false; b.textContent = t('gemShare'); toast(err.message || String(err), 5000); }
       } }) : '',
       lbl(t('gemMode')),
       wSeg([[1, t('gemDual')], [0, t('gemOne')]], S.gemDual ? 1 : 0, x => { setS('gemDual', !!x); single.classList.toggle('hide', !!x); dual.classList.toggle('hide', !x); NeuralPlayer.vcache = {}; onChange && onChange(); }),

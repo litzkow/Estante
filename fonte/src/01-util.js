@@ -159,14 +159,14 @@ const Sheets = {
     sh.addEventListener('touchend', e => { if (sy == null) return; const dy = (e.changedTouches[0].clientY - sy); sh.style.transform = ''; if (dy > 110 && !center) this.close(entry); sy = null; });
     if (typeof body === 'function') body(b, entry); else if (body) b.append(body);
     $('#sheets').append(bd);
-    this.stack.push(entry);
+    this.stack.push(entry); document.documentElement.classList.add('sheet-open');
     return entry;
   },
   close(entry) {
     entry = entry || this.stack[this.stack.length - 1];
     if (!entry) return;
     const i = this.stack.indexOf(entry); if (i >= 0) this.stack.splice(i, 1);
-    entry.bd.remove();
+    entry.bd.remove(); if (!this.stack.length) document.documentElement.classList.remove('sheet-open');
     try { entry.onClose && entry.onClose(); } catch (e) { console.warn(e); }
   },
   closeAll() { while (this.stack.length) this.close(); },
