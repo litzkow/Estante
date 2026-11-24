@@ -50,7 +50,14 @@ const GemTTS = {
     return FEMALE_NAMES.has(n) || /a$/.test(n) ? 'f' : 'm';
   },
   // which voice reads this chapter
+  // each book or series can have its own narration (e.g. a romance told only by a female voice)
+  bookKey() { const r = Book.rec || {}; return r.series || r.work || r.id || ''; },
+  bookPick() { return (S.gemBook || {})[this.bookKey()] || 'default'; },
   voiceNow() {
+    const bp = this.bookPick();
+    if (bp === 'dualF' || bp === 'dual') { const g = this.gender(this.pov()); return g === 'f' ? (S.gemF || 'Sulafat') : (S.gemM || 'Charon'); }
+    if (bp === 'f') return S.gemF || 'Sulafat';
+    if (bp === 'm') return S.gemM || 'Charon';
     if (!S.gemDual) return S.gemVoice || 'Charon';
     const g = this.gender(this.pov());
     return g === 'f' ? (S.gemF || 'Sulafat') : (S.gemM || 'Charon');
@@ -113,6 +120,10 @@ const GemTTS = {
       pov ? el('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', margin: '10px 2px 0' } },
         el('span', { class: 'muted', style: { fontSize: '12.5px', flex: 1 }, text: t('gemPovNow', { n: pov, g: t(this.gender(pov) === 'f' ? 'ttsFemale' : 'ttsMale').toLowerCase() }) }),
         el('button', { class: 'btn', style: { padding: '6px 12px' }, text: t('gemPovSwap'), onclick: () => { const m = Object.assign({}, S.gemPov || {}); m[pov.toLowerCase()] = this.gender(pov) === 'f' ? 'm' : 'f'; setS('gemPov', m); NeuralPlayer.vcache = {}; onChange && onChange(true); } })) : '');
+    const rec = Book.rec || {}, bname = rec.series || rec.title || '';
+    const perBook = bname ? el('div', {}, lbl(t('gemThisBook', { n: bname })),
+      wSeg([['default', t('gemBookDefault')], ['dual', t('gemBookDual')], ['f', t('gemBookOnly', { v: S.gemF || 'Sulafat' })], ['m', t('gemBookOnly', { v: S.gemM || 'Charon' })]], this.bookPick(),
+        x => { const m = Object.assign({}, S.gemBook || {}); if (x === 'default') delete m[this.bookKey()]; else m[this.bookKey()] = x; setS('gemBook', m); NeuralPlayer.vcache = {}; onChange && onChange(); }, 'wrap')) : '';
     const bar = el('div', { class: 'gem-bar' }, el('i', { style: { width: Math.round(sm.pct * 100) + '%', background: sm.pct >= 0.8 ? '#e5484d' : '' } }));
     const hrs = sm.sec / 3600;
     return el('div', { class: 'gem-box' },
@@ -120,7 +131,7 @@ const GemTTS = {
       el('p', { class: 'muted', style: { fontSize: '12px', lineHeight: 1.45, margin: '6px 2px 0' }, text: t('gemKeyHelp') }),
       lbl(t('gemMode')),
       wSeg([[1, t('gemDual')], [0, t('gemOne')]], S.gemDual ? 1 : 0, x => { setS('gemDual', !!x); single.classList.toggle('hide', !!x); dual.classList.toggle('hide', !x); NeuralPlayer.vcache = {}; onChange && onChange(); }),
-      single, dual,
+      single, dual, perBook,
       el('div', { class: 'gem-spend' },
         el('div', { class: 'gem-row' }, el('b', { text: t('gemThisMonth') }), el('span', { text: this.money(sm.usd) + ' / ' + this.money(sm.budget) })),
         bar,

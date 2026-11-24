@@ -1090,7 +1090,7 @@ const STR = {
   gemKeyPh: ['Chave do Google AI Studio', 'Google AI Studio key'], gemKeyHelp: ['A chave fica só neste aparelho. O custo sai do seu crédito no AI Studio, só pelo que você ouvir.', 'The key stays on this device only. The cost comes from your AI Studio credit, only for what you listen to.'],
   gemMode: ['Narração', 'Narration'], gemDual: ['Duas vozes (ele e ela)', 'Two voices (him and her)'], gemOne: ['Uma voz', 'One voice'],
   gemVoiceOne: ['Voz', 'Voice'], gemVoiceF: ['Voz dos capítulos dela', 'Voice for her chapters'], gemVoiceM: ['Voz dos capítulos dele', 'Voice for his chapters'],
-  gemPovNow: ['Este capítulo é de {n}: voz {g}', 'This chapter is {n}\'s: {g} voice'], gemPovSwap: ['Trocar', 'Switch'],
+  gemPovNow: ['Este capítulo é de {n}: voz {g}', 'This chapter is {n}\'s: {g} voice'], gemPovSwap: ['Trocar', 'Switch'], gemThisBook: ['Neste livro ou série: {n}', 'For this book or series: {n}'], gemBookDefault: ['Padrão', 'Default'], gemBookDual: ['Duas vozes', 'Two voices'], gemBookOnly: ['Só {v}', 'Only {v}'],
   gemThisMonth: ['Gasto neste mês', 'Spent this month'], gemSpendLine: ['{h} narrados · {r} pedidos hoje · {c} MB guardados no aparelho', '{h} narrated · {r} requests today · {c} MB saved on the device'],
   gemPriceLine: ['Preço do Google: cerca de {p} por hora ouvida (dobra em 1º de janeiro). Ouvir de novo o que já tocou não custa nada.', 'Google price: about {p} per hour (doubles on January 1). Replaying what already played is free.'],
   gemHist: ['Meses anteriores:', 'Previous months:'], gemBudgetLbl: ['Limite por mês (a voz para quando chegar)', 'Monthly limit (the voice stops when reached)'],
@@ -1285,7 +1285,7 @@ const DEFAULTS = {
   // translation
   trTo: 'pt',
   // library
-  sort: 'recent', filter: 'home', gemDual: true, gemF: 'Sulafat', gemM: 'Charon', gemVoice: 'Charon', gemBudget: 10, sync: true,
+  sort: 'recent', filter: 'home', gemDual: true, gemF: 'Sulafat', gemM: 'Charon', gemVoice: 'Charon', gemBudget: 10, gemBook: { 'Off-Campus': 'f' }, sync: true,
   // audiobooks: music only before the narrator starts and after the last sentence of each chapter
   abMusic: true,
   cpm: 1000, updated: 0,
@@ -5914,7 +5914,14 @@ const GemTTS = {
     return FEMALE_NAMES.has(n) || /a$/.test(n) ? 'f' : 'm';
   },
   // which voice reads this chapter
+  // each book or series can have its own narration (e.g. a romance told only by a female voice)
+  bookKey() { const r = Book.rec || {}; return r.series || r.work || r.id || ''; },
+  bookPick() { return (S.gemBook || {})[this.bookKey()] || 'default'; },
   voiceNow() {
+    const bp = this.bookPick();
+    if (bp === 'dualF' || bp === 'dual') { const g = this.gender(this.pov()); return g === 'f' ? (S.gemF || 'Sulafat') : (S.gemM || 'Charon'); }
+    if (bp === 'f') return S.gemF || 'Sulafat';
+    if (bp === 'm') return S.gemM || 'Charon';
     if (!S.gemDual) return S.gemVoice || 'Charon';
     const g = this.gender(this.pov());
     return g === 'f' ? (S.gemF || 'Sulafat') : (S.gemM || 'Charon');
@@ -5977,6 +5984,10 @@ const GemTTS = {
       pov ? el('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', margin: '10px 2px 0' } },
         el('span', { class: 'muted', style: { fontSize: '12.5px', flex: 1 }, text: t('gemPovNow', { n: pov, g: t(this.gender(pov) === 'f' ? 'ttsFemale' : 'ttsMale').toLowerCase() }) }),
         el('button', { class: 'btn', style: { padding: '6px 12px' }, text: t('gemPovSwap'), onclick: () => { const m = Object.assign({}, S.gemPov || {}); m[pov.toLowerCase()] = this.gender(pov) === 'f' ? 'm' : 'f'; setS('gemPov', m); NeuralPlayer.vcache = {}; onChange && onChange(true); } })) : '');
+    const rec = Book.rec || {}, bname = rec.series || rec.title || '';
+    const perBook = bname ? el('div', {}, lbl(t('gemThisBook', { n: bname })),
+      wSeg([['default', t('gemBookDefault')], ['dual', t('gemBookDual')], ['f', t('gemBookOnly', { v: S.gemF || 'Sulafat' })], ['m', t('gemBookOnly', { v: S.gemM || 'Charon' })]], this.bookPick(),
+        x => { const m = Object.assign({}, S.gemBook || {}); if (x === 'default') delete m[this.bookKey()]; else m[this.bookKey()] = x; setS('gemBook', m); NeuralPlayer.vcache = {}; onChange && onChange(); }, 'wrap')) : '';
     const bar = el('div', { class: 'gem-bar' }, el('i', { style: { width: Math.round(sm.pct * 100) + '%', background: sm.pct >= 0.8 ? '#e5484d' : '' } }));
     const hrs = sm.sec / 3600;
     return el('div', { class: 'gem-box' },
@@ -5984,7 +5995,7 @@ const GemTTS = {
       el('p', { class: 'muted', style: { fontSize: '12px', lineHeight: 1.45, margin: '6px 2px 0' }, text: t('gemKeyHelp') }),
       lbl(t('gemMode')),
       wSeg([[1, t('gemDual')], [0, t('gemOne')]], S.gemDual ? 1 : 0, x => { setS('gemDual', !!x); single.classList.toggle('hide', !!x); dual.classList.toggle('hide', !x); NeuralPlayer.vcache = {}; onChange && onChange(); }),
-      single, dual,
+      single, dual, perBook,
       el('div', { class: 'gem-spend' },
         el('div', { class: 'gem-row' }, el('b', { text: t('gemThisMonth') }), el('span', { text: this.money(sm.usd) + ' / ' + this.money(sm.budget) })),
         bar,
