@@ -160,19 +160,20 @@ const Lib = {
     };
     const go = f => () => { setS('filter', f); this.animNext = true; this.render(); $('#v-lib').scrollTo({ top: 0, behavior: 'smooth' }); };
     const byRecent = (a, b) => (b.opened || b.added || 0) - (a.opened || a.added || 0);
-    const fresh = all.filter(b => this.isNew(b)).sort((a, b) => (b.added || 0) - (a.added || 0));
-    shelf(t('shNew'), fresh, { cls: 'fresh', sub: t('nNew', { n: fresh.length }), more: fresh.length > 3 ? go('new') : null });
-    shelf(t('shReading'), all.filter(b => b.pct > 0 && !b.finished && (!cont || b.id !== cont.id)).sort(byRecent));
-    // every series (Harry Potter, Off-Campus…) gets its own shelf, in reading order
+    // a series is always one folder (like Kindle's "group series"), never spread volume by volume
     const series = new Map();
     for (const b of all) if (b.series) { if (!series.has(b.series)) series.set(b.series, []); series.get(b.series).push(b); }
+    for (const bs of series.values()) bs.sort((a, b) => (a.snum || 0) - (b.snum || 0) || natCmp(a.title, b.title));
     const last = bs => Math.max(...bs.map(x => x.opened || x.added || 0));
-    for (const [name, bs] of [...series.entries()].sort((a, b) => last(b[1]) - last(a[1]))) {
-      bs.sort((a, b) => (a.snum || 0) - (b.snum || 0) || natCmp(a.title, b.title));
-      const read = bs.filter(b => b.finished).length;
-      shelf(name, bs, { cls: 'series', sub: t('nVolumes', { n: bs.length }) + (read ? ' · ' + t('nRead', { n: read }) : ''), more: () => this.openFolder(name) });
-    }
-    const loose = all.filter(b => !b.series && !b.finished);
+    const group = list => { const out = [], seen = new Set(); for (const b of list) { if (!b.series) { out.push(b); continue; } if (seen.has(b.series)) continue; seen.add(b.series); const bs = series.get(b.series); out.push(bs.length > 1 ? { folder: true, series: b.series, books: bs } : b); } return out; };
+    const fresh = all.filter(b => this.isNew(b)).sort((a, b) => (b.added || 0) - (a.added || 0));
+    shelf(t('shNew'), group(fresh), { cls: 'fresh', sub: t('nNew', { n: fresh.length }), more: fresh.length > 3 ? go('new') : null });
+    shelf(t('shReading'), all.filter(b => b.pct > 0 && !b.finished && (!cont || b.id !== cont.id)).sort(byRecent));
+    const folders = [...series.entries()].filter(([, bs]) => bs.length > 1).sort((a, b) => last(b[1]) - last(a[1])).map(([name, bs]) => ({ folder: true, series: name, books: bs }));
+    const isComic = f => f.books.every(b => b.kind === 'comic');
+    shelf(t('shSeriesBooks'), folders.filter(f => !isComic(f)), { cls: 'series' });
+    shelf(t('shSeriesComics'), folders.filter(isComic), { cls: 'series' });
+    const loose = all.filter(b => (!b.series || series.get(b.series).length < 2) && !b.finished);
     // books that only exist in the other language go to their own shelf, so the app reads all in Portuguese
     const other = b => b.kind !== 'comic' && b.lang && !b.lang.startsWith(S.lang === 'en' ? 'en' : 'pt') && !this.sibling(b);
     shelf(t('books'), loose.filter(b => b.kind !== 'comic' && !other(b)).sort(byRecent), { more: go('book') });

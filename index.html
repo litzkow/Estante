@@ -606,7 +606,9 @@ canvas.peel{position:absolute;z-index:4;pointer-events:none}
 .shelf-row::-webkit-scrollbar{display:none}
 .shelf-row .card{flex:none;width:118px;scroll-snap-align:start}
 .shelf.fresh .shelf-row .card{width:136px}
-.shelf.series .shelf-row .card{width:112px}
+.shelf.series .shelf-row .card{width:128px}
+.shelf-row .card.folder{margin-right:8px}
+.shelf-row{padding-top:14px !important}
 #l-home.anim .card{animation:cardIn .42s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0) * 35ms)}
 .newtag{position:absolute;top:7px;left:7px;z-index:2;background:var(--accent);color:var(--accent-ink,#1a1208);font-size:10px;font-weight:800;letter-spacing:.7px;padding:3px 7px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.35);text-transform:uppercase}
 .fstack .newtag{top:auto;bottom:8px;left:8px}
@@ -1077,7 +1079,7 @@ const STR = {
   search: ['Buscar', 'Search'], searchPh: ['Título, autor ou coleção', 'Title, author or collection'], sort: ['Ordenar', 'Sort'], settings: ['Ajustes', 'Settings'],
   back: ['Voltar', 'Back'], close: ['Fechar', 'Close'], cancel: ['Cancelar', 'Cancel'], save: ['Salvar', 'Save'], create: ['Criar', 'Create'], done: ['Pronto', 'Done'], stop: ['Parar', 'Stop'], skip: ['Pular', 'Skip'], options: ['Opções', 'Options'],
   copy: ['Copiar', 'Copy'], copied: ['Copiado', 'Copied'], copyFail: ['Não deu para copiar aqui', 'Copy is not available here'],
-  home: ['Início', 'Home'], newPl: ['Novos', 'New'], newTag: ['NOVO', 'NEW'], nNew: ['{n} novo(s)', '{n} new'], shNew: ['Chegaram agora', 'Just added'], shReading: ['Lendo agora', 'Reading now'], seeAll: ['Ver tudo', 'See all'], shOtherEn: ['Em inglês', 'In English'], shOtherPt: ['Em português', 'In Portuguese'],
+  home: ['Início', 'Home'], newPl: ['Novos', 'New'], newTag: ['NOVO', 'NEW'], nNew: ['{n} novo(s)', '{n} new'], shNew: ['Chegaram agora', 'Just added'], shReading: ['Lendo agora', 'Reading now'], seeAll: ['Ver tudo', 'See all'], shSeriesBooks: ['Séries de livros', 'Book series'], shSeriesComics: ['Séries de quadrinhos', 'Comic series'], shOtherEn: ['Em inglês', 'In English'], shOtherPt: ['Em português', 'In Portuguese'],
   pinchSize: ['Letra {n}', 'Text size {n}'], pinchHint: ['Dica: junte ou afaste dois dedos na página para mudar o tamanho da letra', 'Tip: pinch the page to change the text size'],
   comic: ['HQ', 'Comic'], book: ['Livro', 'Book'], comics: ['Quadrinhos', 'Comics'], books: ['Livros', 'Books'], all: ['Tudo', 'All'], reading: ['Lendo', 'Reading'], finishedPl: ['Concluídos', 'Finished'],
   finished: ['Concluído', 'Finished'], started: ['Começado', 'Started'], notStarted: ['Novo', 'New'],
@@ -2045,19 +2047,20 @@ const Lib = {
     };
     const go = f => () => { setS('filter', f); this.animNext = true; this.render(); $('#v-lib').scrollTo({ top: 0, behavior: 'smooth' }); };
     const byRecent = (a, b) => (b.opened || b.added || 0) - (a.opened || a.added || 0);
-    const fresh = all.filter(b => this.isNew(b)).sort((a, b) => (b.added || 0) - (a.added || 0));
-    shelf(t('shNew'), fresh, { cls: 'fresh', sub: t('nNew', { n: fresh.length }), more: fresh.length > 3 ? go('new') : null });
-    shelf(t('shReading'), all.filter(b => b.pct > 0 && !b.finished && (!cont || b.id !== cont.id)).sort(byRecent));
-    // every series (Harry Potter, Off-Campus…) gets its own shelf, in reading order
+    // a series is always one folder (like Kindle's "group series"), never spread volume by volume
     const series = new Map();
     for (const b of all) if (b.series) { if (!series.has(b.series)) series.set(b.series, []); series.get(b.series).push(b); }
+    for (const bs of series.values()) bs.sort((a, b) => (a.snum || 0) - (b.snum || 0) || natCmp(a.title, b.title));
     const last = bs => Math.max(...bs.map(x => x.opened || x.added || 0));
-    for (const [name, bs] of [...series.entries()].sort((a, b) => last(b[1]) - last(a[1]))) {
-      bs.sort((a, b) => (a.snum || 0) - (b.snum || 0) || natCmp(a.title, b.title));
-      const read = bs.filter(b => b.finished).length;
-      shelf(name, bs, { cls: 'series', sub: t('nVolumes', { n: bs.length }) + (read ? ' · ' + t('nRead', { n: read }) : ''), more: () => this.openFolder(name) });
-    }
-    const loose = all.filter(b => !b.series && !b.finished);
+    const group = list => { const out = [], seen = new Set(); for (const b of list) { if (!b.series) { out.push(b); continue; } if (seen.has(b.series)) continue; seen.add(b.series); const bs = series.get(b.series); out.push(bs.length > 1 ? { folder: true, series: b.series, books: bs } : b); } return out; };
+    const fresh = all.filter(b => this.isNew(b)).sort((a, b) => (b.added || 0) - (a.added || 0));
+    shelf(t('shNew'), group(fresh), { cls: 'fresh', sub: t('nNew', { n: fresh.length }), more: fresh.length > 3 ? go('new') : null });
+    shelf(t('shReading'), all.filter(b => b.pct > 0 && !b.finished && (!cont || b.id !== cont.id)).sort(byRecent));
+    const folders = [...series.entries()].filter(([, bs]) => bs.length > 1).sort((a, b) => last(b[1]) - last(a[1])).map(([name, bs]) => ({ folder: true, series: name, books: bs }));
+    const isComic = f => f.books.every(b => b.kind === 'comic');
+    shelf(t('shSeriesBooks'), folders.filter(f => !isComic(f)), { cls: 'series' });
+    shelf(t('shSeriesComics'), folders.filter(isComic), { cls: 'series' });
+    const loose = all.filter(b => (!b.series || series.get(b.series).length < 2) && !b.finished);
     // books that only exist in the other language go to their own shelf, so the app reads all in Portuguese
     const other = b => b.kind !== 'comic' && b.lang && !b.lang.startsWith(S.lang === 'en' ? 'en' : 'pt') && !this.sibling(b);
     shelf(t('books'), loose.filter(b => b.kind !== 'comic' && !other(b)).sort(byRecent), { more: go('book') });
@@ -5436,9 +5439,12 @@ const Family = {
         const all = await DB.all('books'), b = all.find(b => this.safe(b.fname || '') === this.safe(x.file));
         if (b && b.fv !== x.v) for (const d of all.filter(d => d.id === b.id || d.fileOf === b.id)) { await DB.del('books', d.id); await DB.del('files', d.id); await DB.delPrefix('kv', 'pn:' + d.id + ':'); }
       }
+      // removed from the family library (remove: true): take it off this phone too and never bring it back
+      const gone = new Set((cat || []).filter(x => x.remove).map(x => this.safe(x.file)));
+      if (gone.size) { const all = await DB.all('books'); for (const b of all.filter(b => gone.has(this.safe(b.fname || '')))) for (const d of all.filter(d => d.id === b.id || d.fileOf === b.id)) { await DB.del('books', d.id); await DB.del('files', d.id); await DB.delPrefix('kv', 'pn:' + d.id + ':'); } }
       const have = new Set((await DB.all('books')).map(b => this.safe(b.fname || '')));
       const got = new Set(S.famGot || []);
-      const todo = remote.filter(f => !have.has(f.name) && !got.has(f.sha));
+      const todo = remote.filter(f => !have.has(f.name) && !got.has(f.sha) && !gone.has(f.name));
       for (const f of todo) {
         if (!quiet) toast(t('famDownloading', { f: f.name }));
         const r = await this.api(this.repo() + '/contents/' + f.path.split('/').map(encodeURIComponent).join('/'), { raw: true });
@@ -5447,7 +5453,7 @@ const Family = {
         try { await importFiles([new File([blob], f.name)]); } finally { this.importing = false; }
         got.add(f.sha); setS('famGot', [...got]);
       }
-      if (todo.length) { await splitCollections(); await Lib.render(); }
+      if (todo.length || gone.size) { await splitCollections(); await Lib.render(); }
       if (cat) await this.tag(cat);
     } catch (e) { if (!quiet) toast(e.message || String(e)); console.warn('family', e); }
     finally { this.syncing = false; }

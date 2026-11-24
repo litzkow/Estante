@@ -84,9 +84,12 @@ const Family = {
         const all = await DB.all('books'), b = all.find(b => this.safe(b.fname || '') === this.safe(x.file));
         if (b && b.fv !== x.v) for (const d of all.filter(d => d.id === b.id || d.fileOf === b.id)) { await DB.del('books', d.id); await DB.del('files', d.id); await DB.delPrefix('kv', 'pn:' + d.id + ':'); }
       }
+      // removed from the family library (remove: true): take it off this phone too and never bring it back
+      const gone = new Set((cat || []).filter(x => x.remove).map(x => this.safe(x.file)));
+      if (gone.size) { const all = await DB.all('books'); for (const b of all.filter(b => gone.has(this.safe(b.fname || '')))) for (const d of all.filter(d => d.id === b.id || d.fileOf === b.id)) { await DB.del('books', d.id); await DB.del('files', d.id); await DB.delPrefix('kv', 'pn:' + d.id + ':'); } }
       const have = new Set((await DB.all('books')).map(b => this.safe(b.fname || '')));
       const got = new Set(S.famGot || []);
-      const todo = remote.filter(f => !have.has(f.name) && !got.has(f.sha));
+      const todo = remote.filter(f => !have.has(f.name) && !got.has(f.sha) && !gone.has(f.name));
       for (const f of todo) {
         if (!quiet) toast(t('famDownloading', { f: f.name }));
         const r = await this.api(this.repo() + '/contents/' + f.path.split('/').map(encodeURIComponent).join('/'), { raw: true });
@@ -95,7 +98,7 @@ const Family = {
         try { await importFiles([new File([blob], f.name)]); } finally { this.importing = false; }
         got.add(f.sha); setS('famGot', [...got]);
       }
-      if (todo.length) { await splitCollections(); await Lib.render(); }
+      if (todo.length || gone.size) { await splitCollections(); await Lib.render(); }
       if (cat) await this.tag(cat);
     } catch (e) { if (!quiet) toast(e.message || String(e)); console.warn('family', e); }
     finally { this.syncing = false; }
