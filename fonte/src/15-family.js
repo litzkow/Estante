@@ -82,6 +82,7 @@ const Family = {
       else if (!x.work && x.lang && b.lang !== x.lang) { b.lang = x.lang; dirty = true; }
       if (x.series && (b.series !== x.series || b.snum !== x.num)) { b.series = x.series; b.snum = x.num; dirty = true; }
       if (x.v && b.fv !== x.v) { b.fv = x.v; dirty = true; }
+      if (x.title && b.title !== x.title) { b.title = x.title; dirty = true; }
       if (x.cover && b.cv !== x.cover + '#' + (x.cv || 1)) {
         try {
           let bl = covers.get(x.cover);
