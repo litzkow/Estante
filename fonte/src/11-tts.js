@@ -349,7 +349,10 @@ const TTS = {
     const s = Sheets.open({
       title: t('ttsTitle'), body: b => {
         const L = el('div', { class: 'list' }), lang = this.lang();
-        const engSeg = wSeg([['neural', t('ttsEngNeural')], ['azure', 'Microsoft']], Voices.engine(), x => { setS('ttsEngine', x); NeuralPlayer.stop(); azBox.classList.toggle('hide', x !== 'azure'); draw(); this.ui(); }, 'wrap');
+        const engSeg = wSeg([['gemini', t('ttsEngGemini')], ['neural', t('ttsEngNeural')], ['azure', 'Microsoft']], Voices.engine(), x => { setS('ttsEngine', x); NeuralPlayer.stop(); NeuralPlayer.build(); azBox.classList.toggle('hide', x !== 'azure'); gemWrap.classList.toggle('hide', x !== 'gemini'); draw(); this.ui(); }, 'wrap');
+        const gemWrap = el('div', { class: Voices.engine() === 'gemini' ? '' : 'hide', style: { marginTop: '10px' } });
+        const gemDraw = () => gemWrap.replaceChildren(GemTTS.box(re => { NeuralPlayer.stop(); NeuralPlayer.build(); draw(); if (re) gemDraw(); this.ui(); }));
+        gemDraw();
         const azBox = el('div', { class: Voices.engine() === 'azure' ? '' : 'hide', style: { marginTop: '10px' } },
           el('input', { class: 'inp', placeholder: t('azKeyPh'), value: S.azKey || '', oninput: e => setS('azKey', e.target.value.trim()) }),
           el('input', { class: 'inp', style: { marginTop: '6px' }, placeholder: t('azRegionPh'), value: S.azRegion || '', oninput: e => setS('azRegion', e.target.value.trim().toLowerCase()) }),
@@ -357,7 +360,7 @@ const TTS = {
         const note = el('p', { class: 'muted', style: { fontSize: '12.5px', lineHeight: 1.45, margin: '8px 2px 0' } });
         const draw = async () => {
           L.replaceChildren(el('p', { class: 'muted', text: t('ttsLoadingList') }));
-          note.textContent = { neural: t('ttsNeuralNote'), azure: t('ttsAzureNote'), system: t('ttsTip') }[Voices.engine()];
+          note.textContent = { neural: t('ttsNeuralNote'), azure: t('ttsAzureNote'), gemini: t('gemNote'), system: t('ttsTip') }[Voices.engine()];
           if (Voices.engine() === 'system') {
             const vs = this.voices(), cur = this.voice(); L.replaceChildren();
             if (!vs.length) L.append(el('p', { class: 'muted', text: t('ttsNoVoices') }));
@@ -380,7 +383,7 @@ const TTS = {
           }
         };
         draw();
-        b.append(wGroup(t('ttsEngine'), engSeg, azBox), wGroup(t('ttsVoice') + ' · ' + (lang === 'en' ? 'English' : 'Português'), L, note),
+        b.append(wGroup(t('ttsEngine'), engSeg, azBox, gemWrap), wGroup(t('ttsVoice') + ' · ' + (lang === 'en' ? 'English' : 'Português'), L, note),
           wGroup(t('ttsSpeed'), wSlider(0.75, 3, 0.05, S.ttsRate || 1, v => { setS('ttsRate', Math.round(v * 100) / 100); NeuralPlayer.rate(S.ttsRate); this.ui(); }, v => (+v).toFixed(2).replace('.', ',') + '×', 'speed')),
           Book.rec && (() => { const d = el('p', { class: 'muted', style: { fontSize: '11.5px', margin: '0 2px 6px' } });
             (async () => { const A = NeuralPlayer.ab; if (!A) return; const k = AudioBook.key(Book.rec) + '/' + NeuralPlayer.voice.slice(2) + '/' + String(A.ch).padStart(3, '0') + '.mp3?v=' + A.dur;

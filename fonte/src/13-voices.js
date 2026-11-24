@@ -20,18 +20,19 @@ const AZURE_VOICES = {
 };
 const Voices = {
   warm: {},
-  engine() { return S.ttsEngine === 'azure' ? 'azure' : 'neural'; },
+  engine() { return S.ttsEngine === 'azure' ? 'azure' : S.ttsEngine === 'gemini' ? 'gemini' : 'neural'; },
   // voices to offer for this book's language (only what is really available)
   async list(lang) {
     const e = this.engine();
     // narrated audiobooks of this book come first: ready, no pauses
-    const ab = e === 'neural' && Book.rec ? (await AudioBook.voices(Book.rec)).filter(v => v.lang === lang).map(v => ({ id: v.id, name: v.name, desc: t(v.g === 'f' ? 'ttsFemale' : 'ttsMale') + ' · ' + t(v.hd ? 'abReadyHD' : 'abReady') })) : [];
+    const ab = (e === 'neural' || e === 'gemini') && Book.rec ? (await AudioBook.voices(Book.rec)).filter(v => v.lang === lang).map(v => ({ id: v.id, name: v.name, desc: t(v.g === 'f' ? 'ttsFemale' : 'ttsMale') + ' · ' + t(v.hd ? 'abReadyHD' : 'abReady') })) : [];
     if (ab.length) return ab.concat(await this.listLive(lang));
     return this.listLive(lang);
   },
   async listLive(lang) {
     const e = this.engine();
     if (e === 'azure') return (AZURE_VOICES[lang] || AZURE_VOICES.pt).map(([id, name, g]) => ({ id, name, desc: t(g === 'f' ? 'ttsFemale' : 'ttsMale') + ' · Microsoft' }));
+    if (e === 'gemini') return [{ id: 'g:auto', name: t('gemName'), desc: S.gemDual ? t('gemDualDesc', { f: S.gemF || 'Sulafat', m: S.gemM || 'Charon' }) : (S.gemVoice || 'Charon') + ' · ' + t('gemPerHour', { p: GemTTS.money(GemTTS.perHour()) }) }];
     if (lang === 'en') return KOKORO_VOICES.map(([id, name, g, d]) => ({ id: 'k:' + id, name, desc: t(g === 'f' ? 'ttsFemale' : 'ttsMale') + ' · ' + t(d) + ' · ' + t('vozNatural') }))
       .concat(PIPER_VOICES.en.map(([id, name, g, d]) => ({ id: 'p:' + id, name, desc: t(g === 'f' ? 'ttsFemale' : 'ttsMale') + ' · ' + t(d) + ' · ' + t('vozFast') })));
     return PIPER_VOICES.pt.map(([id, name, g, d]) => ({ id: 'p:' + id, name, desc: t(g === 'f' ? 'ttsFemale' : 'ttsMale') + ' · ' + t(d) }));
@@ -48,6 +49,7 @@ const Voices = {
     const e = this.engine();
     lang = (lang || 'pt').slice(0, 2);
     // a voice that doesn't fit the engine or the language is replaced by that language's chosen voice
+    if (e === 'gemini') return GemTTS.synth(text, (voiceId || '').startsWith('g:') && voiceId !== 'g:auto' ? voiceId.slice(2) : GemTTS.voiceNow(), lang);
     const okId = id => typeof id === 'string' && (e === 'azure' ? id.toLowerCase().startsWith(lang) : lang === 'en' ? (id.startsWith('k:') || /^p:en_/.test(id)) : /^p:pt_/.test(id));
     if (!okId(voiceId)) { const v = this.current(lang, await this.list(lang)); if (!v) throw new Error(t('ttsNoVoices')); voiceId = v.id; }
     if (e === 'azure') {
@@ -102,8 +104,10 @@ const NeuralPlayer = {
   // passages of whole sentences, up to ~220 characters, never mixing languages (the voice model reads short input fully)
   build() {
     this.chunks = []; let cur = null;
+    const gem = Voices.engine() === 'gemini';
     TTS.segs.forEach((s, i) => {
-      if (cur && cur.lang === s.lang && cur.t.length + s.t.length < 220 && s.s - cur.e < 4) { cur.t += ' ' + s.t; cur.e = s.e; cur.last = i; }
+      const lim = !gem ? 220 : this.chunks.length <= 1 ? 450 : 1500;
+      if (cur && cur.lang === s.lang && cur.t.length + s.t.length < lim && s.s - cur.e < 4) { cur.t += ' ' + s.t; cur.e = s.e; cur.last = i; }
       else { cur = { s: s.s, e: s.e, t: s.t, first: i, last: i, lang: s.lang }; this.chunks.push(cur); }
     });
     this.ahead.clear(); for (const u of this.urls) URL.revokeObjectURL(u); this.urls = [];
@@ -111,6 +115,7 @@ const NeuralPlayer = {
   },
   // the voice for a passage: the listener's choice for that language
   async voiceFor(lang) {
+    if (Voices.engine() === 'gemini') return 'g:' + GemTTS.voiceNow();
     this.vcache = this.vcache || {};
     const k = Voices.engine() + ':' + lang + ':' + (S['ttsN_' + Voices.engine() + '_' + lang] || '');
     if (!this.vcache[k]) { const v = Voices.current(lang, await Voices.list(lang)); this.vcache[k] = v ? v.id : null; }
@@ -125,7 +130,7 @@ const NeuralPlayer = {
       if (lang !== this.lang || !voice) voice = await this.voiceFor(lang);
       const k = this.key(c, voice);
       let b = await DB.get('kv', k).catch(() => null);
-      if (!b) { b = await Voices.synth(c.t, voice, lang, show ? pc => TTS.loading(pc) : null); DB.put('kv', k, b).catch(() => { }); }
+      if (!b) { b = await Voices.synth(c.t, voice, lang, show ? pc => TTS.loading(pc) : null); DB.put('kv', k, b).then(() => { if (Voices.engine() === 'gemini') GemTTS.remember(k, b.size); }).catch(() => { }); }
       return b;
     })();
     this.ahead.set(i, p); p.catch(() => this.ahead.delete(i));

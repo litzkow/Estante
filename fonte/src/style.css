@@ -597,3 +597,10 @@ canvas.peel{position:absolute;z-index:4;pointer-events:none}
 .pinch-tip{position:fixed;left:50%;top:calc(var(--st) + 70px);transform:translate(-50%,-10px);background:rgba(20,18,16,.88);color:#fff;font-weight:700;font-size:15px;padding:9px 16px;border-radius:999px;opacity:0;pointer-events:none;transition:opacity .15s,transform .15s;z-index:95}
 .pinch-tip.on{opacity:1;transform:translate(-50%,0)}
 #b-frame{transform-origin:center;transition:transform .12s}
+
+.gem-box select.inp{width:100%;appearance:none;-webkit-appearance:none}
+.gem-spend{margin-top:14px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+.gem-row{display:flex;justify-content:space-between;align-items:baseline;font-size:14px}
+.gem-row span{font-variant-numeric:tabular-nums;font-weight:700}
+.gem-bar{height:6px;border-radius:3px;background:rgba(127,127,127,.2);margin-top:8px;overflow:hidden}
+.gem-bar i{display:block;height:100%;background:var(--accent);border-radius:3px}

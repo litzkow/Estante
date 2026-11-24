@@ -75,7 +75,7 @@ const DEFAULTS = {
   // translation
   trTo: 'pt',
   // library
-  sort: 'recent', filter: 'home', sync: true,
+  sort: 'recent', filter: 'home', gemDual: true, gemF: 'Sulafat', gemM: 'Charon', gemVoice: 'Charon', gemBudget: 10, sync: true,
   // audiobooks: music only before the narrator starts and after the last sentence of each chapter
   abMusic: true,
   cpm: 1000, updated: 0,

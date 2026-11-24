@@ -615,6 +615,13 @@ canvas.peel{position:absolute;z-index:4;pointer-events:none}
 .pinch-tip{position:fixed;left:50%;top:calc(var(--st) + 70px);transform:translate(-50%,-10px);background:rgba(20,18,16,.88);color:#fff;font-weight:700;font-size:15px;padding:9px 16px;border-radius:999px;opacity:0;pointer-events:none;transition:opacity .15s,transform .15s;z-index:95}
 .pinch-tip.on{opacity:1;transform:translate(-50%,0)}
 #b-frame{transform-origin:center;transition:transform .12s}
+
+.gem-box select.inp{width:100%;appearance:none;-webkit-appearance:none}
+.gem-spend{margin-top:14px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+.gem-row{display:flex;justify-content:space-between;align-items:baseline;font-size:14px}
+.gem-row span{font-variant-numeric:tabular-nums;font-weight:700}
+.gem-bar{height:6px;border-radius:3px;background:rgba(127,127,127,.2);margin-top:8px;overflow:hidden}
+.gem-bar i{display:block;height:100%;background:var(--accent);border-radius:3px}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
@@ -1079,6 +1086,20 @@ const STR = {
   search: ['Buscar', 'Search'], searchPh: ['Título, autor ou coleção', 'Title, author or collection'], sort: ['Ordenar', 'Sort'], settings: ['Ajustes', 'Settings'],
   back: ['Voltar', 'Back'], close: ['Fechar', 'Close'], cancel: ['Cancelar', 'Cancel'], save: ['Salvar', 'Save'], create: ['Criar', 'Create'], done: ['Pronto', 'Done'], stop: ['Parar', 'Stop'], skip: ['Pular', 'Skip'], options: ['Opções', 'Options'],
   copy: ['Copiar', 'Copy'], copied: ['Copiado', 'Copied'], copyFail: ['Não deu para copiar aqui', 'Copy is not available here'],
+  ttsEngGemini: ['Voz de IA', 'AI voice'], gemName: ['Voz de IA (Gemini)', 'AI voice (Gemini)'], gemDualDesc: ['Duas vozes: {f} e {m}, conforme o capítulo', 'Two voices: {f} and {m}, by chapter'], gemPerHour: ['cerca de {p} por hora ouvida', 'about {p} per hour listened'],
+  gemKeyPh: ['Chave do Google AI Studio', 'Google AI Studio key'], gemKeyHelp: ['A chave fica só neste aparelho. O custo sai do seu crédito no AI Studio, só pelo que você ouvir.', 'The key stays on this device only. The cost comes from your AI Studio credit, only for what you listen to.'],
+  gemMode: ['Narração', 'Narration'], gemDual: ['Duas vozes (ele e ela)', 'Two voices (him and her)'], gemOne: ['Uma voz', 'One voice'],
+  gemVoiceOne: ['Voz', 'Voice'], gemVoiceF: ['Voz dos capítulos dela', 'Voice for her chapters'], gemVoiceM: ['Voz dos capítulos dele', 'Voice for his chapters'],
+  gemPovNow: ['Este capítulo é de {n}: voz {g}', 'This chapter is {n}\'s: {g} voice'], gemPovSwap: ['Trocar', 'Switch'],
+  gemThisMonth: ['Gasto neste mês', 'Spent this month'], gemSpendLine: ['{h} narrados · {r} pedidos hoje · {c} MB guardados no aparelho', '{h} narrated · {r} requests today · {c} MB saved on the device'],
+  gemPriceLine: ['Preço do Google: cerca de {p} por hora ouvida (dobra em 1º de janeiro). Ouvir de novo o que já tocou não custa nada.', 'Google price: about {p} per hour (doubles on January 1). Replaying what already played is free.'],
+  gemHist: ['Meses anteriores:', 'Previous months:'], gemBudgetLbl: ['Limite por mês (a voz para quando chegar)', 'Monthly limit (the voice stops when reached)'],
+  gemNoKey: ['Coloque a chave do AI Studio nas configurações da voz', 'Add your AI Studio key in the voice settings'], gemBadKey: ['A chave do AI Studio não funcionou', 'The AI Studio key did not work'],
+  gemNoCredit: ['O crédito do AI Studio acabou', 'Your AI Studio credit ran out'], gemDayLimit: ['O Google limitou os pedidos de hoje. Amanhã volta, ou use a voz do aparelho', 'Google limited today\'s requests. It comes back tomorrow, or use the device voice'],
+  gemEmpty: ['O Google não devolveu áudio', 'Google returned no audio'], gemBudgetHit: ['Limite do mês ({b}) atingido. Aumente nas configurações da voz se quiser continuar', 'Monthly limit ({b}) reached. Raise it in the voice settings to continue'],
+  gemBudget80: ['Atenção: já foram {u} de {b} do limite deste mês', 'Heads up: {u} of {b} of this month\'s limit used'],
+  gemNote: ['A voz de IA lê o livro na hora, alguns minutos à frente de onde você está. O que já tocou fica no aparelho.', 'The AI voice reads the book live, a few minutes ahead. What already played stays on the device.'],
+  gemVWarm: ['calorosa', 'warm'], gemVYoung: ['jovem', 'youthful'], gemVSmooth: ['suave', 'smooth'], gemVLight: ['leve', 'light'], gemVFirm: ['firme', 'firm'], gemVDeep: ['grave', 'deep'], gemVEasy: ['tranquila', 'easy-going'], gemVFriendly: ['amigável', 'friendly'], gemVBreathy: ['sussurrada', 'breathy'],
   home: ['Início', 'Home'], newPl: ['Novos', 'New'], newTag: ['NOVO', 'NEW'], nNew: ['{n} novo(s)', '{n} new'], shNew: ['Chegaram agora', 'Just added'], shReading: ['Lendo agora', 'Reading now'], seeAll: ['Ver tudo', 'See all'], shSeriesBooks: ['Séries de livros', 'Book series'], shSeriesComics: ['Séries de quadrinhos', 'Comic series'], shOtherEn: ['Em inglês', 'In English'], shOtherPt: ['Em português', 'In Portuguese'],
   pinchSize: ['Letra {n}', 'Text size {n}'], pinchHint: ['Dica: junte ou afaste dois dedos na página para mudar o tamanho da letra', 'Tip: pinch the page to change the text size'],
   comic: ['HQ', 'Comic'], book: ['Livro', 'Book'], comics: ['Quadrinhos', 'Comics'], books: ['Livros', 'Books'], all: ['Tudo', 'All'], reading: ['Lendo', 'Reading'], finishedPl: ['Concluídos', 'Finished'],
@@ -1264,7 +1285,7 @@ const DEFAULTS = {
   // translation
   trTo: 'pt',
   // library
-  sort: 'recent', filter: 'home', sync: true,
+  sort: 'recent', filter: 'home', gemDual: true, gemF: 'Sulafat', gemM: 'Charon', gemVoice: 'Charon', gemBudget: 10, sync: true,
   // audiobooks: music only before the narrator starts and after the last sentence of each chapter
   abMusic: true,
   cpm: 1000, updated: 0,
@@ -4519,7 +4540,10 @@ const TTS = {
     const s = Sheets.open({
       title: t('ttsTitle'), body: b => {
         const L = el('div', { class: 'list' }), lang = this.lang();
-        const engSeg = wSeg([['neural', t('ttsEngNeural')], ['azure', 'Microsoft']], Voices.engine(), x => { setS('ttsEngine', x); NeuralPlayer.stop(); azBox.classList.toggle('hide', x !== 'azure'); draw(); this.ui(); }, 'wrap');
+        const engSeg = wSeg([['gemini', t('ttsEngGemini')], ['neural', t('ttsEngNeural')], ['azure', 'Microsoft']], Voices.engine(), x => { setS('ttsEngine', x); NeuralPlayer.stop(); NeuralPlayer.build(); azBox.classList.toggle('hide', x !== 'azure'); gemWrap.classList.toggle('hide', x !== 'gemini'); draw(); this.ui(); }, 'wrap');
+        const gemWrap = el('div', { class: Voices.engine() === 'gemini' ? '' : 'hide', style: { marginTop: '10px' } });
+        const gemDraw = () => gemWrap.replaceChildren(GemTTS.box(re => { NeuralPlayer.stop(); NeuralPlayer.build(); draw(); if (re) gemDraw(); this.ui(); }));
+        gemDraw();
         const azBox = el('div', { class: Voices.engine() === 'azure' ? '' : 'hide', style: { marginTop: '10px' } },
           el('input', { class: 'inp', placeholder: t('azKeyPh'), value: S.azKey || '', oninput: e => setS('azKey', e.target.value.trim()) }),
           el('input', { class: 'inp', style: { marginTop: '6px' }, placeholder: t('azRegionPh'), value: S.azRegion || '', oninput: e => setS('azRegion', e.target.value.trim().toLowerCase()) }),
@@ -4527,7 +4551,7 @@ const TTS = {
         const note = el('p', { class: 'muted', style: { fontSize: '12.5px', lineHeight: 1.45, margin: '8px 2px 0' } });
         const draw = async () => {
           L.replaceChildren(el('p', { class: 'muted', text: t('ttsLoadingList') }));
-          note.textContent = { neural: t('ttsNeuralNote'), azure: t('ttsAzureNote'), system: t('ttsTip') }[Voices.engine()];
+          note.textContent = { neural: t('ttsNeuralNote'), azure: t('ttsAzureNote'), gemini: t('gemNote'), system: t('ttsTip') }[Voices.engine()];
           if (Voices.engine() === 'system') {
             const vs = this.voices(), cur = this.voice(); L.replaceChildren();
             if (!vs.length) L.append(el('p', { class: 'muted', text: t('ttsNoVoices') }));
@@ -4550,7 +4574,7 @@ const TTS = {
           }
         };
         draw();
-        b.append(wGroup(t('ttsEngine'), engSeg, azBox), wGroup(t('ttsVoice') + ' · ' + (lang === 'en' ? 'English' : 'Português'), L, note),
+        b.append(wGroup(t('ttsEngine'), engSeg, azBox, gemWrap), wGroup(t('ttsVoice') + ' · ' + (lang === 'en' ? 'English' : 'Português'), L, note),
           wGroup(t('ttsSpeed'), wSlider(0.75, 3, 0.05, S.ttsRate || 1, v => { setS('ttsRate', Math.round(v * 100) / 100); NeuralPlayer.rate(S.ttsRate); this.ui(); }, v => (+v).toFixed(2).replace('.', ',') + '×', 'speed')),
           Book.rec && (() => { const d = el('p', { class: 'muted', style: { fontSize: '11.5px', margin: '0 2px 6px' } });
             (async () => { const A = NeuralPlayer.ab; if (!A) return; const k = AudioBook.key(Book.rec) + '/' + NeuralPlayer.voice.slice(2) + '/' + String(A.ch).padStart(3, '0') + '.mp3?v=' + A.dur;
@@ -4954,18 +4978,19 @@ const AZURE_VOICES = {
 };
 const Voices = {
   warm: {},
-  engine() { return S.ttsEngine === 'azure' ? 'azure' : 'neural'; },
+  engine() { return S.ttsEngine === 'azure' ? 'azure' : S.ttsEngine === 'gemini' ? 'gemini' : 'neural'; },
   // voices to offer for this book's language (only what is really available)
   async list(lang) {
     const e = this.engine();
     // narrated audiobooks of this book come first: ready, no pauses
-    const ab = e === 'neural' && Book.rec ? (await AudioBook.voices(Book.rec)).filter(v => v.lang === lang).map(v => ({ id: v.id, name: v.name, desc: t(v.g === 'f' ? 'ttsFemale' : 'ttsMale') + ' · ' + t(v.hd ? 'abReadyHD' : 'abReady') })) : [];
+    const ab = (e === 'neural' || e === 'gemini') && Book.rec ? (await AudioBook.voices(Book.rec)).filter(v => v.lang === lang).map(v => ({ id: v.id, name: v.name, desc: t(v.g === 'f' ? 'ttsFemale' : 'ttsMale') + ' · ' + t(v.hd ? 'abReadyHD' : 'abReady') })) : [];
     if (ab.length) return ab.concat(await this.listLive(lang));
     return this.listLive(lang);
   },
   async listLive(lang) {
     const e = this.engine();
     if (e === 'azure') return (AZURE_VOICES[lang] || AZURE_VOICES.pt).map(([id, name, g]) => ({ id, name, desc: t(g === 'f' ? 'ttsFemale' : 'ttsMale') + ' · Microsoft' }));
+    if (e === 'gemini') return [{ id: 'g:auto', name: t('gemName'), desc: S.gemDual ? t('gemDualDesc', { f: S.gemF || 'Sulafat', m: S.gemM || 'Charon' }) : (S.gemVoice || 'Charon') + ' · ' + t('gemPerHour', { p: GemTTS.money(GemTTS.perHour()) }) }];
     if (lang === 'en') return KOKORO_VOICES.map(([id, name, g, d]) => ({ id: 'k:' + id, name, desc: t(g === 'f' ? 'ttsFemale' : 'ttsMale') + ' · ' + t(d) + ' · ' + t('vozNatural') }))
       .concat(PIPER_VOICES.en.map(([id, name, g, d]) => ({ id: 'p:' + id, name, desc: t(g === 'f' ? 'ttsFemale' : 'ttsMale') + ' · ' + t(d) + ' · ' + t('vozFast') })));
     return PIPER_VOICES.pt.map(([id, name, g, d]) => ({ id: 'p:' + id, name, desc: t(g === 'f' ? 'ttsFemale' : 'ttsMale') + ' · ' + t(d) }));
@@ -4982,6 +5007,7 @@ const Voices = {
     const e = this.engine();
     lang = (lang || 'pt').slice(0, 2);
     // a voice that doesn't fit the engine or the language is replaced by that language's chosen voice
+    if (e === 'gemini') return GemTTS.synth(text, (voiceId || '').startsWith('g:') && voiceId !== 'g:auto' ? voiceId.slice(2) : GemTTS.voiceNow(), lang);
     const okId = id => typeof id === 'string' && (e === 'azure' ? id.toLowerCase().startsWith(lang) : lang === 'en' ? (id.startsWith('k:') || /^p:en_/.test(id)) : /^p:pt_/.test(id));
     if (!okId(voiceId)) { const v = this.current(lang, await this.list(lang)); if (!v) throw new Error(t('ttsNoVoices')); voiceId = v.id; }
     if (e === 'azure') {
@@ -5036,8 +5062,10 @@ const NeuralPlayer = {
   // passages of whole sentences, up to ~220 characters, never mixing languages (the voice model reads short input fully)
   build() {
     this.chunks = []; let cur = null;
+    const gem = Voices.engine() === 'gemini';
     TTS.segs.forEach((s, i) => {
-      if (cur && cur.lang === s.lang && cur.t.length + s.t.length < 220 && s.s - cur.e < 4) { cur.t += ' ' + s.t; cur.e = s.e; cur.last = i; }
+      const lim = !gem ? 220 : this.chunks.length <= 1 ? 450 : 1500;
+      if (cur && cur.lang === s.lang && cur.t.length + s.t.length < lim && s.s - cur.e < 4) { cur.t += ' ' + s.t; cur.e = s.e; cur.last = i; }
       else { cur = { s: s.s, e: s.e, t: s.t, first: i, last: i, lang: s.lang }; this.chunks.push(cur); }
     });
     this.ahead.clear(); for (const u of this.urls) URL.revokeObjectURL(u); this.urls = [];
@@ -5045,6 +5073,7 @@ const NeuralPlayer = {
   },
   // the voice for a passage: the listener's choice for that language
   async voiceFor(lang) {
+    if (Voices.engine() === 'gemini') return 'g:' + GemTTS.voiceNow();
     this.vcache = this.vcache || {};
     const k = Voices.engine() + ':' + lang + ':' + (S['ttsN_' + Voices.engine() + '_' + lang] || '');
     if (!this.vcache[k]) { const v = Voices.current(lang, await Voices.list(lang)); this.vcache[k] = v ? v.id : null; }
@@ -5059,7 +5088,7 @@ const NeuralPlayer = {
       if (lang !== this.lang || !voice) voice = await this.voiceFor(lang);
       const k = this.key(c, voice);
       let b = await DB.get('kv', k).catch(() => null);
-      if (!b) { b = await Voices.synth(c.t, voice, lang, show ? pc => TTS.loading(pc) : null); DB.put('kv', k, b).catch(() => { }); }
+      if (!b) { b = await Voices.synth(c.t, voice, lang, show ? pc => TTS.loading(pc) : null); DB.put('kv', k, b).then(() => { if (Voices.engine() === 'gemini') GemTTS.remember(k, b.size); }).catch(() => { }); }
       return b;
     })();
     this.ahead.set(i, p); p.catch(() => this.ahead.delete(i));
@@ -5831,6 +5860,139 @@ const AudioBook = {
       out.chapters.push({ i, label: Book.tocLabel ? Book.tocLabel(i) : '', len: (Book.rootText || '').length, segs: TTS.segs.map(s => [s.s, s.e, s.t, s.lang, s.blk, s.h ? 1 : 0]) });
     }
     return out;
+  },
+};
+/* ================= AI voice (Gemini TTS) read live by the app, with the listener's own key =================
+   The app reads the book aloud as you listen, a few minutes ahead; what was already heard stays on the phone.
+   Every request is counted: tokens → dollars, per month, with a budget that stops the voice when it is reached. */
+const GEMINI_VOICES = [
+  ['Sulafat', 'f', 'gemVWarm'], ['Leda', 'f', 'gemVYoung'], ['Despina', 'f', 'gemVSmooth'], ['Aoede', 'f', 'gemVLight'], ['Kore', 'f', 'gemVFirm'],
+  ['Charon', 'm', 'gemVDeep'], ['Algieba', 'm', 'gemVSmooth'], ['Umbriel', 'm', 'gemVEasy'], ['Achird', 'm', 'gemVFriendly'], ['Orus', 'm', 'gemVFirm'], ['Enceladus', 'm', 'gemVBreathy'],
+];
+// names that open a chapter and tell whose eyes we see it through (romances with two narrators)
+const FEMALE_NAMES = new Set(('hannah grace sabrina allie summer brenna demi taylor mackenzie mack ivy diana gigi sarah anna ana maria julia laura ' +
+  'emma olivia sophia sofia isabella mia amelia charlotte ava lucy lily rose kate katie jess jessica jenna jenny claire chloe zoe ellie ' +
+  'hermione luna ginny mikasa elizabeth bella alice clara beatriz helena mariana camila larissa karina paula amanda').split(' '));
+const GemTTS = {
+  MODEL: 'gemini-3.8-flash-tts',
+  // Google's price for this model (per 1M tokens): promo until 31 Dec 2026, doubles on 1 Jan 2027. Audio = 25 tokens per second.
+  price() { return Date.now() < Date.UTC(2027, 0, 1) ? { in: 0.5, out: 9 } : { in: 1, out: 18 }; },
+  perHour() { return 90000 * this.price().out / 1e6; },
+  month() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); },
+  today() { return new Date().toISOString().slice(0, 10); },
+  spend() {
+    let s = null; try { s = JSON.parse(localStorage.getItem('gemSpend') || 'null'); } catch (e) { }
+    if (!s || s.m !== this.month()) s = { m: this.month(), usd: 0, sec: 0, req: 0, warned: false, hist: (s && s.hist) || [] };
+    if (s.d !== this.today()) { s.d = this.today(); s.dreq = 0; }
+    return s;
+  },
+  save(s) { try { localStorage.setItem('gemSpend', JSON.stringify(s)); } catch (e) { } },
+  budget() { return +S.gemBudget || 10; },
+  // a closed month goes into the history (last 12)
+  roll() {
+    let s = null; try { s = JSON.parse(localStorage.getItem('gemSpend') || 'null'); } catch (e) { }
+    if (s && s.m !== this.month() && s.usd > 0) { const h = (s.hist || []).concat([{ m: s.m, usd: s.usd, sec: s.sec }]).slice(-12); this.save({ m: this.month(), usd: 0, sec: 0, req: 0, hist: h }); }
+  },
+  summary() {
+    const s = this.spend(), b = this.budget();
+    return { usd: s.usd, sec: s.sec, req: s.req, dreq: s.dreq || 0, budget: b, pct: Math.min(1, s.usd / b), hist: s.hist || [] };
+  },
+  money(x) { return '$' + (x < 1 ? x.toFixed(2) : x.toFixed(2)).replace('.', ','); },
+  // whose chapter is it? The first line of the chapter when it is just a name (HANNAH, Garrett…)
+  pov() {
+    const fl = Book.flow, txt = fl ? [...fl.querySelectorAll('h1,h2,h3,h4,h5,p')].slice(0, 5).map(x => (x.textContent || '').trim()).filter(Boolean) : [];
+    for (const l of txt.slice(0, 4)) {
+      const m = l.match(/^([A-ZÀ-Ý][A-Za-zÀ-ÿ'’-]{1,15})$/);
+      if (m && !/^(cap[ií]tulo|chapter|parte|part|ep[ií]logo|epilogue|pr[oó]logo|prologue)$/i.test(m[1])) return m[1][0] + m[1].slice(1).toLowerCase();
+    }
+    return null;
+  },
+  gender(name) {
+    if (!name) return null;
+    const o = (S.gemPov || {})[name.toLowerCase()]; if (o) return o;
+    const n = name.toLowerCase();
+    return FEMALE_NAMES.has(n) || /a$/.test(n) ? 'f' : 'm';
+  },
+  // which voice reads this chapter
+  voiceNow() {
+    if (!S.gemDual) return S.gemVoice || 'Charon';
+    const g = this.gender(this.pov());
+    return g === 'f' ? (S.gemF || 'Sulafat') : (S.gemM || 'Charon');
+  },
+  style(lang) {
+    return lang === 'en'
+      ? 'Professional audiobook narration, natural, warm and immersive voice. Calm, natural pace with nuance: tension in tense moments, lightness and humor in funny moments, emotion in sad moments, intimacy in romantic moments. Bring the dialogue to life with a distinct manner for each character.'
+      : 'Narração brasileira de audiolivro profissional, voz natural, calorosa e envolvente. Ritmo calmo e natural, com nuances: tensão nos momentos de tensão, leveza e humor nos momentos engraçados, emoção nos momentos tristes, intimidade nos momentos românticos. Dá vida às falas, com um jeito diferente para cada personagem.';
+  },
+  async synth(text, voice, lang) {
+    if (!S.gemKey) throw new Error(t('gemNoKey'));
+    const s = this.spend(), b = this.budget();
+    if (s.usd >= b) throw new Error(t('gemBudgetHit', { b: this.money(b) }));
+    const body = JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text, speechMetadata: { style: this.style(lang) } }] }],
+      generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } } },
+    });
+    let j = null;
+    for (let k = 0; k < 4; k++) {
+      const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + this.MODEL + ':generateContent', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': S.gemKey }, body });
+      if (r.ok) { j = await r.json(); break; }
+      if (r.status === 400 || r.status === 401 || r.status === 403) throw new Error(t('gemBadKey'));
+      if (r.status === 402) throw new Error(t('gemNoCredit'));
+      if ((r.status === 429 || r.status >= 500) && k < 3) { await sleep(4000 * (k + 1)); continue; }
+      throw new Error(r.status === 429 ? t('gemDayLimit') : 'Gemini: ' + r.status);
+    }
+    const part = ((((j.candidates || [])[0] || {}).content || {}).parts || []).find(p => p.inlineData);
+    if (!part) throw new Error(t('gemEmpty'));
+    const raw = Uint8Array.from(atob(part.inlineData.data), c => c.charCodeAt(0));
+    let blob, sec;
+    if (raw[0] === 0x52 && raw[1] === 0x49 && raw[2] === 0x46 && raw[3] === 0x46) { blob = new Blob([raw], { type: 'audio/wav' }); const dv = new DataView(raw.buffer); sec = (raw.length - 44) / (dv.getUint32(28, true) || 48000); }
+    else { const rate = +((part.inlineData.mimeType || '').match(/rate=(\d+)/) || [0, 24000])[1]; const i16 = new Int16Array(raw.buffer, 0, raw.length >> 1); const f = new Float32Array(i16.length); for (let i = 0; i < i16.length; i++) f[i] = i16[i] / 32768; blob = wavBlob(f, rate); sec = i16.length / rate; }
+    // count what Google will charge
+    const u = j.usageMetadata || {}, p = this.price();
+    const tin = u.promptTokenCount || Math.ceil(text.length / 4) + 80, tout = u.candidatesTokenCount || Math.ceil(sec * 25);
+    const usd = (tin * p.in + tout * p.out) / 1e6;
+    const s2 = this.spend(); s2.usd += usd; s2.sec += sec; s2.req++; s2.dreq = (s2.dreq || 0) + 1;
+    if (!s2.warned && s2.usd >= b * 0.8) { s2.warned = true; setTimeout(() => toast(t('gemBudget80', { u: this.money(s2.usd), b: this.money(b) }), 7000), 50); }
+    this.save(s2);
+    return blob;
+  },
+  // the AI voice audio stays on the phone so listening again costs nothing; the oldest goes when it passes ~400 MB
+  async remember(key, size) {
+    let idx = []; try { idx = JSON.parse(localStorage.getItem('gemCache') || '[]'); } catch (e) { }
+    idx = idx.filter(x => x[0] !== key); idx.push([key, size]);
+    let tot = idx.reduce((a, x) => a + x[1], 0);
+    while (tot > 400e6 && idx.length > 1) { const [k, sz] = idx.shift(); tot -= sz; try { await DB.del('kv', k); } catch (e) { } }
+    try { localStorage.setItem('gemCache', JSON.stringify(idx)); } catch (e) { }
+  },
+  cacheMB() { try { return JSON.parse(localStorage.getItem('gemCache') || '[]').reduce((a, x) => a + x[1], 0) / 1e6; } catch (e) { return 0; } },
+  // settings block (inside the voice sheet)
+  box(onChange) {
+    const sm = this.summary();
+    const vopts = g => GEMINI_VOICES.filter(v => !g || v[1] === g).map(([n, gg, d]) => el('option', { value: n, text: n + ' · ' + t(gg === 'f' ? 'ttsFemale' : 'ttsMale') + ' · ' + t(d) }));
+    const sel = (key, g, def) => { const s = el('select', { class: 'inp', onchange: e => { setS(key, e.target.value); NeuralPlayer.vcache = {}; onChange && onChange(); } }, ...vopts(g)); s.value = S[key] || def; return s; };
+    const lbl = txt => el('div', { class: 'muted', style: { fontSize: '12.5px', margin: '10px 2px 4px' }, text: txt });
+    const pov = this.pov();
+    const single = el('div', { class: S.gemDual ? 'hide' : '' }, lbl(t('gemVoiceOne')), sel('gemVoice', null, 'Charon'));
+    const dual = el('div', { class: S.gemDual ? '' : 'hide' }, lbl(t('gemVoiceF')), sel('gemF', 'f', 'Sulafat'), lbl(t('gemVoiceM')), sel('gemM', 'm', 'Charon'),
+      pov ? el('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', margin: '10px 2px 0' } },
+        el('span', { class: 'muted', style: { fontSize: '12.5px', flex: 1 }, text: t('gemPovNow', { n: pov, g: t(this.gender(pov) === 'f' ? 'ttsFemale' : 'ttsMale').toLowerCase() }) }),
+        el('button', { class: 'btn', style: { padding: '6px 12px' }, text: t('gemPovSwap'), onclick: () => { const m = Object.assign({}, S.gemPov || {}); m[pov.toLowerCase()] = this.gender(pov) === 'f' ? 'm' : 'f'; setS('gemPov', m); NeuralPlayer.vcache = {}; onChange && onChange(true); } })) : '');
+    const bar = el('div', { class: 'gem-bar' }, el('i', { style: { width: Math.round(sm.pct * 100) + '%', background: sm.pct >= 0.8 ? '#e5484d' : '' } }));
+    const hrs = sm.sec / 3600;
+    return el('div', { class: 'gem-box' },
+      el('input', { class: 'inp', type: 'password', autocomplete: 'off', placeholder: t('gemKeyPh'), value: S.gemKey || '', oninput: e => setS('gemKey', e.target.value.trim()) }),
+      el('p', { class: 'muted', style: { fontSize: '12px', lineHeight: 1.45, margin: '6px 2px 0' }, text: t('gemKeyHelp') }),
+      lbl(t('gemMode')),
+      wSeg([[1, t('gemDual')], [0, t('gemOne')]], S.gemDual ? 1 : 0, x => { setS('gemDual', !!x); single.classList.toggle('hide', !!x); dual.classList.toggle('hide', !x); NeuralPlayer.vcache = {}; onChange && onChange(); }),
+      single, dual,
+      el('div', { class: 'gem-spend' },
+        el('div', { class: 'gem-row' }, el('b', { text: t('gemThisMonth') }), el('span', { text: this.money(sm.usd) + ' / ' + this.money(sm.budget) })),
+        bar,
+        el('div', { class: 'muted', style: { fontSize: '12px', marginTop: '6px', lineHeight: 1.45 }, text: t('gemSpendLine', { h: hrs < 1 ? Math.round(sm.sec / 60) + ' min' : hrs.toFixed(1).replace('.', ',') + ' h', r: sm.dreq, c: Math.round(this.cacheMB()) }) }),
+        el('div', { class: 'muted', style: { fontSize: '12px', marginTop: '4px', lineHeight: 1.45 }, text: t('gemPriceLine', { p: this.money(this.perHour()) }) }),
+        sm.hist.length ? el('div', { class: 'muted', style: { fontSize: '12px', marginTop: '4px' }, text: t('gemHist') + ' ' + sm.hist.slice(-3).map(h => h.m.slice(5) + '/' + h.m.slice(2, 4) + ': ' + this.money(h.usd)).join(' · ') }) : ''),
+      lbl(t('gemBudgetLbl')),
+      wSeg([[5, '$5'], [10, '$10'], [20, '$20'], [40, '$40']], this.budget(), x => { setS('gemBudget', x); const s = this.spend(); s.warned = s.usd >= x * 0.8; this.save(s); onChange && onChange(true); }));
   },
 };
 </script>
