@@ -66,6 +66,8 @@ const Family = {
         got.add(f.sha); setS('famGot', [...got]);
       }
       if (todo.length) { await splitCollections(); await Lib.render(); }
+      // obras.json: the same book in two languages becomes one book with a PT · EN switch
+      try { const c = await this.api(this.repo() + '/contents/obras.json', { raw: true, ok404: true }); if (c.ok) { const cat = await c.json(); if (Array.isArray(cat)) await Starter.tag(cat.filter(x => !x.cover)); } } catch (e) { console.warn('obras', e); }
     } catch (e) { if (!quiet) toast(e.message || String(e)); console.warn('family', e); }
     finally { this.syncing = false; }
   },
