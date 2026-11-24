@@ -89,7 +89,7 @@ const NeuralPlayer = {
   init() {
     if (this.audio) return;
     const a = this.audio = new Audio(); a.preload = 'auto'; a.setAttribute('playsinline', ''); a.preservesPitch = true;
-    const done = () => { if (this.silent) { this.silent = false; return; } if (TTS.playing && TTS.engineAudio() && !this.loadingNow) this.next(); };
+    const done = () => { if (this.announcing) return; if (this.silent) { this.silent = false; return; } if (TTS.playing && TTS.engineAudio() && !this.loadingNow) this.next(); };
     a.addEventListener('ended', done);
     a.addEventListener('error', () => { if (this.silent || !a.getAttribute('src')) { this.silent = false; return; } this.lastErr = 'media ' + (a.error && a.error.code); if (this.ab && TTS.playing) { TTS.fail(new Error(t('abNet'))); return; } done(); });
     if ('mediaSession' in navigator) {
@@ -105,9 +105,11 @@ const NeuralPlayer = {
   build() {
     this.chunks = []; let cur = null;
     const gem = Voices.engine() === 'gemini';
+    // the chapter title (first line) is a passage of its own, so the spoken announcement can replace it
+    const head = TTS.segs[0] && TTS.isHeadSeg(TTS.segs[0].t);
     TTS.segs.forEach((s, i) => {
       const lim = !gem ? 220 : this.chunks.length <= 1 ? 450 : 1500;
-      if (cur && cur.lang === s.lang && cur.t.length + s.t.length < lim && s.s - cur.e < 4) { cur.t += ' ' + s.t; cur.e = s.e; cur.last = i; }
+      if (cur && !(head && cur.first === 0) && cur.lang === s.lang && cur.t.length + s.t.length < lim && s.s - cur.e < 4) { cur.t += ' ' + s.t; cur.e = s.e; cur.last = i; }
       else { cur = { s: s.s, e: s.e, t: s.t, first: i, last: i, lang: s.lang }; this.chunks.push(cur); }
     });
     this.ahead.clear(); for (const u of this.urls) URL.revokeObjectURL(u); this.urls = [];

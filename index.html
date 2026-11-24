@@ -1111,6 +1111,9 @@ const STR = {
   gemBudget80: ['Atenção: já foram {u} de {b} do limite deste mês', 'Heads up: {u} of {b} of this month\'s limit used'],
   gemNote: ['A voz de IA lê o livro na hora, alguns minutos à frente de onde você está. O que já tocou fica no aparelho.', 'The AI voice reads the book live, a few minutes ahead. What already played stays on the device.'],
   gemVWarm: ['calorosa', 'warm'], gemVYoung: ['jovem', 'youthful'], gemVSmooth: ['suave', 'smooth'], gemVLight: ['leve', 'light'], gemVFirm: ['firme', 'firm'], gemVDeep: ['grave', 'deep'], gemVEasy: ['tranquila', 'easy-going'], gemVFriendly: ['amigável', 'friendly'], gemVBreathy: ['sussurrada', 'breathy'],
+  annEndN: ['Fim do capítulo {n}.', 'End of chapter {n}.'], annStartN: ['Capítulo {n}.', 'Chapter {n}.'], annEndNamed: ['Fim do capítulo {n}, {c}.', 'End of chapter {n}, {c}.'], annStartNamed: ['Capítulo {n}: {c}.', 'Chapter {n}: {c}.'],
+  annEndSpecial: ['Fim do {c}.', 'End of the {c}.'], annBookEnd: ['Fim do livro.', 'The end.'], annNow: ['trocando de capítulo', 'changing chapter'],
+  annLbl: ['Avisar a troca de capítulo', 'Announce chapter changes'], annYes: ['Avisar', 'Announce'], annNote: ['No fim de cada capítulo a voz diz qual terminou, faz uma pausa e diz qual começa. O lugar fica salvo na hora.', 'At the end of each chapter the voice says which one ended, pauses and says which one starts. Your place is saved right away.'],
   home: ['Início', 'Home'], newPl: ['Novos', 'New'], newTag: ['NOVO', 'NEW'], nNew: ['{n} novo(s)', '{n} new'], shNew: ['Chegaram agora', 'Just added'], shReading: ['Lendo agora', 'Reading now'], seeAll: ['Ver tudo', 'See all'], shSeriesBooks: ['Séries de livros', 'Book series'], shSeriesComics: ['Séries de quadrinhos', 'Comic series'], shOtherEn: ['Em inglês', 'In English'], shOtherPt: ['Em português', 'In Portuguese'],
   pinchSize: ['Letra {n}', 'Text size {n}'], pinchHint: ['Dica: junte ou afaste dois dedos na página para mudar o tamanho da letra', 'Tip: pinch the page to change the text size'],
   comic: ['HQ', 'Comic'], book: ['Livro', 'Book'], comics: ['Quadrinhos', 'Comics'], books: ['Livros', 'Books'], all: ['Tudo', 'All'], reading: ['Lendo', 'Reading'], finishedPl: ['Concluídos', 'Finished'],
@@ -4375,13 +4378,67 @@ const TTS = {
     this.u = u;
     speechSynthesis.speak(u);
   },
+  // ---------- chapter announcements: "Fim do capítulo 3, Jon." · pause · "Capítulo 4: Tyrion." ----------
+  // is this line just the chapter's title ("Capítulo 3", "Jon", "Prólogo"…)?
+  isHeadSeg(txt) {
+    const a = (txt || '').trim().replace(/[.:]$/, '').toLowerCase(), L = this.chLabel().toLowerCase();
+    return !!a && a.length <= 60 && (a === L || a === niceLabel(Book.tocLabel ? Book.tocLabel(Book.ch) : '').toLowerCase() || /^(cap[ií]tulo|chapter)\s+[\divxlc]+$/i.test(a) || this.isSpecial(a));
+  },
+  isSpecial(l) { return /^(pr[oó]logo|ep[ií]logo|prologue|epilogue|introdu[cç][aã]o|introduction|pref[aá]cio|preface|ap[eê]ndice|appendix)$/i.test(l); },
+  chNum(ch) {
+    const toc = (Book.data && Book.data.toc || []).filter(e => e.idx >= 0 && e.idx < Book.data.count);
+    if (!toc.length) return ch + 1;
+    const real = toc.filter(e => !this.isSpecial(niceLabel(e.label)));
+    const i = real.findIndex(e => e.idx === ch); return i >= 0 ? i + 1 : ch + 1;
+  },
+  annText(ch, kind) {
+    const L = this.chLabel(ch), plain = /^(cap[ií]tulo|chapter)\s*\d+$/i.test(L);
+    if (this.isSpecial(L)) return kind === 'end' ? t('annEndSpecial', { c: L }) : L + '.';
+    if (plain || !L) return kind === 'end' ? t('annEndN', { n: this.chNum(ch) }) : t('annStartN', { n: this.chNum(ch) });
+    return kind === 'end' ? t('annEndNamed', { n: this.chNum(ch), c: L }) : t('annStartNamed', { n: this.chNum(ch), c: L });
+  },
+  async sayLocal(text) {
+    if (!('speechSynthesis' in window)) return;
+    await new Promise(res => { try { const u = new SpeechSynthesisUtterance(text); u.lang = this.lang() === 'en' ? 'en-US' : 'pt-BR'; u.rate = S.ttsRate || 1; u.onend = u.onerror = () => res(); speechSynthesis.speak(u); setTimeout(res, 9000); } catch (e) { res(); } });
+  },
+  async announce(text) {
+    if (!text || S.ttsAnnounce === false) return;
+    const lang = this.lang(), eng = Voices.engine(), gem = eng === 'gemini' && S.gemKey;
+    const key = 'ann:' + eng + ':' + (gem ? GemTTS.voiceNow() : '') + ':' + text;
+    let blob = null;
+    try {
+      blob = await DB.get('kv', key);
+      if (!blob) {
+        blob = gem ? await GemTTS.synth(text, GemTTS.voiceNow(), lang) : await Voices.synth(text, await NeuralPlayer.voiceFor(lang), lang);
+        if (blob) DB.put('kv', key, blob).catch(() => { });
+      }
+    } catch (e) { blob = null; }
+    if (!blob) return this.sayLocal(text);
+    const N = NeuralPlayer; N.init(); const a = N.audio, u = URL.createObjectURL(blob);
+    N.announcing = true; a.ontimeupdate = null;
+    await new Promise(res => {
+      let ok = false; const end = () => { if (ok) return; ok = true; a.removeEventListener('ended', end); a.removeEventListener('pause', onPause); res(); };
+      const onPause = () => { if (!this.playing) end(); };
+      a.addEventListener('ended', end); a.addEventListener('pause', onPause);
+      a.src = u; a.playbackRate = S.ttsRate || 1; a.play().catch(end); setTimeout(end, 20000);
+    });
+    N.announcing = false; setTimeout(() => URL.revokeObjectURL(u), 2000);
+  },
   async nextChapter() {
+    const ann = this.playing && S.ttsAnnounce !== false;
+    if (ann) { this.loading(t('annNow')); await this.announce(this.annText(Book.ch, 'end')); this.loading(null); if (!this.playing) return; }
     if (this.sleepEoc) { this.sleepEoc = false; await Book.turnChapter(Math.min(Book.ch + 1, Book.data.count - 1), { frac: 0 }, 1); this.build(); this.i = 0; if (this.engineAudio()) NeuralPlayer.build(); this.pause(); toast(t('ttsSlept')); return; }
-    if (Book.ch >= Book.data.count - 1) { this.pause(); toast(t('ttsEnd')); return; }
+    if (Book.ch >= Book.data.count - 1) { if (ann) await this.announce(t('annBookEnd')); this.pause(); toast(t('ttsEnd')); return; }
+    if (ann) { await sleep(1500); if (!this.playing) return; }
     await Book.turnChapter(Book.ch + 1, { frac: 0 }, 1);
-    this.build(); this.i = 0;
-    if (this.engineAudio()) { NeuralPlayer.build(); if (this.playing) { const lang = this.lang(), list = await Voices.list(lang), v = Voices.current(lang, list); if (v) NeuralPlayer.play(0, v.id, lang); } return; }
-    if (this.playing) this.speak();
+    Resume.save(Book.rec); saveRec(Book.rec).catch(() => { }); // where you are is saved before the next chapter even starts
+    this.build(); this.i = 0; this.ui();
+    // audiobooks already read their own chapter title; the live voices get the announcement and skip the title line
+    const lang0 = this.lang(), v0 = this.engineAudio() ? Voices.current(lang0, await Voices.list(lang0)) : null, isAb = v0 && v0.id.startsWith('a:');
+    let skip = 0;
+    if (ann && !isAb) { await this.announce(this.annText(Book.ch, 'start')); if (!this.playing) return; await sleep(700); if (!this.playing) return; if (this.segs[0] && this.isHeadSeg(this.segs[0].t)) skip = 1; }
+    if (this.engineAudio()) { NeuralPlayer.build(); if (this.playing) { const lang = this.lang(), list = await Voices.list(lang), v = Voices.current(lang, list); if (v) NeuralPlayer.play(skip, v.id, lang); } return; }
+    if (this.playing) { this.i = skip; this.speak(); }
   },
   // ---------- screen ----------
   async keepAwake(on) {
@@ -4602,6 +4659,7 @@ const TTS = {
               btn.textContent = n < 0 ? t('abGetAllPub') : t('abGetAllDone', { n });
             } catch (e) { btn.disabled = false; btn.textContent = t('abGetAll'); toast(t('abNet'), 5000); }
           } }),
+          wGroup(t('annLbl'), wSeg([[1, t('annYes')], [0, t('off')]], S.ttsAnnounce === false ? 0 : 1, x => setS('ttsAnnounce', !!x)), el('p', { class: 'muted', style: { fontSize: '12.5px', lineHeight: 1.45, margin: '8px 2px 0' }, text: t('annNote') })),
           wGroup(t('abMusic'), wSeg([[1, t('abMusicYes')], [0, t('off')]], S.abMusic === false ? 0 : 1, x => setS('abMusic', !!x)), el('p', { class: 'muted', style: { fontSize: '12.5px', lineHeight: 1.45, margin: '8px 2px 0' }, text: t('abMusicNote') })),
           wGroup(t('ttsSleep'), wSeg([[0, t('off')], [15, '15 min'], [30, '30 min'], [60, '60 min']], this.sleepMin || 0, m => { this.sleepMin = m; this.sleepAt = m ? Date.now() + m * 60000 : 0; if (m) toast(t('ttsSleepSet', { n: m })); })),
           wGroup(t('ttsScreen'),
@@ -5059,7 +5117,7 @@ const NeuralPlayer = {
   init() {
     if (this.audio) return;
     const a = this.audio = new Audio(); a.preload = 'auto'; a.setAttribute('playsinline', ''); a.preservesPitch = true;
-    const done = () => { if (this.silent) { this.silent = false; return; } if (TTS.playing && TTS.engineAudio() && !this.loadingNow) this.next(); };
+    const done = () => { if (this.announcing) return; if (this.silent) { this.silent = false; return; } if (TTS.playing && TTS.engineAudio() && !this.loadingNow) this.next(); };
     a.addEventListener('ended', done);
     a.addEventListener('error', () => { if (this.silent || !a.getAttribute('src')) { this.silent = false; return; } this.lastErr = 'media ' + (a.error && a.error.code); if (this.ab && TTS.playing) { TTS.fail(new Error(t('abNet'))); return; } done(); });
     if ('mediaSession' in navigator) {
@@ -5075,9 +5133,11 @@ const NeuralPlayer = {
   build() {
     this.chunks = []; let cur = null;
     const gem = Voices.engine() === 'gemini';
+    // the chapter title (first line) is a passage of its own, so the spoken announcement can replace it
+    const head = TTS.segs[0] && TTS.isHeadSeg(TTS.segs[0].t);
     TTS.segs.forEach((s, i) => {
       const lim = !gem ? 220 : this.chunks.length <= 1 ? 450 : 1500;
-      if (cur && cur.lang === s.lang && cur.t.length + s.t.length < lim && s.s - cur.e < 4) { cur.t += ' ' + s.t; cur.e = s.e; cur.last = i; }
+      if (cur && !(head && cur.first === 0) && cur.lang === s.lang && cur.t.length + s.t.length < lim && s.s - cur.e < 4) { cur.t += ' ' + s.t; cur.e = s.e; cur.last = i; }
       else { cur = { s: s.s, e: s.e, t: s.t, first: i, last: i, lang: s.lang }; this.chunks.push(cur); }
     });
     this.ahead.clear(); for (const u of this.urls) URL.revokeObjectURL(u); this.urls = [];
