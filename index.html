@@ -1093,7 +1093,7 @@ const STR = {
   gemKeyPh: ['Chave do Google AI Studio', 'Google AI Studio key'], gemKeyHelp: ['A chave fica só neste aparelho. O custo sai do seu crédito no AI Studio, só pelo que você ouvir.', 'The key stays on this device only. The cost comes from your AI Studio credit, only for what you listen to.'],
   gemMode: ['Narração', 'Narration'], gemDual: ['Duas vozes (ele e ela)', 'Two voices (him and her)'], gemOne: ['Uma voz', 'One voice'],
   gemVoiceOne: ['Voz', 'Voice'], gemVoiceF: ['Voz dos capítulos dela', 'Voice for her chapters'], gemVoiceM: ['Voz dos capítulos dele', 'Voice for his chapters'],
-  gemPovNow: ['Este capítulo é de {n}: voz {g}', 'This chapter is {n}\'s: {g} voice'], gemPovSwap: ['Trocar', 'Switch'], gemThisBook: ['Neste livro ou série: {n}', 'For this book or series: {n}'], gemBookDefault: ['Padrão', 'Default'], gemBookDual: ['Duas vozes', 'Two voices'], gemBookOnly: ['Só {v}', 'Only {v}'],
+  gemPovNow: ['Este capítulo é de {n}: voz {g}', 'This chapter is {n}\'s: {g} voice'], gemPovSwap: ['Trocar', 'Switch'], gemThisBook: ['Neste livro ou série: {n}', 'For this book or series: {n}'], gemShare: ['Liberar a voz de IA para a família', 'Turn on the AI voice for the family'], gemSharing: ['Enviando…', 'Sending…'], gemShared: ['Pronto: os aparelhos da família recebem a chave sozinhos', 'Done: family devices get the key on their own'], gemBookDefault: ['Padrão', 'Default'], gemBookDual: ['Duas vozes', 'Two voices'], gemBookOnly: ['Só {v}', 'Only {v}'],
   gemThisMonth: ['Gasto neste mês', 'Spent this month'], gemSpendLine: ['{h} narrados · {r} pedidos hoje · {c} MB guardados no aparelho', '{h} narrated · {r} requests today · {c} MB saved on the device'],
   gemPriceLine: ['Preço do Google: cerca de {p} por hora ouvida (dobra em 1º de janeiro). Ouvir de novo o que já tocou não custa nada.', 'Google price: about {p} per hour (doubles on January 1). Replaying what already played is free.'],
   gemHist: ['Meses anteriores:', 'Previous months:'], gemBudgetLbl: ['Limite por mês (a voz para quando chegar)', 'Monthly limit (the voice stops when reached)'],
@@ -5436,6 +5436,20 @@ const Family = {
     }
     return n;
   },
+  // the AI voice key shared with the household (voz.json in the private library): put once, works on every family device
+  async shareKey(key) {
+    const R = this.repo(), path = R + '/contents/voz.json';
+    let sha; try { const r = await this.api(path, { ok404: true }); if (r.ok) sha = (await r.json()).sha; } catch (e) { }
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify({ gemKey: key, at: Date.now() }))));
+    await this.api(path, { method: 'PUT', body: JSON.stringify({ message: 'Estante: voz de IA da família', content, sha }) });
+  },
+  async takeKey() {
+    try {
+      const r = await this.api(this.repo() + '/contents/voz.json', { raw: true, ok404: true }); if (!r.ok) return;
+      const j = await r.json(); if (!j || !j.gemKey) return;
+      if (!S.gemKey || (S.gemKeyFam && S.gemKey !== j.gemKey)) { setS('gemKey', j.gemKey); setS('gemKeyFam', true); if (!S.ttsEngine) setS('ttsEngine', 'gemini'); }
+    } catch (e) { console.warn('voz', e); }
+  },
   // obras.json in the family library: which files are the same book in two languages, series order, covers, fixed versions
   async catalog() {
     try { const c = await this.api(this.repo() + '/contents/obras.json', { raw: true, ok404: true }); if (!c.ok) return null; const j = await c.json(); return Array.isArray(j) ? j : null; } catch (e) { console.warn('obras', e); return null; }
@@ -5488,6 +5502,7 @@ const Family = {
       }
       if (todo.length || gone.size) { await splitCollections(); await Lib.render(); }
       if (cat) await this.tag(cat);
+      await this.takeKey();
     } catch (e) { if (!quiet) toast(e.message || String(e)); console.warn('family', e); }
     finally { this.syncing = false; }
   },
@@ -5997,6 +6012,11 @@ const GemTTS = {
     return el('div', { class: 'gem-box' },
       el('input', { class: 'inp', type: 'password', autocomplete: 'off', placeholder: t('gemKeyPh'), value: S.gemKey || '', oninput: e => setS('gemKey', e.target.value.trim()) }),
       el('p', { class: 'muted', style: { fontSize: '12px', lineHeight: 1.45, margin: '6px 2px 0' }, text: t('gemKeyHelp') }),
+      Family.on ? el('button', { class: 'btn block', style: { marginTop: '8px' }, text: t('gemShare'), onclick: async e => {
+        const b = e.currentTarget; if (!S.gemKey) { toast(t('gemNoKey')); return; }
+        b.disabled = true; b.textContent = t('gemSharing');
+        try { await Family.shareKey(S.gemKey); b.textContent = t('gemShared'); } catch (err) { b.disabled = false; b.textContent = t('gemShare'); toast(err.message || String(err), 5000); }
+      } }) : '',
       lbl(t('gemMode')),
       wSeg([[1, t('gemDual')], [0, t('gemOne')]], S.gemDual ? 1 : 0, x => { setS('gemDual', !!x); single.classList.toggle('hide', !!x); dual.classList.toggle('hide', !x); NeuralPlayer.vcache = {}; onChange && onChange(); }),
       single, dual, perBook,

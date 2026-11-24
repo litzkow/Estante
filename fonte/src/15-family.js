@@ -48,6 +48,20 @@ const Family = {
     }
     return n;
   },
+  // the AI voice key shared with the household (voz.json in the private library): put once, works on every family device
+  async shareKey(key) {
+    const R = this.repo(), path = R + '/contents/voz.json';
+    let sha; try { const r = await this.api(path, { ok404: true }); if (r.ok) sha = (await r.json()).sha; } catch (e) { }
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify({ gemKey: key, at: Date.now() }))));
+    await this.api(path, { method: 'PUT', body: JSON.stringify({ message: 'Estante: voz de IA da família', content, sha }) });
+  },
+  async takeKey() {
+    try {
+      const r = await this.api(this.repo() + '/contents/voz.json', { raw: true, ok404: true }); if (!r.ok) return;
+      const j = await r.json(); if (!j || !j.gemKey) return;
+      if (!S.gemKey || (S.gemKeyFam && S.gemKey !== j.gemKey)) { setS('gemKey', j.gemKey); setS('gemKeyFam', true); if (!S.ttsEngine) setS('ttsEngine', 'gemini'); }
+    } catch (e) { console.warn('voz', e); }
+  },
   // obras.json in the family library: which files are the same book in two languages, series order, covers, fixed versions
   async catalog() {
     try { const c = await this.api(this.repo() + '/contents/obras.json', { raw: true, ok404: true }); if (!c.ok) return null; const j = await c.json(); return Array.isArray(j) ? j : null; } catch (e) { console.warn('obras', e); return null; }
@@ -100,6 +114,7 @@ const Family = {
       }
       if (todo.length || gone.size) { await splitCollections(); await Lib.render(); }
       if (cat) await this.tag(cat);
+      await this.takeKey();
     } catch (e) { if (!quiet) toast(e.message || String(e)); console.warn('family', e); }
     finally { this.syncing = false; }
   },
