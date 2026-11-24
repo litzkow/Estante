@@ -97,7 +97,54 @@ const GemTTS = {
     const s2 = this.spend(); s2.usd += usd; s2.sec += sec; s2.req++; s2.dreq = (s2.dreq || 0) + 1;
     if (!s2.warned && s2.usd >= b * 0.8) { s2.warned = true; setTimeout(() => toast(t('gemBudget80', { u: this.money(s2.usd), b: this.money(b) }), 7000), 50); }
     this.save(s2);
+    this.report();
+    if (S.gemNotify && Date.now() - (this.lastCheck || 0) > 5 * 60000) { this.lastCheck = Date.now(); setTimeout(() => this.checkFamily(), 2000); }
     return blob;
+  },
+  // ---------- family spending: each device writes its month to gastos/<device>.json; only the payer's device adds it up and alerts ----------
+  devId() { if (!S.devId) setS('devId', Math.random().toString(36).slice(2, 10)); return S.devId; },
+  devName() { return /iPad|Tablet/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent)) ? t('gemTablet') : t('gemPhone'); },
+  report(now) {
+    if (!Family.on) return;
+    clearTimeout(this.repT);
+    this.repT = setTimeout(async () => {
+      const s = this.spend(); if (!s.usd && !now) return;
+      try { await Family.putJSON('gastos/' + this.devId() + '.json', { m: s.m, usd: +s.usd.toFixed(4), sec: Math.round(s.sec), name: this.devName(), at: Date.now() }, 'Estante: gasto da voz de IA'); } catch (e) { console.warn('gasto', e); }
+    }, now ? 0 : 60000);
+  },
+  async family() {
+    const r = await Family.api(Family.repo() + '/contents/gastos', { ok404: true }); if (!r.ok) return null;
+    const files = (await r.json()).filter(f => f.type === 'file' && /\.json$/.test(f.name));
+    const out = [];
+    for (const f of files) { const j = await Family.getJSON('gastos/' + f.name); if (j && j.m === this.month()) out.push(Object.assign({ me: f.name === this.devId() + '.json' }, j)); }
+    return out;
+  },
+  cap() { return +S.gemCap || 30; },
+  async notify(title, body) {
+    try {
+      if ('Notification' in window && Notification.permission === 'granted') {
+        const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();
+        if (reg) { await reg.showNotification(title, { body, icon: 'lib/icon-192.png', badge: 'lib/icon-192.png', tag: 'gasto-' + Date.now() }); return; }
+        new Notification(title, { body, icon: 'lib/icon-192.png' }); return;
+      }
+    } catch (e) { }
+    toast(title + ' · ' + body, 8000);
+  },
+  // spending alerts: every $5 of the household's month, and at 80% / 100% of the Google monthly limit
+  async checkFamily() {
+    if (!S.gemNotify || !Family.on) return;
+    const list = await this.family().catch(() => null); if (!list) return;
+    // this device's own spend is always the freshest
+    const me = this.spend(); const mine = list.find(x => x.me); if (mine) mine.usd = Math.max(mine.usd, me.usd); else if (me.usd) list.push({ me: true, usd: me.usd, name: this.devName() });
+    const tot = list.reduce((a, x) => a + (x.usd || 0), 0); this.famTot = { tot, list };
+    const key = 'gemAlert_' + this.month(); let st = {}; try { st = JSON.parse(localStorage.getItem(key) || '{}'); } catch (e) { }
+    const parts = list.map(x => x.name + ' ' + this.money(x.usd || 0)).join(' · ');
+    const step = Math.floor(tot / 5) * 5;
+    if (tot >= this.cap() && !st.full) { st.full = true; st.p80 = true; await this.notify(t('gemNFullT'), t('gemNFullB', { u: this.money(tot), c: this.money(this.cap()), p: parts })); }
+    else if (tot >= this.cap() * 0.8 && !st.p80) { st.p80 = true; await this.notify(t('gemN80T'), t('gemN80B', { u: this.money(tot), c: this.money(this.cap()), p: parts })); }
+    else if (step >= 5 && step > (st.step || 0)) { await this.notify(t('gemNStepT', { u: this.money(step) }), t('gemNStepB', { u: this.money(tot), c: this.money(this.cap()), p: parts })); }
+    st.step = Math.max(st.step || 0, step);
+    try { localStorage.setItem(key, JSON.stringify(st)); } catch (e) { }
   },
   // the AI voice audio stays on the phone so listening again costs nothing; the oldest goes when it passes ~400 MB
   async remember(key, size) {
@@ -127,7 +174,7 @@ const GemTTS = {
     const bar = el('div', { class: 'gem-bar' }, el('i', { style: { width: Math.round(sm.pct * 100) + '%', background: sm.pct >= 0.8 ? '#e5484d' : '' } }));
     const hrs = sm.sec / 3600;
     return el('div', { class: 'gem-box' },
-      el('input', { class: 'inp', type: 'password', autocomplete: 'off', placeholder: t('gemKeyPh'), value: S.gemKey || '', oninput: e => setS('gemKey', e.target.value.trim()) }),
+      el('input', { class: 'inp', type: 'password', autocomplete: 'off', placeholder: t('gemKeyPh'), value: S.gemKey || '', oninput: e => { setS('gemKey', e.target.value.trim()); if (S.gemKey.length > 20) { setS('ttsEngine', 'gemini'); NeuralPlayer.vcache = {}; } } }),
       el('p', { class: 'muted', style: { fontSize: '12px', lineHeight: 1.45, margin: '6px 2px 0' }, text: t('gemKeyHelp') }),
       Family.on ? el('button', { class: 'btn block', style: { marginTop: '8px' }, text: t('gemShare'), onclick: async e => {
         const b = e.currentTarget; if (!S.gemKey) { toast(t('gemNoKey')); return; }
@@ -143,6 +190,14 @@ const GemTTS = {
         el('div', { class: 'muted', style: { fontSize: '12px', marginTop: '6px', lineHeight: 1.45 }, text: t('gemSpendLine', { h: hrs < 1 ? Math.round(sm.sec / 60) + ' min' : hrs.toFixed(1).replace('.', ',') + ' h', r: sm.dreq, c: Math.round(this.cacheMB()) }) }),
         el('div', { class: 'muted', style: { fontSize: '12px', marginTop: '4px', lineHeight: 1.45 }, text: t('gemPriceLine', { p: this.money(this.perHour()) }) }),
         sm.hist.length ? el('div', { class: 'muted', style: { fontSize: '12px', marginTop: '4px' }, text: t('gemHist') + ' ' + sm.hist.slice(-3).map(h => h.m.slice(5) + '/' + h.m.slice(2, 4) + ': ' + this.money(h.usd)).join(' · ') }) : ''),
+      Family.on ? el('div', { class: 'gem-spend' },
+        el('div', { class: 'gem-row' }, el('b', { text: t('gemFamMonth') }), el('span', { class: 'gem-fam', text: this.famTot ? this.money(this.famTot.tot) + ' / ' + this.money(this.cap()) : '…' })),
+        el('div', { class: 'muted gem-famlist', style: { fontSize: '12px', marginTop: '6px', lineHeight: 1.45 }, text: this.famTot ? this.famTot.list.map(x => x.name + ': ' + this.money(x.usd || 0)).join(' · ') : '' }),
+        el('div', { style: { marginTop: '10px' } }, wToggle(t('gemNotifyLbl'), t('gemNotifySub'), !!S.gemNotify, async v => {
+          setS('gemNotify', v);
+          if (v && 'Notification' in window && Notification.permission === 'default') { try { await Notification.requestPermission(); } catch (e) { } }
+          if (v) { this.checkFamily(); toast(t('gemNotifyOn')); }
+        }))) : '',
       lbl(t('gemBudgetLbl')),
       wSeg([[5, '$5'], [10, '$10'], [20, '$20'], [40, '$40']], this.budget(), x => { setS('gemBudget', x); const s = this.spend(); s.warned = s.usd >= x * 0.8; this.save(s); onChange && onChange(true); }));
   },

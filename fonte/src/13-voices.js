@@ -20,7 +20,7 @@ const AZURE_VOICES = {
 };
 const Voices = {
   warm: {},
-  engine() { return S.ttsEngine === 'azure' ? 'azure' : S.ttsEngine === 'gemini' ? 'gemini' : 'neural'; },
+  engine() { return S.ttsEngine === 'azure' ? 'azure' : (S.ttsEngine === 'gemini' || (S.gemKey && S.ttsEngine !== 'neural')) ? 'gemini' : 'neural'; },
   // voices to offer for this book's language (only what is really available)
   async list(lang) {
     const e = this.engine();

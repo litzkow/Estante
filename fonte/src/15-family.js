@@ -49,11 +49,16 @@ const Family = {
     return n;
   },
   // the AI voice key shared with the household (voz.json in the private library): put once, works on every family device
-  async shareKey(key) {
-    const R = this.repo(), path = R + '/contents/voz.json';
+  async putJSON(file, obj, msg) {
+    const path = this.repo() + '/contents/' + file;
     let sha; try { const r = await this.api(path, { ok404: true }); if (r.ok) sha = (await r.json()).sha; } catch (e) { }
-    const content = btoa(unescape(encodeURIComponent(JSON.stringify({ gemKey: key, at: Date.now() }))));
-    await this.api(path, { method: 'PUT', body: JSON.stringify({ message: 'Estante: voz de IA da família', content, sha }) });
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
+    await this.api(path, { method: 'PUT', body: JSON.stringify({ message: msg || 'Estante: ' + file, content, sha }) });
+  },
+  async getJSON(file) { try { const r = await this.api(this.repo() + '/contents/' + file, { raw: true, ok404: true }); return r.ok ? await r.json() : null; } catch (e) { return null; } },
+  async shareKey(key) {
+    await this.putJSON('voz.json', { gemKey: key, at: Date.now() }, 'Estante: voz de IA da família');
+    setS('gemNotify', true); // whoever shares the key is the one who pays: spending alerts come to this device only
   },
   async takeKey() {
     try {
@@ -115,6 +120,7 @@ const Family = {
       if (todo.length || gone.size) { await splitCollections(); await Lib.render(); }
       if (cat) await this.tag(cat);
       await this.takeKey();
+      GemTTS.report(true); GemTTS.checkFamily();
     } catch (e) { if (!quiet) toast(e.message || String(e)); console.warn('family', e); }
     finally { this.syncing = false; }
   },
