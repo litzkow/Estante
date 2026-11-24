@@ -604,3 +604,6 @@ canvas.peel{position:absolute;z-index:4;pointer-events:none}
 .gem-row span{font-variant-numeric:tabular-nums;font-weight:700}
 .gem-bar{height:6px;border-radius:3px;background:rgba(127,127,127,.2);margin-top:8px;overflow:hidden}
 .gem-bar i{display:block;height:100%;background:var(--accent);border-radius:3px}
+
+/* the strip under the page (iPhone home bar area) takes the player's color while it is open */
+html.fp-open,html.fp-open body{background:#141210 !important}

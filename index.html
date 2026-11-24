@@ -622,6 +622,9 @@ canvas.peel{position:absolute;z-index:4;pointer-events:none}
 .gem-row span{font-variant-numeric:tabular-nums;font-weight:700}
 .gem-bar{height:6px;border-radius:3px;background:rgba(127,127,127,.2);margin-top:8px;overflow:hidden}
 .gem-bar i{display:block;height:100%;background:var(--accent);border-radius:3px}
+
+/* the strip under the page (iPhone home bar area) takes the player's color while it is open */
+html.fp-open,html.fp-open body{background:#141210 !important}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
@@ -4484,8 +4487,8 @@ const TTS = {
     fp.addEventListener('pointerup', e => { if (y0 != null && e.clientY - y0 > 90) this.fpClose(); y0 = null; });
     document.body.append(fp); this.fp = fp; return fp;
   },
-  fpOpen() { this.fpBuild(); this.fp.classList.add('on'); this.fpRender(); this.tick(); },
-  fpClose() { if (this.fp) this.fp.classList.remove('on'); },
+  fpOpen() { this.fpBuild(); this.fp.classList.add('on'); document.documentElement.classList.add('fp-open'); this.fpRender(); this.tick(); },
+  fpClose() { if (this.fp) this.fp.classList.remove('on'); document.documentElement.classList.remove('fp-open'); },
   fpRender() {
     const fp = this.fp; if (!fp) return;
     const rec = Book.rec || {};

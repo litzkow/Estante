@@ -293,8 +293,8 @@ const TTS = {
     fp.addEventListener('pointerup', e => { if (y0 != null && e.clientY - y0 > 90) this.fpClose(); y0 = null; });
     document.body.append(fp); this.fp = fp; return fp;
   },
-  fpOpen() { this.fpBuild(); this.fp.classList.add('on'); this.fpRender(); this.tick(); },
-  fpClose() { if (this.fp) this.fp.classList.remove('on'); },
+  fpOpen() { this.fpBuild(); this.fp.classList.add('on'); document.documentElement.classList.add('fp-open'); this.fpRender(); this.tick(); },
+  fpClose() { if (this.fp) this.fp.classList.remove('on'); document.documentElement.classList.remove('fp-open'); },
   fpRender() {
     const fp = this.fp; if (!fp) return;
     const rec = Book.rec || {};
