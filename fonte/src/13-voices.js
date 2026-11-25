@@ -108,7 +108,7 @@ const NeuralPlayer = {
     // the chapter title (first line) is a passage of its own, so the spoken announcement can replace it
     const head = TTS.segs[0] && TTS.isHeadSeg(TTS.segs[0].t);
     TTS.segs.forEach((s, i) => {
-      const lim = !gem ? 220 : this.chunks.length <= 1 ? 450 : 1500;
+      const lim = !gem ? 220 : this.chunks.length <= (head ? 2 : 1) ? 450 : 2600; // fewer, longer AI passages: fewer seams where the tone could change
       if (cur && !(head && cur.first === 0) && cur.lang === s.lang && cur.t.length + s.t.length < lim && s.s - cur.e < 4) { cur.t += ' ' + s.t; cur.e = s.e; cur.last = i; }
       else { cur = { s: s.s, e: s.e, t: s.t, first: i, last: i, lang: s.lang }; this.chunks.push(cur); }
     });

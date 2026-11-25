@@ -64,8 +64,8 @@ const GemTTS = {
   },
   style(lang) {
     return lang === 'en'
-      ? 'Professional audiobook narration, natural, warm and immersive voice. Calm, natural pace with nuance: tension in tense moments, lightness and humor in funny moments, emotion in sad moments, intimacy in romantic moments. Bring the dialogue to life with a distinct manner for each character.'
-      : 'Narração brasileira de audiolivro profissional, voz natural, calorosa e envolvente. Ritmo calmo e natural, com nuances: tensão nos momentos de tensão, leveza e humor nos momentos engraçados, emoção nos momentos tristes, intimidade nos momentos românticos. Dá vida às falas, com um jeito diferente para cada personagem.';
+      ? 'Keep exactly the same narrator voice, pitch and tone from start to finish. Professional audiobook narration, natural, warm and immersive voice. Calm, natural pace with nuance: tension in tense moments, lightness and humor in funny moments, emotion in sad moments, intimacy in romantic moments. Bring the dialogue to life with a distinct manner for each character.'
+      : 'Mantenha exatamente a mesma voz, altura e timbre do narrador do começo ao fim. Narração brasileira de audiolivro profissional, voz natural, calorosa e envolvente. Ritmo calmo e natural, com nuances: tensão nos momentos de tensão, leveza e humor nos momentos engraçados, emoção nos momentos tristes, intimidade nos momentos românticos. Dá vida às falas, com um jeito diferente para cada personagem.';
   },
   async synth(text, voice, lang) {
     if (!S.gemKey) throw new Error(t('gemNoKey'));
@@ -87,9 +87,15 @@ const GemTTS = {
     const part = ((((j.candidates || [])[0] || {}).content || {}).parts || []).find(p => p.inlineData);
     if (!part) throw new Error(t('gemEmpty'));
     const raw = Uint8Array.from(atob(part.inlineData.data), c => c.charCodeAt(0));
-    let blob, sec;
-    if (raw[0] === 0x52 && raw[1] === 0x49 && raw[2] === 0x46 && raw[3] === 0x46) { blob = new Blob([raw], { type: 'audio/wav' }); const dv = new DataView(raw.buffer); sec = (raw.length - 44) / (dv.getUint32(28, true) || 48000); }
-    else { const rate = +((part.inlineData.mimeType || '').match(/rate=(\d+)/) || [0, 24000])[1]; const i16 = new Int16Array(raw.buffer, 0, raw.length >> 1); const f = new Float32Array(i16.length); for (let i = 0; i < i16.length; i++) f[i] = i16[i] / 32768; blob = wavBlob(f, rate); sec = i16.length / rate; }
+    // every passage comes back at the same loudness, so a new passage never sounds like a different voice
+    const isWav = raw[0] === 0x52 && raw[1] === 0x49 && raw[2] === 0x46 && raw[3] === 0x46;
+    const rate = isWav ? (new DataView(raw.buffer).getUint32(24, true) || 24000) : +((part.inlineData.mimeType || '').match(/rate=(\d+)/) || [0, 24000])[1];
+    const off = isWav ? 44 : 0, i16 = new Int16Array(raw.buffer.slice(off, off + ((raw.length - off) >> 1) * 2));
+    const f = new Float32Array(i16.length); let sq = 0, n = 0;
+    for (let i = 0; i < i16.length; i++) { const v = i16[i] / 32768; f[i] = v; if (Math.abs(v) > 0.01) { sq += v * v; n++; } }
+    const rms = n ? Math.sqrt(sq / n) : 0, gain = rms > 0 ? Math.min(3, 0.12 / rms) : 1;
+    if (Math.abs(gain - 1) > 0.05) for (let i = 0; i < f.length; i++) f[i] = Math.max(-0.98, Math.min(0.98, f[i] * gain));
+    const blob = wavBlob(f, rate), sec = f.length / rate;
     // count what Google will charge
     const u = j.usageMetadata || {}, p = this.price();
     const tin = u.promptTokenCount || Math.ceil(text.length / 4) + 80, tout = u.candidatesTokenCount || Math.ceil(sec * 25);
