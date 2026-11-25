@@ -51,9 +51,32 @@ Return JSON: {"t": [translated strings, one per input item], "g": {new important
     }
     return out;
   },
+  // the next chapter is translated quietly while you read this one, so turning the page never waits
+  pending: new Map(),
+  ahead(rec, ch) {
+    if (!rec || this.mode(rec) === 'orig' || !AI.fn || !Book.data || ch < 0 || ch >= Book.data.count) return;
+    const key = this.key(rec, ch); if (this.pending.has(key)) return;
+    const run = (async () => {
+      const have = await DB.get('kv', key).catch(() => null);
+      const node = await Book.data.chapter(ch);
+      const texts = this.blocks(node).map(e => e.textContent.replace(/\s+/g, ' ').trim());
+      if (Array.isArray(have) && have.length === texts.length && !have.some(x => x === null)) return;
+      const prev = Array.isArray(have) && have.length === texts.length ? have : null;
+      const need = texts.map((x, i) => prev && prev[i] ? null : i).filter(i => i !== null);
+      if (!need.length) return;
+      const got = await this.translateTexts(rec, need.map(i => texts[i]));
+      const tr = prev || new Array(texts.length).fill(null); need.forEach((i, k) => { tr[i] = got[k]; });
+      await DB.put('kv', key, tr);
+    })().catch(e => console.warn('tradução adiantada', e)).finally(() => this.pending.delete(key));
+    this.pending.set(key, run);
+  },
   // called by the reader for every chapter before it is laid out
   async apply(wrap, ch, rec) {
     const mode = this.mode(rec); if (mode === 'orig') return wrap;
+    // already being prepared in the background: wait for it instead of starting again
+    const pend = this.pending.get(this.key(rec, ch));
+    if (pend) { busy(t('trChapter', { n: 0 })); try { await pend; } catch (e) { } busy(null); }
+    setTimeout(() => this.ahead(rec, ch + 1), 1500);
     const bl = this.blocks(wrap), texts = bl.map(e => e.textContent.replace(/\s+/g, ' ').trim());
     let tr = await DB.get('kv', this.key(rec, ch)).catch(() => null);
     if (!Array.isArray(tr) || tr.length !== texts.length || tr.some(x => x === null)) {
