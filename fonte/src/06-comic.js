@@ -457,6 +457,13 @@ async function comicSource(rec, blob) {
 const Letter = {
   font: '"Letreiro","Patrick Hand SC","Comic Neue",system-ui,sans-serif',
   async ready() { try { await document.fonts.load('400 30px "Letreiro"'); } catch (e) { } },
+  // gasps, grunts and other sounds people make stay as the letterer drew them
+  interj(t) {
+    const w = String(t || '').toUpperCase().replace(/[^A-Z\s]/g, ' ').trim().split(/\s+/).filter(Boolean);
+    if (!w.length || w.length > 3) return false;
+    const R = /^(G+A+S+P+|U+G+H+|U+H+|A+R+G+H+|A+R+G+|A+H+|O+H+|O+O+F+|H+M+|H+U+H+|E+H+|S+I+G+H+|G+R+R+|G+U+H+|G+A+R+|G+L+I+K+|G+L+A+K+|N+G+H+|H+N+N+|H+N+G+|U+N+H+|W+H+O+A+|W+H+E+W+|P+S+S+T+|S+H+H+|H+A+(H+A+)*|H+E+(H+E+)*|C+O+U+G+H+|S+N+I+F+F+|S+O+B+|G+U+L+P+|Y+A+W+N+|B+L+A+H+|B+L+E+H+|A+C+K+|E+E+K+|G+A+H+|G+A+K+|H+R+K+|H+U+R+K+|K+A+F+|U+R+K+|Y+E+A+R+G+H+)$/;
+    return w.every(x => R.test(x));
+  },
   same(a, b) { const n = x => String(x || '').toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g, ''); return n(a) === n(b); },
   capRatio(cx) {
     if (!this._cap) { cx.font = `400 100px ${this.font}`; const m = cx.measureText('HEMNO'); this._cap = (m.actualBoundingBoxAscent > 20 ? m.actualBoundingBoxAscent : 70) / 100; }
@@ -624,7 +631,7 @@ const Letter = {
     const jobs = [];
     for (const it of data.items || []) {
       if (!it.tr || !Array.isArray(it.box) || it.box.length !== 4) continue;
-      if (it.kind === 'sfx' || this.same(it.tr, it.text)) continue;
+      if (it.kind === 'sfx' || this.same(it.tr, it.text) || this.interj(it.text)) continue;
       const g = this.region(lum, W, H, it.box); if (!g) continue;
       const up = (String(it.text).match(/[A-Z]/g) || []).length >= (String(it.text).match(/[a-z]/g) || []).length;
       jobs.push({ g, words: this.words(it.tr, up), orig: String(it.text).replace(/[*\n]/g, ' ').replace(/\s+/g, ' ').trim() });
@@ -1029,13 +1036,13 @@ const Comic = {
       const sc = Math.min(1, 1100 / Math.max(pg.w, pg.h)), cv = document.createElement('canvas');
       cv.width = Math.round(pg.w * sc); cv.height = Math.round(pg.h * sc); cv.getContext('2d').drawImage(pg.img, 0, 0, cv.width, cv.height);
       const blob = await canvasBlob(cv, 'image/jpeg', 0.8); cv.width = cv.height = 0;
-      const prompt = `This is one page of a comic${this.dir === 'rtl' ? ' (manga, read right to left)' : ''}. Find every speech balloon, thought balloon and caption/narration box with text. Leave out sound effects and interjections that read the same in both languages (BLAM, AHH!, HUH?, OH!).
+      const prompt = `This is one page of a comic${this.dir === 'rtl' ? ' (manga, read right to left)' : ''}. Find every speech balloon, thought balloon and caption/narration box with text. Leave out sound effects and the sounds people make (gasps, grunts, groans, sighs, screams: GASP!, UGH, ARGH, HMM, GLIK, AHH!, HUH?, OH!): they stay as drawn and must not be translated.
 For each one give its box as [ymin, xmin, ymax, xmax] normalized 0-1000 to this image: around all of its words, from the first letter to the last of every line (nothing left out), but never past the balloon's outline; the exact original text, and a natural ${lang} translation that keeps tone, humour and character voice and is about as short as the original, so it fits the same balloon (if the text is already in ${lang}, repeat it).
 Words the letterer drew in bold or bold italic for emphasis: wrap them in asterisks in both text and translation, like *THIS*, on the matching word of the translation.
 Rules: one item per balloon, never merge two balloons, never split one balloon; keep names of people and places as they are; keep the same wording for recurring expressions; list items in reading order (${this.dir === 'rtl' ? 'right to left' : 'left to right'}, top to bottom, panel by panel); conf is your confidence 0-1 that the text was read correctly.
 Also list every panel of the page in reading order as tight boxes [ymin, xmin, ymax, xmax] normalized 0-1000 (follow the art's reading flow: a wide panel on top comes before the row below it; a tall panel at the left comes before the panels stacked at its right; a full-page splash is one panel; leave out page margins and gutters. When smaller panels sit on top of a bigger background picture, list the background picture first, as its visible part only (where it is not covered by the panels on top), then the panels on top in their own reading order.)
 Return only JSON: {"lang":"source language code","panels":[[..],..],"items":[{"box":[..],"kind":"speech|thought|caption|sfx","text":"..","tr":"..","conf":0.9}]}`;
-      const { text } = await AI.vision(blob, prompt, { json: true, temperature: 0.1, models: ['gemini-flash-lite-latest', 'gemini-2.5-flash-lite', 'gemini-flash-latest'] });
+      const { text } = await AI.vision(blob, prompt, { json: true, temperature: 0.1, noThink: true, models: ['gemini-flash-latest', 'gemini-3.8-flash', 'gemini-flash-lite-latest'] });
       const j = JSON.parse(String(text).replace(/^```(json)?|```$/g, '').trim());
       const panels = (j.panels || []).filter(b => Array.isArray(b) && b.length === 4 && b.every(v => isFinite(+v)) && b[2] > b[0] && b[3] > b[1]).map(b => b.map(Number));
       DB.put('kv', key, panels).catch(() => { }); pg.ap = panels; return panels;
@@ -1047,7 +1054,7 @@ Return only JSON: {"lang":"source language code","panels":[[..],..],"items":[{"b
   // the page with the translation lettered in; made once, kept on the device
   trImage(pg) {
     if (!this.rec.prefs.tr || !AI.fn) return Promise.resolve(null);
-    const key = 'ctimg:' + this.rec.id + ':' + pg.i + ':' + this.trLang() + ':v3';
+    const key = 'ctimg:' + this.rec.id + ':' + pg.i + ':' + this.trLang() + ':v4';
     if (pg.tKey === key && pg.tPromise) return pg.tPromise;
     pg.tKey = key;
     pg.tPromise = (async () => {
@@ -1069,7 +1076,7 @@ Return only JSON: {"lang":"source language code","panels":[[..],..],"items":[{"b
             blob = await Letter.render({ img: cv, w: cv.width, h: cv.height }, data); cv.width = cv.height = 0;
           }
           PageCache.add(key, blob);
-        } else pg.tr = await DB.get('kv', 'ctr4:' + this.rec.id + ':' + pg.i + ':' + this.trLang()).catch(() => null);
+        } else pg.tr = await DB.get('kv', 'ctr5:' + this.rec.id + ':' + pg.i + ':' + this.trLang()).catch(() => null);
         stage = 'show';
         const url = URL.createObjectURL(blob), img = await loadImg(url); try { await img.decode(); } catch (e) { }
         pg.turl = url; pg.timg = img; return img;
@@ -1112,7 +1119,7 @@ Return only JSON: {"lang":"source language code","panels":[[..],..],"items":[{"b
     if (this.cur) { const p = this.page, st = this.step; this.cur = null; this.goto(p, st, false); }
   },
   async trData(pg, force) {
-    const key = 'ctr4:' + this.rec.id + ':' + pg.i + ':' + this.trLang();
+    const key = 'ctr5:' + this.rec.id + ':' + pg.i + ':' + this.trLang();
     if (!force) { const c = await DB.get('kv', key).catch(() => null); if (c) return c; }
     if (GemTTS.over()) throw new Error(t('gemBudgetHit', { b: GemTTS.money(GemTTS.budget()) }));
     // the same page asked twice at once (prefetch + opening it) is translated only once
@@ -1126,7 +1133,7 @@ Return only JSON: {"lang":"source language code","panels":[[..],..],"items":[{"b
     cv.width = Math.round(pg.w * sc); cv.height = Math.round(pg.h * sc); cv.getContext('2d').drawImage(pg.img, 0, 0, cv.width, cv.height);
     const blob = await canvasBlob(cv, 'image/jpeg', 0.85);
     const lang = this.trLang() === 'en' ? 'English' : 'Brazilian Portuguese';
-    const prompt = `This is one page of a comic${this.dir === 'rtl' ? ' (manga, read right to left)' : ''}. Find every speech balloon, thought balloon and caption/narration box with text. Leave out sound effects and interjections that read the same in both languages (BLAM, AHH!, HUH?, OH!).
+    const prompt = `This is one page of a comic${this.dir === 'rtl' ? ' (manga, read right to left)' : ''}. Find every speech balloon, thought balloon and caption/narration box with text. Leave out sound effects and the sounds people make (gasps, grunts, groans, sighs, screams: GASP!, UGH, ARGH, HMM, GLIK, AHH!, HUH?, OH!): they stay as drawn and must not be translated.
 For each one give its box as [ymin, xmin, ymax, xmax] normalized 0-1000 to this image: tightly around the words inside the balloon, never past the balloon's outline; the exact original text, and a natural ${lang} translation that keeps tone, humour and character voice, about as long as the original so it fits the same balloon (if the text is already in ${lang}, repeat it).
 Rules: one item per balloon, never merge two balloons, never split one balloon; keep names of people and places as they are; keep names of people and places as they are; keep the same wording for recurring expressions; list items in reading order (${this.dir === 'rtl' ? 'right to left' : 'left to right'}, top to bottom, panel by panel); conf is your confidence 0-1 that the text was read correctly.
 Also list every panel of the page in reading order as tight boxes [ymin, xmin, ymax, xmax] normalized 0-1000 (follow the art's reading flow: a wide panel on top comes before the row below it; a tall panel at the left comes before the panels stacked at its right; a full-page splash is one panel; leave out page margins and gutters. When smaller panels sit on top of a bigger background picture, list the background picture first, as its visible part only (where it is not covered by the panels on top), then the panels on top in their own reading order.)
@@ -1135,11 +1142,11 @@ Return only JSON: {"lang":"source language code","panels":[[..],..],"items":[{"b
     let ctx = '';
     try {
       const prev = [];
-      for (const k of [pg.i - 2, pg.i - 1]) { if (k < 0) continue; const d = await DB.get('kv', 'ctr4:' + this.rec.id + ':' + k + ':' + this.trLang()).catch(() => null); if (d && d.items) prev.push(...d.items.filter(x => x.tr && !Letter.same(x.tr, x.text))); }
+      for (const k of [pg.i - 2, pg.i - 1]) { if (k < 0) continue; const d = await DB.get('kv', 'ctr5:' + this.rec.id + ':' + k + ':' + this.trLang()).catch(() => null); if (d && d.items) prev.push(...d.items.filter(x => x.tr && !Letter.same(x.tr, x.text))); }
       const pairs = prev.slice(-14).map(x => String(x.text).replace(/\s+/g, ' ').slice(0, 140) + ' => ' + String(x.tr).replace(/\s+/g, ' ').slice(0, 160));
       if (pairs.length) ctx = '\nThe pages just before this one were translated like this; keep names, recurring terms and each character\'s way of speaking consistent with them:\n' + pairs.join('\n');
     } catch (e) { }
-    const { text } = await AI.vision(blob, prompt + ctx, { json: true, temperature: 0.2, models: ['gemini-flash-lite-latest', 'gemini-2.5-flash-lite', 'gemini-flash-latest'] });
+    const { text } = await AI.vision(blob, prompt + ctx, { json: true, temperature: 0.2, noThink: true, models: S.cTrEco ? ['gemini-flash-lite-latest', 'gemini-flash-latest'] : ['gemini-flash-latest', 'gemini-3.8-flash', 'gemini-flash-lite-latest'] });
     const j = JSON.parse(String(text).replace(/^```(json)?|```$/g, '').trim());
     // now and then the reply lists each balloon as a run of loose values ([box], kind, text, translation, conf): read those too
     let raw = Array.isArray(j.items) ? j.items : [];
@@ -1300,6 +1307,7 @@ Return only JSON: {"lang":"source language code","panels":[[..],..],"items":[{"b
             wToggle(t('fullFirst'), t('fullFirstSub'), S.cFullFirst, v => { setS('cFullFirst', v); this.relayout(); }),
             wToggle(t('splitWide'), t('splitWideSub2'), S.cSplit, v => { setS('cSplit', v); this.relayout(); }),
             wToggle(t('cAiPanelsT'), t('cAiPanelsSub'), S.cAiPanels !== false, v => { setS('cAiPanels', v); this.relayout(); }),
+            wToggle(t('cTrEcoT'), t('cTrEcoSub'), !!S.cTrEco, v => setS('cTrEco', v)),
             wToggle(t('cRotT'), t('cRotSub'), S.cRotHint !== false, v => setS('cRotHint', v)),
             wToggle(t('cSpreadT'), t('cSpreadSub'), S.cSpread !== false, v => { setS('cSpread', v); this.cur = null; this.goto(this.page, 0, false); }),
             el('button', { class: 'btn block', style: { margin: '10px 0' }, onclick: () => { Sheets.closeAll(); this.linesSheet(); } }, icon('translate'), t('cLines')),
