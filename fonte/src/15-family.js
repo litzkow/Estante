@@ -85,11 +85,18 @@ const Family = {
       if (x.title && b.title !== x.title) { b.title = x.title; dirty = true; }
       if (x.titles && JSON.stringify(b.titles) !== JSON.stringify(x.titles)) { b.titles = x.titles; dirty = true; }
       if (JSON.stringify(b.seriesT || null) !== JSON.stringify(x.seriesT || null)) { b.seriesT = x.seriesT || null; dirty = true; }
-      if (x.cover && b.cv !== x.cover + '#' + (x.cv || 1)) {
+      // cover: "capas/x.jpg", or { pt, en } for a cover in each app language
+      const cvr = x.cover && (typeof x.cover === 'string' ? { pt: x.cover } : x.cover);
+      const cvTag = cvr && (typeof x.cover === 'string' ? x.cover : (cvr.pt || '') + '|' + (cvr.en || '')) + '#' + (x.cv || 1);
+      if (cvr && b.cv !== cvTag) {
         try {
-          let bl = covers.get(x.cover);
-          if (!bl) { const r = await this.api(this.repo() + '/contents/' + x.cover.split('/').map(encodeURIComponent).join('/'), { raw: true, ok404: true }); bl = r.ok ? await r.blob() : null; if (bl) covers.set(x.cover, bl); }
-          if (bl && bl.size > 2000) { b.cover = new Blob([bl], { type: 'image/jpeg' }); b.cv = x.cover + '#' + (x.cv || 1); dirty = true; }
+          const get = async path => {
+            let bl = covers.get(path);
+            if (!bl) { const r = await this.api(this.repo() + '/contents/' + path.split('/').map(encodeURIComponent).join('/'), { raw: true, ok404: true }); bl = r.ok ? await r.blob() : null; if (bl) covers.set(path, bl); }
+            return bl && bl.size > 2000 ? new Blob([bl], { type: 'image/jpeg' }) : null;
+          };
+          const main = await get(cvr.pt || cvr.en), en = cvr.en && cvr.pt ? await get(cvr.en) : null;
+          if (main) { b.cover = main; b.coverEn = en || null; b.cv = cvTag; dirty = true; }
         } catch (e) { console.warn('capa', e); }
       }
       if (dirty) { await DB.put('books', b.id, b); ch = true; }
@@ -107,10 +114,10 @@ const Family = {
         for (const lg of ['pt', 'en']) {
           const path = x.cover[lg]; if (!path) continue;
           const k = 'scov:' + x.series + ':' + lg, tg = path + '#' + (x.v || 1);
-          const have = await DB.get('kv', k).catch(() => null); if (have && have.tag === tg) continue;
+          const have = await DB.getPic(k); if (have && have.tag === tg && have.blob) continue;
           const res = await this.api(this.repo() + '/contents/' + path.split('/').map(encodeURIComponent).join('/'), { raw: true, ok404: true }); if (!res.ok) continue;
           const bl = await res.blob(); if (bl.size < 2000) continue;
-          await DB.put('kv', k, { tag: tg, blob: new Blob([bl], { type: 'image/jpeg' }) }); ch = true;
+          await DB.putPic(k, tg, new Blob([bl], { type: 'image/jpeg' })); ch = true;
         }
       }
       const old = (await DB.get('kv', 'scov:list').catch(() => null)) || [];

@@ -30,12 +30,20 @@ const DB = {
   },
   // iPhone bug: a picture read from the database and saved back can turn unreadable.
   // So book covers are kept as plain bytes and turned into a picture again when read.
-  dec(v) { if (v && v.cover && v.cover.__bytes) v.cover = new Blob([v.cover.__bytes], { type: v.cover.type || 'image/jpeg' }); return v; },
+  // (coverEn: the same book's cover in English, shown when the app is in English)
+  dec(v) { if (v) for (const k of ['cover', 'coverEn']) if (v[k] && v[k].__bytes) v[k] = new Blob([v[k].__bytes], { type: v[k].type || 'image/jpeg' }); return v; },
   async enc(v) {
-    if (!v || !(v.cover instanceof Blob)) return v;
-    let bytes = null; try { bytes = await v.cover.arrayBuffer(); } catch (e) { }
-    return Object.assign({}, v, { cover: bytes && bytes.byteLength ? { __bytes: bytes, type: v.cover.type } : null });
+    if (!v || !(v.cover instanceof Blob || v.coverEn instanceof Blob)) return v;
+    const o = Object.assign({}, v);
+    for (const k of ['cover', 'coverEn']) if (v[k] instanceof Blob) {
+      let bytes = null; try { bytes = await v[k].arrayBuffer(); } catch (e) { }
+      o[k] = bytes && bytes.byteLength ? { __bytes: bytes, type: v[k].type } : null;
+    }
+    return o;
   },
+  // pictures kept in kv (series covers): plain bytes too, same iPhone reason
+  async putPic(key, tag, blob) { let bytes = null; try { bytes = await blob.arrayBuffer(); } catch (e) { } if (bytes && bytes.byteLength) await this.put('kv', key, { tag, __bytes: bytes, type: blob.type || 'image/jpeg' }); },
+  async getPic(key) { const v = await this.get('kv', key).catch(() => null); if (!v) return null; return { tag: v.tag, blob: v.__bytes ? new Blob([v.__bytes], { type: v.type || 'image/jpeg' }) : v.blob || null }; },
   async get(store, key) {
     if (this.mem[store].has(key)) return store === 'books' ? this.dec(Object.assign({}, this.mem[store].get(key))) : this.mem[store].get(key);
     if (!this.ok) return undefined;

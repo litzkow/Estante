@@ -3,8 +3,9 @@ const Lib = {
   books: [], urls: [], memOnly: false, q: '',
   coverEl(b) {
     if (!b.cover && b.id && (b.format === 'pdf' || (S.starterGot || []).includes(b.fname))) setTimeout(() => this.repairCover(b), 1500);
-    if (b.cover instanceof Blob) {
-      const u = URL.createObjectURL(b.cover); this.urls.push(u);
+    const cov = recCover(b);
+    if (cov instanceof Blob) {
+      const u = URL.createObjectURL(cov); this.urls.push(u);
       // iPhone sometimes loses a saved picture: show a drawn cover and fetch the real one again
       return el('img', { src: u, alt: '', decoding: 'async', onerror: e => { const g = this.coverEl({ title: b.title, author: b.author, kind: b.kind }); e.target.replaceWith(g); if (b.id) this.repairCover(b); } });
     }
@@ -217,7 +218,7 @@ const Lib = {
     this.scov = {};
     const names = (await DB.get('kv', 'scov:list').catch(() => null)) || [];
     for (const n of names) for (const lg of ['pt', 'en']) {
-      const v = await DB.get('kv', 'scov:' + n + ':' + lg).catch(() => null);
+      const v = await DB.getPic('scov:' + n + ':' + lg);
       if (v && v.blob) (this.scov[n] = this.scov[n] || {})[lg] = URL.createObjectURL(v.blob);
     }
   },
@@ -360,6 +361,7 @@ function bTitle(b) {
   }
   return x;
 }
+function recCover(b) { return (b && S.lang === 'en' && b.coverEn instanceof Blob) ? b.coverEn : b && b.cover; }
 function serName(s) {
   if (!s) return '';
   const b = (Lib.books || []).find(x => x.series === s && x.seriesT);

@@ -359,7 +359,7 @@ const TTS = {
     fp.querySelector('.fp-speed b').textContent = this.rateTxt();
     const cv = fp.querySelector('.fp-cover'), mc = $('#tts-bar .mp-cover');
     if (this.coverFor !== rec.id) {
-      this.coverFor = rec.id; if (this.coverUrl) URL.revokeObjectURL(this.coverUrl); this.coverUrl = rec.cover instanceof Blob ? URL.createObjectURL(rec.cover) : null;
+      this.coverFor = rec.id; if (this.coverUrl) URL.revokeObjectURL(this.coverUrl); this.coverUrl = recCover(rec) instanceof Blob ? URL.createObjectURL(recCover(rec)) : null;
       for (const c of [cv, mc]) { c.replaceChildren(this.coverUrl ? el('img', { src: this.coverUrl, alt: '' }) : el('span', { class: 'fp-nocover', text: (bTitle(rec) || '?').slice(0, 1) })); }
     }
   },

@@ -1261,12 +1261,20 @@ const DB = {
   },
   // iPhone bug: a picture read from the database and saved back can turn unreadable.
   // So book covers are kept as plain bytes and turned into a picture again when read.
-  dec(v) { if (v && v.cover && v.cover.__bytes) v.cover = new Blob([v.cover.__bytes], { type: v.cover.type || 'image/jpeg' }); return v; },
+  // (coverEn: the same book's cover in English, shown when the app is in English)
+  dec(v) { if (v) for (const k of ['cover', 'coverEn']) if (v[k] && v[k].__bytes) v[k] = new Blob([v[k].__bytes], { type: v[k].type || 'image/jpeg' }); return v; },
   async enc(v) {
-    if (!v || !(v.cover instanceof Blob)) return v;
-    let bytes = null; try { bytes = await v.cover.arrayBuffer(); } catch (e) { }
-    return Object.assign({}, v, { cover: bytes && bytes.byteLength ? { __bytes: bytes, type: v.cover.type } : null });
+    if (!v || !(v.cover instanceof Blob || v.coverEn instanceof Blob)) return v;
+    const o = Object.assign({}, v);
+    for (const k of ['cover', 'coverEn']) if (v[k] instanceof Blob) {
+      let bytes = null; try { bytes = await v[k].arrayBuffer(); } catch (e) { }
+      o[k] = bytes && bytes.byteLength ? { __bytes: bytes, type: v[k].type } : null;
+    }
+    return o;
   },
+  // pictures kept in kv (series covers): plain bytes too, same iPhone reason
+  async putPic(key, tag, blob) { let bytes = null; try { bytes = await blob.arrayBuffer(); } catch (e) { } if (bytes && bytes.byteLength) await this.put('kv', key, { tag, __bytes: bytes, type: blob.type || 'image/jpeg' }); },
+  async getPic(key) { const v = await this.get('kv', key).catch(() => null); if (!v) return null; return { tag: v.tag, blob: v.__bytes ? new Blob([v.__bytes], { type: v.type || 'image/jpeg' }) : v.blob || null }; },
   async get(store, key) {
     if (this.mem[store].has(key)) return store === 'books' ? this.dec(Object.assign({}, this.mem[store].get(key))) : this.mem[store].get(key);
     if (!this.ok) return undefined;
@@ -1932,8 +1940,9 @@ const Lib = {
   books: [], urls: [], memOnly: false, q: '',
   coverEl(b) {
     if (!b.cover && b.id && (b.format === 'pdf' || (S.starterGot || []).includes(b.fname))) setTimeout(() => this.repairCover(b), 1500);
-    if (b.cover instanceof Blob) {
-      const u = URL.createObjectURL(b.cover); this.urls.push(u);
+    const cov = recCover(b);
+    if (cov instanceof Blob) {
+      const u = URL.createObjectURL(cov); this.urls.push(u);
       // iPhone sometimes loses a saved picture: show a drawn cover and fetch the real one again
       return el('img', { src: u, alt: '', decoding: 'async', onerror: e => { const g = this.coverEl({ title: b.title, author: b.author, kind: b.kind }); e.target.replaceWith(g); if (b.id) this.repairCover(b); } });
     }
@@ -2146,7 +2155,7 @@ const Lib = {
     this.scov = {};
     const names = (await DB.get('kv', 'scov:list').catch(() => null)) || [];
     for (const n of names) for (const lg of ['pt', 'en']) {
-      const v = await DB.get('kv', 'scov:' + n + ':' + lg).catch(() => null);
+      const v = await DB.getPic('scov:' + n + ':' + lg);
       if (v && v.blob) (this.scov[n] = this.scov[n] || {})[lg] = URL.createObjectURL(v.blob);
     }
   },
@@ -2289,6 +2298,7 @@ function bTitle(b) {
   }
   return x;
 }
+function recCover(b) { return (b && S.lang === 'en' && b.coverEn instanceof Blob) ? b.coverEn : b && b.cover; }
 function serName(s) {
   if (!s) return '';
   const b = (Lib.books || []).find(x => x.series === s && x.seriesT);
@@ -4605,7 +4615,7 @@ const TTS = {
     fp.querySelector('.fp-speed b').textContent = this.rateTxt();
     const cv = fp.querySelector('.fp-cover'), mc = $('#tts-bar .mp-cover');
     if (this.coverFor !== rec.id) {
-      this.coverFor = rec.id; if (this.coverUrl) URL.revokeObjectURL(this.coverUrl); this.coverUrl = rec.cover instanceof Blob ? URL.createObjectURL(rec.cover) : null;
+      this.coverFor = rec.id; if (this.coverUrl) URL.revokeObjectURL(this.coverUrl); this.coverUrl = recCover(rec) instanceof Blob ? URL.createObjectURL(recCover(rec)) : null;
       for (const c of [cv, mc]) { c.replaceChildren(this.coverUrl ? el('img', { src: this.coverUrl, alt: '' }) : el('span', { class: 'fp-nocover', text: (bTitle(rec) || '?').slice(0, 1) })); }
     }
   },
@@ -5336,7 +5346,7 @@ const NeuralPlayer = {
     if (!('mediaSession' in navigator) || !window.MediaMetadata) return;
     try {
       const rec = Book.rec || {}; const art = [];
-      if (rec.cover instanceof Blob) { if (!this.coverUrl || this.coverFor !== rec.id) { this.coverUrl = URL.createObjectURL(rec.cover); this.coverFor = rec.id; } art.push({ src: this.coverUrl, sizes: '512x512', type: rec.cover.type || 'image/jpeg' }); }
+      if (recCover(rec) instanceof Blob) { if (!this.coverUrl || this.coverFor !== rec.id) { this.coverUrl = URL.createObjectURL(recCover(rec)); this.coverFor = rec.id; } art.push({ src: this.coverUrl, sizes: '512x512', type: recCover(rec).type || 'image/jpeg' }); }
       navigator.mediaSession.metadata = new MediaMetadata({ title: niceLabel(Book.tocLabel ? Book.tocLabel(Book.ch) : '') || bTitle(rec), artist: rec.author || '', album: bTitle(rec) || '', artwork: art });
     } catch (e) { }
   },
@@ -5605,11 +5615,18 @@ const Family = {
       if (x.title && b.title !== x.title) { b.title = x.title; dirty = true; }
       if (x.titles && JSON.stringify(b.titles) !== JSON.stringify(x.titles)) { b.titles = x.titles; dirty = true; }
       if (JSON.stringify(b.seriesT || null) !== JSON.stringify(x.seriesT || null)) { b.seriesT = x.seriesT || null; dirty = true; }
-      if (x.cover && b.cv !== x.cover + '#' + (x.cv || 1)) {
+      // cover: "capas/x.jpg", or { pt, en } for a cover in each app language
+      const cvr = x.cover && (typeof x.cover === 'string' ? { pt: x.cover } : x.cover);
+      const cvTag = cvr && (typeof x.cover === 'string' ? x.cover : (cvr.pt || '') + '|' + (cvr.en || '')) + '#' + (x.cv || 1);
+      if (cvr && b.cv !== cvTag) {
         try {
-          let bl = covers.get(x.cover);
-          if (!bl) { const r = await this.api(this.repo() + '/contents/' + x.cover.split('/').map(encodeURIComponent).join('/'), { raw: true, ok404: true }); bl = r.ok ? await r.blob() : null; if (bl) covers.set(x.cover, bl); }
-          if (bl && bl.size > 2000) { b.cover = new Blob([bl], { type: 'image/jpeg' }); b.cv = x.cover + '#' + (x.cv || 1); dirty = true; }
+          const get = async path => {
+            let bl = covers.get(path);
+            if (!bl) { const r = await this.api(this.repo() + '/contents/' + path.split('/').map(encodeURIComponent).join('/'), { raw: true, ok404: true }); bl = r.ok ? await r.blob() : null; if (bl) covers.set(path, bl); }
+            return bl && bl.size > 2000 ? new Blob([bl], { type: 'image/jpeg' }) : null;
+          };
+          const main = await get(cvr.pt || cvr.en), en = cvr.en && cvr.pt ? await get(cvr.en) : null;
+          if (main) { b.cover = main; b.coverEn = en || null; b.cv = cvTag; dirty = true; }
         } catch (e) { console.warn('capa', e); }
       }
       if (dirty) { await DB.put('books', b.id, b); ch = true; }
@@ -5627,10 +5644,10 @@ const Family = {
         for (const lg of ['pt', 'en']) {
           const path = x.cover[lg]; if (!path) continue;
           const k = 'scov:' + x.series + ':' + lg, tg = path + '#' + (x.v || 1);
-          const have = await DB.get('kv', k).catch(() => null); if (have && have.tag === tg) continue;
+          const have = await DB.getPic(k); if (have && have.tag === tg && have.blob) continue;
           const res = await this.api(this.repo() + '/contents/' + path.split('/').map(encodeURIComponent).join('/'), { raw: true, ok404: true }); if (!res.ok) continue;
           const bl = await res.blob(); if (bl.size < 2000) continue;
-          await DB.put('kv', k, { tag: tg, blob: new Blob([bl], { type: 'image/jpeg' }) }); ch = true;
+          await DB.putPic(k, tg, new Blob([bl], { type: 'image/jpeg' })); ch = true;
         }
       }
       const old = (await DB.get('kv', 'scov:list').catch(() => null)) || [];
