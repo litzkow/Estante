@@ -18,7 +18,7 @@ function detectPanels(img, W, H, dir) {
   const br = med(R), bg = med(G), bb = med(B);
   // full-bleed art (no page margin): the ring is not one colour -> treat as a single splash page
   let same = 0; for (let i = 0; i < RR.length; i++) if (Math.abs(RR[i] - br) + Math.abs(GG[i] - bg) + Math.abs(BB[i] - bb) <= 66) same++;
-  if (same < RR.length * 0.6) return [];
+  const bleed = same < RR.length * 0.6;
   const N = w * h, ink = new Uint8Array(N);
   for (let i = 0, k = 0; i < N; i++, k += 4) ink[i] = (Math.abs(data[k] - br) + Math.abs(data[k + 1] - bg) + Math.abs(data[k + 2] - bb)) > 66 ? 1 : 0;
   const RP = new Int32Array((w + 1) * h), CP = new Int32Array((h + 1) * w);
@@ -27,6 +27,31 @@ function detectPanels(img, W, H, dir) {
   const rowInk = (y, x0, x1) => RP[y * (w + 1) + x1] - RP[y * (w + 1) + x0];
   const colInk = (x, y0, y1) => CP[x * (h + 1) + y1] - CP[x * (h + 1) + y0];
   const minGap = Math.max(2, Math.round(Math.min(w, h) * 0.0035));
+  // dark map (panel borders, black gutters): lets the page be cut along a frame line or a black band
+  const dark = new Uint8Array(N);
+  for (let i = 0, k = 0; i < N; i++, k += 4) dark[i] = (data[k] * 30 + data[k + 1] * 59 + data[k + 2] * 11) / 100 < 85 ? 1 : 0;
+  const DR = new Int32Array((w + 1) * h), DC = new Int32Array((h + 1) * w);
+  for (let y = 0; y < h; y++) { let t = 0; const o = y * (w + 1), r = y * w; for (let x = 0; x < w; x++) { t += dark[r + x]; DR[o + x + 1] = t; } }
+  for (let x = 0; x < w; x++) { let t = 0; const o = x * (h + 1); for (let y = 0; y < h; y++) { t += dark[y * w + x]; DC[o + y + 1] = t; } }
+  const rowDark = (y, x0, x1) => DR[y * (w + 1) + x1] - DR[y * (w + 1) + x0];
+  const colDark = (x, y0, y1) => DC[x * (h + 1) + y1] - DC[x * (h + 1) + y0];
+  // a frame line / black gutter: almost the whole line is dark, and a little way off on both sides it is not
+  // (so a dark area inside a picture is never taken for a border)
+  const lineCuts = (r, horiz) => {
+    const { x0, y0, x1, y1 } = r, len = horiz ? x1 - x0 : y1 - y0, a = horiz ? y0 : x0, b = horiz ? y1 : x1, span = b - a;
+    const fr = p => (horiz ? rowDark(p, x0, x1) : colDark(p, y0, y1)) / Math.max(1, len);
+    const maxT = Math.max(4, Math.round(span * 0.045)), edge = Math.round(span * 0.08), out = [];
+    let p = a + edge;
+    while (p < b - edge) {
+      if (fr(p) >= 0.78) {
+        let q = p; while (q + 1 < b && fr(q + 1) >= 0.78) q++;
+        const lo = p - 2 >= a ? fr(Math.max(a, p - 3)) : 1, hi = q + 3 < b ? fr(q + 3) : 1;
+        if (q - p + 1 <= maxT && lo < 0.6 && hi < 0.6) out.push([p, q + 1]);
+        p = q + 1;
+      } else p++;
+    }
+    return out;
+  };
   const leaves = [];
   const trim = r => {
     let { x0, y0, x1, y1 } = r;
@@ -35,6 +60,12 @@ function detectPanels(img, W, H, dir) {
     while (y1 > y0 && rowInk(y1 - 1, x0, x1) <= tw) y1--;
     while (x0 < x1 && colInk(x0, y0, y1) <= th) x0++;
     while (x1 > x0 && colInk(x1 - 1, y0, y1) <= th) x1--;
+    const my = Math.round((y1 - y0) * 0.06), mx = Math.round((x1 - x0) * 0.06);
+    const dR = y => rowDark(y, x0, x1) >= (x1 - x0) * 0.97, dC = x => colDark(x, y0, y1) >= (y1 - y0) * 0.97;
+    for (let k = 0; k < my && y0 < y1 && dR(y0); k++) y0++;
+    for (let k = 0; k < my && y1 > y0 && dR(y1 - 1); k++) y1--;
+    for (let k = 0; k < mx && x0 < x1 && dC(x0); k++) x0++;
+    for (let k = 0; k < mx && x1 > x0 && dC(x1 - 1); k++) x1--;
     return { x0, y0, x1, y1 };
   };
   // strict: (almost) no ink across the whole line.
@@ -62,9 +93,13 @@ function detectPanels(img, W, H, dir) {
     const rw = r.x1 - r.x0, rh = r.y1 - r.y0;
     if (rw < w * 0.03 || rh < h * 0.02) return;
     const big = rw * rh > w * h * 0.1;
-    if (depth < 12) for (const [horiz, relaxed] of [[true, false], [false, false], [true, true], [false, true]]) {
-      if (relaxed && !big) break;
-      const cuts = gaps(r, horiz, relaxed); if (!cuts.length) continue;
+    if (depth < 12) // rows first (a balloon crossing a row gutter must not turn the page into columns), then columns
+    // order of the tries = reading order rules: clean gutters across the whole row first, then frame lines /
+    // black gutters (open art above inset panels, a tall panel beside a stack), and only then gutters a balloon crosses
+    for (const [horiz, kind] of [[true, 'gap'], [true, 'line'], [false, 'gap'], [false, 'line'], [true, 'relaxed'], [false, 'relaxed']]) {
+      const relaxed = kind === 'relaxed';
+      if (relaxed && !big) continue;
+      const cuts = kind === 'line' ? lineCuts(r, horiz) : gaps(r, horiz, relaxed); if (!cuts.length) continue;
       const segs = []; let s = horiz ? r.y0 : r.x0;
       for (const [g0, g1] of cuts) { segs.push([s, g0]); s = g1; }
       segs.push([s, horiz ? r.y1 : r.x1]);
@@ -78,6 +113,14 @@ function detectPanels(img, W, H, dir) {
   const area = w * h;
   let ps = leaves.filter(r => (r.x1 - r.x0) * (r.y1 - r.y0) >= area * 0.008);
   if (ps.length > 26 || !ps.length) return [];
+  // slivers (a strip cut off a panel by a slanted line or a tilted scan) belong to the panel next to them
+  for (let guard = 0; guard < 8 && ps.length > 1; guard++) {
+    const k = ps.findIndex(r => (r.x1 - r.x0) < w * 0.07 || (r.y1 - r.y0) < h * 0.045);
+    if (k < 0) break;
+    const sl = ps[k]; ps.splice(k, 1);
+    let bi = 0, bd = Infinity; ps.forEach((r, i) => { const d = Math.hypot(Math.max(0, r.x0 - sl.x1, sl.x0 - r.x1), Math.max(0, r.y0 - sl.y1, sl.y0 - r.y1)); if (d < bd) { bd = d; bi = i; } });
+    const q = ps[bi]; ps[bi] = { x0: Math.min(q.x0, sl.x0), y0: Math.min(q.y0, sl.y0), x1: Math.max(q.x1, sl.x1), y1: Math.max(q.y1, sl.y1) };
+  }
   const white = r => { let ink = 0; for (let y = r.y0; y < r.y1; y += 2) ink += rowInk(y, r.x0, r.x1); return 100 - ink * 2 / Math.max(1, (r.x1 - r.x0) * (r.y1 - r.y0)) * 100; };
   const uni = (a, b) => ({ x0: Math.min(a.x0, b.x0), y0: Math.min(a.y0, b.y0), x1: Math.max(a.x1, b.x1), y1: Math.max(a.y1, b.y1) });
   const dist = (a, b) => Math.hypot(Math.max(0, a.x0 - b.x1, b.x0 - a.x1), Math.max(0, a.y0 - b.y1, b.y0 - a.y1));
@@ -124,7 +167,8 @@ function detectPanels(img, W, H, dir) {
   if (small.length >= 3 && small.length >= ps.length / 2) return [];
   // panels must cover most of the page; otherwise it is an illustration, not a grid
   const cover = ps.reduce((a, r) => a + (r.x1 - r.x0) * (r.y1 - r.y0), 0);
-  if (cover < area * 0.35) return [];
+  if (cover < area * (bleed ? 0.6 : 0.35)) return [];
+  if (bleed && ps.length < 2) return [];
   const px = w * 0.006, py = h * 0.006, BINS = 48;
   // whiteness profile across each panel: balloons are page-coloured, art is not.
   // a wide panel is only ever split where the line runs through art (never through a balloon)
@@ -209,6 +253,121 @@ async function comicSource(rec, blob) {
     close() { },
   };
 }
+
+/* ================= lettering: the translation is written into the balloon itself =================
+   For each balloon: find its real inside (flood fill from the box the AI gave, stopping at the
+   balloon's outline), paint the original words out, then set the translation in a comic lettering face,
+   line by line following the balloon's shape (wide in the middle, narrow at top and bottom),
+   never breaking a word, at one size for the whole page like a professional letterer. */
+const Letter = {
+  font: '"Letreiro","Comic Neue","Comic Sans MS",system-ui,sans-serif',
+  async ready() { try { await document.fonts.load('700 30px "Letreiro"'); } catch (e) { } },
+  same(a, b) { const n = x => String(x || '').toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g, ''); return n(a) === n(b); },
+  region(lum, W, H, box) {
+    let [y0, x0, y1, x1] = box.map(Number); x0 = x0 / 1000 * W; x1 = x1 / 1000 * W; y0 = y0 / 1000 * H; y1 = y1 / 1000 * H;
+    const bw = x1 - x0, bh = y1 - y0; if (bw < 6 || bh < 6) return null;
+    const R = { x0: Math.max(0, Math.floor(x0 - bw * 0.18)), y0: Math.max(0, Math.floor(y0 - bh * 0.18)), x1: Math.min(W, Math.ceil(x1 + bw * 0.18)), y1: Math.min(H, Math.ceil(y1 + bh * 0.18)) };
+    const rw = R.x1 - R.x0, rh = R.y1 - R.y0, m = new Uint8Array(rw * rh), st = [];
+    let mean = 0, cnt = 0;
+    for (let y = Math.floor(y0); y < y1; y++) for (let x = Math.floor(x0); x < x1; x++) { mean += lum[y * W + x]; cnt++; }
+    mean /= Math.max(1, cnt);
+    const dark = mean < 110;
+    const ok = v => dark ? v < 70 : v >= 178;
+    for (let y = Math.floor(y0 + bh * 0.2); y < y1 - bh * 0.2; y += 2) for (let x = Math.floor(x0 + bw * 0.15); x < x1 - bw * 0.15; x += 2) if (ok(lum[y * W + x])) { const k = (y - R.y0) * rw + (x - R.x0); if (!m[k]) { m[k] = 1; st.push(k); } }
+    while (st.length) {
+      const k = st.pop(), x = k % rw, y = (k / rw) | 0;
+      if (x + 1 < rw) { const j = k + 1; if (!m[j] && ok(lum[(y + R.y0) * W + x + 1 + R.x0])) { m[j] = 1; st.push(j); } }
+      if (x > 0) { const j = k - 1; if (!m[j] && ok(lum[(y + R.y0) * W + x - 1 + R.x0])) { m[j] = 1; st.push(j); } }
+      if (y + 1 < rh) { const j = k + rw; if (!m[j] && ok(lum[(y + 1 + R.y0) * W + x + R.x0])) { m[j] = 1; st.push(j); } }
+      if (y > 0) { const j = k - rw; if (!m[j] && ok(lum[(y - 1 + R.y0) * W + x + R.x0])) { m[j] = 1; st.push(j); } }
+    }
+    // panel borders and balloon outlines are long straight dark lines: they are never filled
+    const prot = new Uint8Array(rw * rh), dk = (x, y) => lum[(y + R.y0) * W + x + R.x0] < 110;
+    for (let y = 0; y < rh; y++) { let r0 = -1; for (let x = 0; x <= rw; x++) { const d = x < rw && dk(x, y); if (d && r0 < 0) r0 = x; if (!d && r0 >= 0) { if (x - r0 > bw * 0.45) for (let q = r0; q < x; q++) prot[y * rw + q] = 1; r0 = -1; } } }
+    for (let x = 0; x < rw; x++) { let r0 = -1; for (let y = 0; y <= rh; y++) { const d = y < rh && dk(x, y); if (d && r0 < 0) r0 = y; if (!d && r0 >= 0) { if (y - r0 > bh * 0.45) for (let q = r0; q < y; q++) prot[q * rw + x] = 1; r0 = -1; } } }
+    // the letters are holes in the white: close them, row by row and column by column
+    const L = Math.max(8, Math.round(Math.min(W, H) * 0.03));
+    for (let pass = 0; pass < 2; pass++) {
+      for (let y = 0; y < rh; y++) { let last = -1; for (let x = 0; x < rw; x++) { if (m[y * rw + x]) { if (last >= 0 && x - last > 1 && x - last <= L) { let free = true; for (let q = last + 1; q < x; q++) if (prot[y * rw + q]) { free = false; break; } if (free) for (let q = last + 1; q < x; q++) m[y * rw + q] = 2; } last = x; } } }
+      for (let x = 0; x < rw; x++) { let last = -1; for (let y = 0; y < rh; y++) { if (m[y * rw + x]) { if (last >= 0 && y - last > 1 && y - last <= L) { let free = true; for (let q = last + 1; q < y; q++) if (prot[q * rw + x]) { free = false; break; } if (free) for (let q = last + 1; q < y; q++) m[q * rw + x] = 2; } last = y; } } }
+    }
+    let area = 0, bx0 = rw, by0 = rh, bx1 = 0, by1 = 0;
+    for (let y = 0; y < rh; y++) for (let x = 0; x < rw; x++) if (m[y * rw + x]) { area++; if (x < bx0) bx0 = x; if (x > bx1) bx1 = x; if (y < by0) by0 = y; if (y > by1) by1 = y; }
+    const boxArea = bw * bh;
+    if (area < boxArea * 0.25 || area > boxArea * 2.6) {
+      m.fill(0);
+      bx0 = Math.floor(x0 - R.x0); bx1 = Math.ceil(x1 - R.x0) - 1; by0 = Math.floor(y0 - R.y0); by1 = Math.ceil(y1 - R.y0) - 1;
+      for (let y = by0; y <= by1; y++) for (let x = bx0; x <= bx1; x++) m[y * rw + x] = 1;
+    }
+    return { R, rw, rh, m, bx0, by0, bx1, by1, dark };
+  },
+  span(g, y) {
+    const r = Math.round(y); if (r < g.by0 || r > g.by1) return null;
+    let a = -1, b = -1; for (let x = g.bx0; x <= g.bx1; x++) if (g.m[r * g.rw + x]) { if (a < 0) a = x; b = x; }
+    if (a < 0) return null;
+    const pad = (b - a) * 0.07 + 2; return { a: a + pad, b: b - pad };
+  },
+  layout(cx, g, words, size) {
+    cx.font = `700 ${size}px ${this.font}`;
+    const lh = size * 1.08, cyc = (g.by0 + g.by1) / 2;
+    for (let n = 1; n <= 14; n++) {
+      const top = cyc - n * lh / 2; if (top < g.by0 - 1 || top + n * lh > g.by1 + 1) return null;
+      const lines = []; let i = 0, okAll = true;
+      for (let k = 0; k < n && i < words.length; k++) {
+        const yA = top + k * lh + lh * 0.12, yB = top + (k + 1) * lh - lh * 0.12;
+        const s1 = this.span(g, yA), s2 = this.span(g, yB), s3 = this.span(g, (yA + yB) / 2);
+        if (!s1 || !s2 || !s3) { okAll = false; break; }
+        const a = Math.max(s1.a, s2.a, s3.a), b = Math.min(s1.b, s2.b, s3.b), w = b - a; if (w <= 0) { okAll = false; break; }
+        let line = words[i]; if (cx.measureText(line).width > w) { okAll = false; break; }
+        i++;
+        while (i < words.length && cx.measureText(line + ' ' + words[i]).width <= w) { line += ' ' + words[i]; i++; }
+        lines.push({ text: line, x: (a + b) / 2, y: top + k * lh + lh / 2 });
+      }
+      if (okAll && i >= words.length && lines.length === n) return lines;
+    }
+    return null;
+  },
+  fit(cx, g, words, max) {
+    let lo = Math.max(7, max * 0.3), hi = max;
+    if (!this.layout(cx, g, words, lo)) { lo = 6; if (!this.layout(cx, g, words, lo)) return null; }
+    for (let k = 0; k < 10; k++) { const mid = (lo + hi) / 2; if (this.layout(cx, g, words, mid)) lo = mid; else hi = mid; }
+    return lo;
+  },
+  async render(pg, data) {
+    await this.ready();
+    const W = pg.w, H = pg.h, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const cx = cv.getContext('2d', { willReadFrequently: true }); cx.drawImage(pg.img, 0, 0, W, H);
+    const id = cx.getImageData(0, 0, W, H), px = id.data, lum = new Uint8Array(W * H);
+    for (let i = 0, k = 0; i < lum.length; i++, k += 4) lum[i] = (px[k] * 30 + px[k + 1] * 59 + px[k + 2] * 11) / 100;
+    const jobs = [];
+    for (const it of data.items || []) {
+      if (!it.tr || !Array.isArray(it.box) || it.box.length !== 4) continue;
+      if (it.kind === 'sfx' || this.same(it.tr, it.text)) continue;
+      const g = this.region(lum, W, H, it.box); if (!g) continue;
+      const cols = []; for (let y = g.by0; y <= g.by1; y += 3) for (let x = g.bx0; x <= g.bx1; x += 3) if (g.m[y * g.rw + x] === 1) cols.push(((y + g.R.y0) * W + x + g.R.x0) * 4);
+      const pick = c => { const v = cols.map(k => px[k + c]).sort((a, b) => a - b); return v.length ? v[v.length >> 1] : (g.dark ? 0 : 255); };
+      const fill = [pick(0), pick(1), pick(2)];
+      for (let y = 0; y < g.rh; y++) for (let x = 0; x < g.rw; x++) if (g.m[y * g.rw + x]) { const k = ((y + g.R.y0) * W + x + g.R.x0) * 4; px[k] = fill[0]; px[k + 1] = fill[1]; px[k + 2] = fill[2]; }
+      const up = (String(it.text).match(/[A-Z]/g) || []).length >= (String(it.text).match(/[a-z]/g) || []).length;
+      const words = (up ? String(it.tr).toLocaleUpperCase('pt-BR') : String(it.tr)).replace(/\s+/g, ' ').trim().split(' ');
+      jobs.push({ g, words, fill });
+    }
+    cx.putImageData(id, 0, 0);
+    const cap = W * 0.024, mc = document.createElement('canvas').getContext('2d');
+    for (const j of jobs) j.max = this.fit(mc, j.g, j.words, cap) || 0;
+    const sizes = jobs.map(j => j.max).filter(Boolean).sort((a, b) => a - b);
+    const base = sizes.length ? Math.min(cap, sizes[sizes.length >> 1]) : cap;
+    for (const j of jobs) {
+      const size = Math.min(base, j.max || 0); if (!size) continue;
+      const g = j.g, lines = this.layout(cx, g, j.words, size); if (!lines) continue;
+      cx.save(); cx.translate(g.R.x0, g.R.y0); cx.font = `700 ${size}px ${this.font}`; cx.textAlign = 'center'; cx.textBaseline = 'middle';
+      cx.fillStyle = (g.dark || (j.fill[0] + j.fill[1] + j.fill[2]) / 3 < 110) ? '#fff' : '#141414';
+      for (const l of lines) cx.fillText(l.text, l.x, l.y + size * 0.04);
+      cx.restore();
+    }
+    const blob = await canvasBlob(cv, 'image/jpeg', 0.9); cv.width = cv.height = 0; return blob;
+  },
+};
 
 /* rendered comic pages kept on the device (PDF comics open instantly the second time); oldest go first */
 const PageCache = {
@@ -299,7 +458,7 @@ const Comic = {
     $('#v-comic').append(h); setTimeout(() => h.remove(), 3200);
   },
   size() { return { SW: this.stage.clientWidth || innerWidth, SH: this.stage.clientHeight || innerHeight }; },
-  key(i) { return 'pn:' + this.rec.id + ':' + i + ':' + this.dir + ':v2'; },
+  key(i) { return 'pn:' + this.rec.id + ':' + i + ':' + this.dir + ':v5'; },
   load(i) {
     if (this.cache.has(i)) return this.cache.get(i);
     const p = (async () => {
@@ -324,7 +483,19 @@ const Comic = {
       const n = Math.max(2, Math.ceil((H - vis * 0.1) / (vis * 0.9))), st = (H - vis) / (n - 1);
       return Array.from({ length: n }, (_, k) => ({ x: 0, y: k * st, w: W, h: vis, strip: true }));
     }
-    const ps = pg.panels.map(p => ({ x: p.x * W, y: p.y * H, w: p.w * W, h: p.h * H, cx: p.cx, cy: p.cy }));
+    let ps = pg.panels.map(p => ({ x: p.x * W, y: p.y * H, w: p.w * W, h: p.h * H, cx: p.cx, cy: p.cy }));
+    const ai = pg.tr && Array.isArray(pg.tr.panels) && pg.tr.panels.length ? pg.tr.panels : (Array.isArray(pg.ap) && pg.ap.length ? pg.ap : null);
+    if (ai) {
+      const iou = (a, b) => { const ix = Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)), iy = Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y)), i = ix * iy; return i / (a.w * a.h + b.w * b.h - i); };
+      const used = new Set();
+      ps = ai.map(([y0, x0, y1, x1]) => {
+        const r = { x: x0 / 1000 * W, y: y0 / 1000 * H, w: (x1 - x0) / 1000 * W, h: (y1 - y0) / 1000 * H };
+        let bi = -1, bv = 0.55; ps.forEach((q, k) => { if (used.has(k)) return; const v = iou(r, q); if (v > bv) { bv = v; bi = k; } });
+        if (bi >= 0) { used.add(bi); return ps[bi]; }
+        const m = W * 0.012; return { x: Math.max(0, r.x - m), y: Math.max(0, r.y - m), w: Math.min(W, r.w + 2 * m), h: Math.min(H, r.h + 2 * m) };
+      }).filter(r => r.w > W * 0.04 && r.h > H * 0.03);
+      if (ps.length === 1 && ps[0].w * ps[0].h > W * H * 0.5) return [full];
+    }
     if (ps.length <= 1) return [full];
     const out = S.cFullFirst ? [full] : [];
     const sa = SW / SH;
@@ -354,16 +525,31 @@ const Comic = {
     i = this.viewStart(i);
     try { pg = await this.loadView(i); }
     catch (e) { clearTimeout(ld); $('#c-load').classList.add('hide'); toast(t('pageFail')); return; }
+    if (this.rec.prefs.tr && AI.fn) {
+      const parts = pg.spread ? pg.parts.map(p => p.pg) : [pg];
+      if (parts.some(p => !p.timg)) {
+        clearTimeout(ld); const L = $('#c-load'); L.classList.remove('hide'); L.classList.add('tr');
+        try { await Promise.all(parts.map(p => this.trImage(p))); }
+        catch (e) { if (!this.trWarned) { this.trWarned = true; toast(AI.errText ? AI.errText(e) : String(e.message || e), 4000); } }
+        L.classList.remove('tr');
+      }
+    }
+    else if (AI.fn && !pg.spread && !pg.ap && S.cAiPanels !== false && this.mode === 'quadros') {
+      const lt = setTimeout(() => $('#c-load').classList.remove('hide'), 300);
+      try { await Promise.race([this.aiPanels(pg), new Promise(r => setTimeout(r, 12000))]); } catch (e) { }
+      clearTimeout(lt);
+    }
     clearTimeout(ld); $('#c-load').classList.add('hide');
     if (tok !== this.token) return;
-    const changed = this.cur !== pg;
-    this.cur = pg; this.page = i;
+    const trOn = !!(this.rec.prefs.tr && (pg.spread ? pg.parts.every(p => p.pg.timg) : pg.timg));
+    const changed = this.cur !== pg || this.curTr !== trOn;
+    this.cur = pg; this.page = i; this.curTr = trOn;
     if (changed) {
       let node;
       if (pg.spread) {
         node = el('div', { class: 'c-spread', style: { width: pg.w + 'px', height: pg.h + 'px' } }); node.style.setProperty('--gut', pg.parts[1].x + 'px');
-        for (const p of pg.parts) { Object.assign(p.pg.img.style, { position: 'absolute', left: p.x + 'px', top: '0px', width: p.pg.w * p.s + 'px', height: p.pg.h * p.s + 'px' }); node.append(p.pg.img); }
-      } else { pg.img.style.position = ''; pg.img.style.left = pg.img.style.top = ''; pg.img.style.width = pg.w + 'px'; pg.img.style.height = pg.h + 'px'; node = pg.img; }
+        for (const p of pg.parts) { const im = this.shown(p.pg); Object.assign(im.style, { position: 'absolute', left: p.x + 'px', top: '0px', width: p.pg.w * p.s + 'px', height: p.pg.h * p.s + 'px' }); node.append(im); }
+      } else { node = this.shown(pg); node.style.position = ''; node.style.left = node.style.top = ''; node.style.width = pg.w + 'px'; node.style.height = pg.h + 'px'; }
       if (instant || pg.spread) { node.style.opacity = '1'; node.style.transition = 'none'; this.cam.replaceChildren(node); }
       else { node.style.opacity = '0'; node.style.transition = 'opacity .18s'; this.cam.replaceChildren(node); requestAnimationFrame(() => { node.style.opacity = '1'; }); }
       this.drawTr(pg);
@@ -382,11 +568,11 @@ const Comic = {
   },
   // the next pages are prepared one after the other in the background (and their balloons translated)
   prefetch(i) {
-    const tok = this.token, order = [i + 1, i + 2, i - 1, i + 3].filter(n => n >= 0 && n < this.src.count);
+    const tok = this.token, order = [i + 1, i + 2, i - 1, i + 3, i + 4].filter(n => n >= 0 && n < this.src.count);
     (async () => {
       for (const n of order) {
         if (tok !== this.token) return;
-        try { const pg = await this.load(n); if (this.rec.prefs.tr && AI.fn && !GemTTS.over() && n === i + 1) this.trData(pg).catch(() => { }); } catch (e) { }
+        try { const pg = await this.load(n); if (n <= i + 3 && AI.fn && !GemTTS.over()) { if (this.rec.prefs.tr) await this.trImage(pg).catch(() => { }); else if (this.mode === 'quadros') await this.aiPanels(pg).catch(() => { }); } } catch (e) { }
       }
     })();
   },
@@ -408,7 +594,13 @@ const Comic = {
     this.minimap(r);
   },
   // ---------- page turn that follows the finger ----------
-  canDrag() { const r = this.steps[this.step]; return !!(r && (r.full || this.mode === 'pagina' || (r.strip && this.step === 0))) && !this.turning; },
+  canDrag() {
+    const r = this.steps[this.step]; if (!r || this.turning) return false;
+    if (this.mode === 'pagina' || this.steps.length === 1) return true;
+    // guided reading: the swipe goes panel by panel (the page moves on by itself after the last panel)
+    if (this.mode === 'quadros') return false;
+    return !!(r.strip && this.step === 0);
+  },
   peekEl() { let p = $('#c-peek'); if (!p) { p = el('div', { id: 'c-peek' }); this.stage.prepend(p); } return p; },
   async showPeek(side) {
     // side +1 = the page after (comes from the right in western comics), -1 = the page before
@@ -418,7 +610,7 @@ const Comic = {
     if (p.dataset.side != side) return v;
     const { SW, SH } = this.size(), s = Math.min(SW / v.w, SH / v.h), ox = (SW - v.w * s) / 2, oy = (SH - v.h * s) / 2;
     const parts = v.spread ? v.parts : [{ pg: v, x: 0, s: 1 }];
-    p.replaceChildren(...parts.map(q => { const im = el('img', { src: q.pg.url, alt: '' }); Object.assign(im.style, { width: q.pg.w * q.s * s + 'px', height: q.pg.h * q.s * s + 'px', left: ox + q.x * s + 'px', top: oy + 'px' }); return im; }));
+    p.replaceChildren(...parts.map(q => { const im = el('img', { src: (this.rec.prefs.tr && q.pg.turl) || q.pg.url, alt: '' }); Object.assign(im.style, { width: q.pg.w * q.s * s + 'px', height: q.pg.h * q.s * s + 'px', left: ox + q.x * s + 'px', top: oy + 'px' }); return im; }));
     return v;
   },
   dragMove(dx) {
@@ -483,6 +675,50 @@ const Comic = {
     if (k >= 0) { this.step = k; this.apply(true); this.afterMove(); }
     else if (!r.full) { const f = this.steps.findIndex(s => s.full); if (f >= 0) { this.step = f; this.apply(true); this.afterMove(); } }
   },
+  // panels in reading order from the AI (pages that are translated already get this in the same request)
+  aiPanels(pg) {
+    if (pg.spread || this.rec.prefs.tr || !AI.fn || S.cAiPanels === false || GemTTS.over()) return Promise.resolve(null);
+    if (pg.apP) return pg.apP;
+    const key = 'cpn:' + this.rec.id + ':' + pg.i + ':' + this.dir;
+    pg.apP = (async () => {
+      const c = await DB.get('kv', key).catch(() => null); if (Array.isArray(c)) { pg.ap = c; return c; }
+      const sc = Math.min(1, 1100 / Math.max(pg.w, pg.h)), cv = document.createElement('canvas');
+      cv.width = Math.round(pg.w * sc); cv.height = Math.round(pg.h * sc); cv.getContext('2d').drawImage(pg.img, 0, 0, cv.width, cv.height);
+      const blob = await canvasBlob(cv, 'image/jpeg', 0.8); cv.width = cv.height = 0;
+      const prompt = `This is one page of a comic${this.dir === 'rtl' ? ' (manga, read right to left)' : ''}. List every panel in reading order as tight boxes [ymin, xmin, ymax, xmax] normalized 0-1000 to this image. Follow the art's reading flow: a wide panel on top comes before the row below it; a tall panel at the ${this.dir === 'rtl' ? 'right' : 'left'} comes before the panels stacked beside it; art without a border (open art bleeding to the page edge) is a panel too; a full-page splash is one panel; leave out page margins and gutters. When smaller panels sit on top of a bigger background picture, list the background picture first, as its visible part only (where it is not covered by the panels on top), then the panels on top in their own reading order.
+Return only JSON: {"panels":[[ymin,xmin,ymax,xmax],...]}`;
+      const { text } = await AI.vision(blob, prompt, { json: true, temperature: 0.1 });
+      const j = JSON.parse(String(text).replace(/^```(json)?|```$/g, '').trim());
+      const panels = (j.panels || []).filter(b => Array.isArray(b) && b.length === 4 && b.every(v => isFinite(+v)) && b[2] > b[0] && b[3] > b[1]).map(b => b.map(Number));
+      DB.put('kv', key, panels).catch(() => { }); pg.ap = panels; return panels;
+    })();
+    pg.apP.catch(() => { pg.apP = null; });
+    return pg.apP;
+  },
+  shown(pg) { return (this.rec.prefs.tr && pg.timg) ? pg.timg : pg.img; },
+  // the page with the translation lettered in; made once, kept on the device
+  trImage(pg) {
+    if (!this.rec.prefs.tr || !AI.fn) return Promise.resolve(null);
+    const key = 'ctimg:' + this.rec.id + ':' + pg.i + ':' + this.trLang() + ':v2';
+    if (pg.tKey === key && pg.tPromise) return pg.tPromise;
+    pg.tKey = key;
+    pg.tPromise = (async () => {
+      let blob = null;
+      const have = await DB.getPic(key).catch(() => null); if (have && have.blob && have.blob.size > 1000) blob = have.blob;
+      if (!blob) {
+        let data = null;
+        for (let k = 0; k < 2 && !data; k++) { try { data = await this.trData(pg, k > 0); } catch (e) { if (k || /quota|budget|limite|key/i.test(String(e && e.message))) throw e; } }
+        pg.tr = data;
+        if (!data || !(data.items || []).length) return null;
+        blob = await Letter.render(pg, data);
+        PageCache.add(key, blob);
+      } else pg.tr = await DB.get('kv', 'ctr3:' + this.rec.id + ':' + pg.i + ':' + this.trLang()).catch(() => null);
+      const url = URL.createObjectURL(blob), img = await loadImg(url); try { await img.decode(); } catch (e) { }
+      pg.turl = url; pg.timg = img; return img;
+    })();
+    pg.tPromise.catch(() => { pg.tPromise = null; pg.tKey = null; });
+    return pg.tPromise;
+  },
   // a comic in another language opens with its balloons already in the app language (only pages you open are paid for)
   autoTr(rec) {
     if (rec.prefs.trPick || !AI.fn) return;
@@ -505,10 +741,10 @@ const Comic = {
     }
     this.rec.prefs.tr = on; this.rec.prefs.trPick = true; await saveRec(this.rec);
     $('#c-tr').classList.toggle('on', on);
-    if (this.cur) this.drawTr(this.cur);
+    if (this.cur) { const p = this.page, st = this.step; this.cur = null; this.goto(p, st, false); }
   },
   async trData(pg, force) {
-    const key = 'ctr:' + this.rec.id + ':' + pg.i + ':' + this.trLang();
+    const key = 'ctr3:' + this.rec.id + ':' + pg.i + ':' + this.trLang();
     if (!force) { const c = await DB.get('kv', key).catch(() => null); if (c) return c; }
     if (GemTTS.over()) throw new Error(t('gemBudgetHit', { b: GemTTS.money(GemTTS.budget()) }));
     // the same page asked twice at once (prefetch + opening it) is translated only once
@@ -522,44 +758,20 @@ const Comic = {
     cv.width = Math.round(pg.w * sc); cv.height = Math.round(pg.h * sc); cv.getContext('2d').drawImage(pg.img, 0, 0, cv.width, cv.height);
     const blob = await canvasBlob(cv, 'image/jpeg', 0.85);
     const lang = this.trLang() === 'en' ? 'English' : 'Brazilian Portuguese';
-    const prompt = `This is one page of a comic${this.dir === 'rtl' ? ' (manga, read right to left)' : ''}. Find every speech balloon, thought balloon, caption/narration box and meaningful sound effect with text.
-For each one give its box as [ymin, xmin, ymax, xmax] normalized 0-1000 to this image (the inside of the balloon), the exact original text, and a natural ${lang} translation that keeps tone, humour and character voice (if the text is already in ${lang}, repeat it).
-Rules: one item per balloon, never merge two balloons, never split one balloon; keep names of people and places as they are; keep the same wording for recurring expressions; list items in reading order (${this.dir === 'rtl' ? 'right to left' : 'left to right'}, top to bottom, panel by panel); conf is your confidence 0-1 that the text was read correctly.
-Return only JSON: {"lang":"source language code","items":[{"box":[..],"kind":"speech|thought|caption|sfx","text":"..","tr":"..","conf":0.9}]}`;
+    const prompt = `This is one page of a comic${this.dir === 'rtl' ? ' (manga, read right to left)' : ''}. Find every speech balloon, thought balloon and caption/narration box with text. Leave out sound effects and interjections that read the same in both languages (BLAM, AHH!, HUH?, OH!).
+For each one give its box as [ymin, xmin, ymax, xmax] normalized 0-1000 to this image: tightly around the words inside the balloon, never past the balloon's outline; the exact original text, and a natural ${lang} translation that keeps tone, humour and character voice, about as long as the original so it fits the same balloon (if the text is already in ${lang}, repeat it).
+Rules: one item per balloon, never merge two balloons, never split one balloon; keep names of people and places as they are; keep names of people and places as they are; keep the same wording for recurring expressions; list items in reading order (${this.dir === 'rtl' ? 'right to left' : 'left to right'}, top to bottom, panel by panel); conf is your confidence 0-1 that the text was read correctly.
+Also list every panel of the page in reading order as tight boxes [ymin, xmin, ymax, xmax] normalized 0-1000 (follow the art's reading flow: a wide panel on top comes before the row below it; a tall panel at the left comes before the panels stacked at its right; a full-page splash is one panel; leave out page margins and gutters. When smaller panels sit on top of a bigger background picture, list the background picture first, as its visible part only (where it is not covered by the panels on top), then the panels on top in their own reading order.)
+Return only JSON: {"lang":"source language code","panels":[[..],..],"items":[{"box":[..],"kind":"speech|thought|caption|sfx","text":"..","tr":"..","conf":0.9}]}`;
     const { text } = await AI.vision(blob, prompt, { json: true, temperature: 0.2 });
     const j = JSON.parse(String(text).replace(/^```(json)?|```$/g, '').trim());
     const items = (j.items || []).filter(it => Array.isArray(it.box) && it.box.length === 4 && (it.tr || it.text));
-    const data = { lang: j.lang || '', items };
+    const panels = (j.panels || []).filter(b => Array.isArray(b) && b.length === 4 && b.every(v => isFinite(+v)) && b[2] > b[0] && b[3] > b[1]).map(b => b.map(Number));
+    const data = { lang: j.lang || '', items, panels };
     DB.put('kv', key, data).catch(() => { });
     return data;
   },
-  async drawTr(pg) {
-    this.cam.querySelectorAll('.ctr-layer').forEach(x => x.remove());
-    if (!this.rec.prefs.tr || !AI.fn) return;
-    const cur = this.cur;
-    for (const part of (pg.spread ? pg.parts : [{ pg, x: 0, s: 1 }])) this.drawTrOne(part.pg, part.x, part.s, cur);
-  },
-  async drawTrOne(pg, ox, sc, cur) {
-    const layer = el('div', { class: 'ctr-layer', style: { width: pg.w + 'px', height: pg.h + 'px', left: ox + 'px', transform: sc !== 1 ? `scale(${sc})` : '', transformOrigin: '0 0' } });
-    this.cam.append(layer);
-    let data;
-    try { $('#c-load').classList.remove('hide'); data = await this.trData(pg); }
-    catch (e) { toast(AI.errText(e)); return; }
-    finally { $('#c-load').classList.add('hide'); }
-    if (this.cur !== cur) return;
-    pg.tr = data;
-    for (const it of data.items) {
-      if (it.kind === 'sfx' && !S.cTrSfx) continue;
-      const [y0, x0, y1, x1] = it.box.map(Number), bx = el('div', { class: 'ctr-b' + (it.kind === 'caption' ? ' cap' : '') + ((it.conf ?? 1) < 0.6 ? ' low' : '') });
-      Object.assign(bx.style, { left: x0 / 1000 * pg.w + 'px', top: y0 / 1000 * pg.h + 'px', width: Math.max(20, (x1 - x0) / 1000 * pg.w) + 'px', height: Math.max(16, (y1 - y0) / 1000 * pg.h) + 'px' });
-      const sp = el('span', { text: it.tr || it.text }); bx.append(sp); layer.append(bx);
-      // fit the text inside the balloon
-      let lo = 6, hi = Math.max(10, (y1 - y0) / 1000 * pg.h * 0.5);
-      for (let k = 0; k < 9; k++) { const mid = (lo + hi) / 2; sp.style.fontSize = mid + 'px'; if (sp.scrollHeight <= bx.clientHeight && sp.scrollWidth <= bx.clientWidth) lo = mid; else hi = mid; }
-      sp.style.fontSize = lo + 'px';
-      bx.onclick = e => { e.stopPropagation(); bx.classList.toggle('orig'); sp.textContent = bx.classList.contains('orig') ? it.text : (it.tr || it.text); };
-    }
-  },
+  drawTr() { this.cam.querySelectorAll('.ctr-layer').forEach(x => x.remove()); },
   linesSheet() {
     const pg = this.cur, d = pg && pg.tr;
     Sheets.open({ title: t('cLines'), body: b => {
@@ -684,6 +896,7 @@ Return only JSON: {"lang":"source language code","items":[{"box":[..],"kind":"sp
           wGroup(t('panelView'),
             wToggle(t('fullFirst'), t('fullFirstSub'), S.cFullFirst, v => { setS('cFullFirst', v); this.relayout(); }),
             wToggle(t('splitWide'), t('splitWideSub2'), S.cSplit, v => { setS('cSplit', v); this.relayout(); }),
+            wToggle(t('cAiPanelsT'), t('cAiPanelsSub'), S.cAiPanels !== false, v => { setS('cAiPanels', v); this.relayout(); }),
             wToggle(t('cSpreadT'), t('cSpreadSub'), S.cSpread !== false, v => { setS('cSpread', v); this.cur = null; this.goto(this.page, 0, false); }),
             el('button', { class: 'btn block', style: { margin: '10px 0' }, onclick: () => { Sheets.closeAll(); this.linesSheet(); } }, icon('translate'), t('cLines')),
             el('div', { style: { margin: '12px 0 6px', fontSize: '14px', fontWeight: 600 }, text: t('cDblT') }),
