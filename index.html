@@ -3487,7 +3487,15 @@ For each one give its box as [ymin, xmin, ymax, xmax] normalized 0-1000 to this 
 Rules: one item per balloon, never merge two balloons, never split one balloon; keep names of people and places as they are; keep names of people and places as they are; keep the same wording for recurring expressions; list items in reading order (${this.dir === 'rtl' ? 'right to left' : 'left to right'}, top to bottom, panel by panel); conf is your confidence 0-1 that the text was read correctly.
 Also list every panel of the page in reading order as tight boxes [ymin, xmin, ymax, xmax] normalized 0-1000 (follow the art's reading flow: a wide panel on top comes before the row below it; a tall panel at the left comes before the panels stacked at its right; a full-page splash is one panel; leave out page margins and gutters. When smaller panels sit on top of a bigger background picture, list the background picture first, as its visible part only (where it is not covered by the panels on top), then the panels on top in their own reading order.)
 Return only JSON: {"lang":"source language code","panels":[[..],..],"items":[{"box":[..],"kind":"speech|thought|caption|sfx","text":"..","tr":"..","conf":0.9}]}`;
-    const { text } = await AI.vision(blob, prompt, { json: true, temperature: 0.2, models: ['gemini-flash-lite-latest', 'gemini-2.5-flash-lite', 'gemini-flash-latest'] });
+    // continuity: the pages just before this one, as already translated, so names, terms and each voice stay the same
+    let ctx = '';
+    try {
+      const prev = [];
+      for (const k of [pg.i - 2, pg.i - 1]) { if (k < 0) continue; const d = await DB.get('kv', 'ctr4:' + this.rec.id + ':' + k + ':' + this.trLang()).catch(() => null); if (d && d.items) prev.push(...d.items.filter(x => x.tr && !Letter.same(x.tr, x.text))); }
+      const pairs = prev.slice(-14).map(x => String(x.text).replace(/\s+/g, ' ').slice(0, 140) + ' => ' + String(x.tr).replace(/\s+/g, ' ').slice(0, 160));
+      if (pairs.length) ctx = '\nThe pages just before this one were translated like this; keep names, recurring terms and each character\'s way of speaking consistent with them:\n' + pairs.join('\n');
+    } catch (e) { }
+    const { text } = await AI.vision(blob, prompt + ctx, { json: true, temperature: 0.2, models: ['gemini-flash-lite-latest', 'gemini-2.5-flash-lite', 'gemini-flash-latest'] });
     const j = JSON.parse(String(text).replace(/^```(json)?|```$/g, '').trim());
     // now and then the reply lists each balloon as a run of loose values ([box], kind, text, translation, conf): read those too
     let raw = Array.isArray(j.items) ? j.items : [];
