@@ -685,7 +685,8 @@ const Letter = {
       this.tmode = j.title;
       if (j.title) { const sz = Math.max(4, j.g.capH) / this.capRatio(cx, true); this.tsx = 1; cx.font = this.fontFor(sz); const w = cx.measureText(j.orig).width - (j.g.nLines - 1) * cx.measureText(' ').width; this.tsx = j.tsx = j.g.lineW && w > 0 ? clamp(j.g.lineW / w, 0.8, 1.6) : 1; }
       const g = j.g, cap0 = j.title && g.capH >= 4 ? g.capH : g.capH >= 4 && Math.abs(g.capH - pageCap) > pageCap * 0.3 ? clamp(g.capH, pageCap * 0.75, pageCap * 1.35) : pageCap;
-      for (const f of [1, 0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.65, 0.6]) {
+      // smaller letters before leaving a balloon in the original language (a long word can't be split)
+      for (const f of [1, 0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.65, 0.6, 0.55, 0.5, 0.45, 0.4, 0.35, 0.3]) {
         const cap = cap0 * f, size = cap / (j.title ? this.capRatio(cx, true) : cr), lh = j.title ? (j.g.pitch > 0 ? j.g.pitch * f : cap * 1.5) : cap * pr, pad = Math.max(2, cap * 0.45);
         let t0 = g.t0, b0 = g.b0; g.capE = cap0;
         if (g.open && g.tR > g.tL) { t0 = Math.max(t0, g.tTop - cap0 * 0.9); b0 = Math.min(b0, g.tBot + cap0 * 0.9); }
@@ -1069,7 +1070,7 @@ Return only JSON: {"lang":"source language code","panels":[[..],..],"items":[{"b
   // the page with the translation lettered in; made once, kept on the device
   trImage(pg) {
     if (!this.rec.prefs.tr || !AI.fn) return Promise.resolve(null);
-    const key = 'ctimg:' + this.rec.id + ':' + pg.i + ':' + this.trLang() + ':v4';
+    const key = 'ctimg:' + this.rec.id + ':' + pg.i + ':' + this.trLang() + ':v5';
     if (pg.tKey === key && pg.tPromise) return pg.tPromise;
     pg.tKey = key;
     pg.tPromise = (async () => {
