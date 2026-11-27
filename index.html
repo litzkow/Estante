@@ -2914,9 +2914,14 @@ const Letter = {
           if (inBox.length && comp.length < 20000 && inBox.length <= comp.length * 0.2 && inBox.length <= 600 * (H / 1400) ** 2) for (const k of inBox) { I[k] = 1; mark(k); }
         }
       }
-      if (title) {
-        let p = 0, c = 0; for (let y = by0; y < by1; y++) for (let x = bx0; x < bx1; x++) { c++; if (bg0(L[y * rw + x])) p++; }
-        if (p > c * 0.6) { const m = Math.round(bh * 0.08); for (let y = Math.max(0, by0 - m); y < Math.min(rh, by1 + m); y++) for (let x = Math.max(0, bx0 - m); x < Math.min(rw, bx1 + m); x++) E[y * rw + x] = E[y * rw + x] || 1; }
+      // never half-erased words: if letters inside the box were left (too big, or touching the art), either the whole box
+      // is cleaned (when it is plain paper) or the balloon is left as it is
+      let p = 0, c = 0, ink = 0, gone = 0;
+      for (let y = by0 + 2; y < by1 - 2; y++) for (let x = bx0 + 2; x < bx1 - 2; x++) { const k = y * rw + x; c++; if (bg0(L[k])) p++; else { ink++; if (E[k]) gone++; } }
+      const partial = ink > 0 && gone < ink * 0.85;
+      if (partial && p <= c * 0.6) return null;
+      if (title || partial) {
+        if (p > c * 0.6) { const m = title ? Math.round(bh * 0.08) : 2; for (let y = Math.max(0, by0 - m); y < Math.min(rh, by1 + m); y++) for (let x = Math.max(0, bx0 - m); x < Math.min(rw, bx1 + m); x++) E[y * rw + x] = E[y * rw + x] || 1; }
       }
     } else for (let y = 0; y < rh; y++) for (let x = 0; x < rw; x++) if (I[y * rw + x] && !inEnv(x, y)) I[y * rw + x] = 0;
     const K = new Uint8Array(n); for (let k = 0; k < n; k++) if (I[k] && lab[k] !== best && !bg0(L[k])) K[k] = 1;
@@ -2995,7 +3000,10 @@ const Letter = {
     for (const it of data.items || []) {
       if (!it.tr || !Array.isArray(it.box) || it.box.length !== 4) continue;
       if (it.kind === 'sfx' || this.same(it.tr, it.text) || this.interj(it.text)) continue;
-      const title = it.kind === 'title', g = this.region(lum, W, H, it.box, 1, title); if (!g) continue;
+      // a title: marked so by the AI, or printed in upper and lower case (comic lettering is all capitals)
+      const lc = (String(it.text).match(/[a-z]/g) || []).length, uc = (String(it.text).match(/[A-Z]/g) || []).length;
+      const title = it.kind === 'title' || (lc >= 3 && lc >= (lc + uc) * 0.3);
+      const g = this.region(lum, W, H, it.box, 1, title); if (!g) continue;
       const up = (String(it.text).match(/[A-Z]/g) || []).length >= (String(it.text).match(/[a-z]/g) || []).length;
       jobs.push({ g, title, words: this.words(it.tr, up), orig: String(it.text).replace(/[*\n]/g, ' ').replace(/\s+/g, ' ').trim() });
     }
@@ -3427,7 +3435,7 @@ Return only JSON: {"lang":"source language code","panels":[[..],..],"items":[{"b
   // the page with the translation lettered in; made once, kept on the device
   trImage(pg) {
     if (!this.rec.prefs.tr || !AI.fn) return Promise.resolve(null);
-    const key = 'ctimg:' + this.rec.id + ':' + pg.i + ':' + this.trLang() + ':v5';
+    const key = 'ctimg:' + this.rec.id + ':' + pg.i + ':' + this.trLang() + ':v6';
     if (pg.tKey === key && pg.tPromise) return pg.tPromise;
     pg.tKey = key;
     pg.tPromise = (async () => {
