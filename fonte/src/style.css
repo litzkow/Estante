@@ -616,3 +616,6 @@ html.fp-open,html.fp-open body{background:#141210 !important}
 .gem-ok{margin:10px 2px 0;font-size:14px;font-weight:650;color:#3a9d5d}
 html.sheet-open,html.sheet-open body{background:var(--card) !important}
 .card .cover.fstack.scover .fcount{display:none}
+
+.gsec{grid-column:1/-1;padding:18px 2px 2px}
+.gsec h3{margin:0;font-size:1.05rem;font-weight:700;letter-spacing:-.01em}

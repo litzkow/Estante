@@ -80,7 +80,8 @@ const Family = {
       let dirty = false;
       if (x.work && (b.work !== x.work || b.lang !== x.lang)) { b.work = x.work; b.lang = x.lang; dirty = true; }
       else if (!x.work && x.lang && b.lang !== x.lang) { b.lang = x.lang; dirty = true; }
-      if (x.series && (b.series !== x.series || b.snum !== x.num)) { b.series = x.series; b.snum = x.num; dirty = true; }
+      // extra: same universe, outside the numbered series (shown at the bottom of the folder, "Do mesmo universo")
+      if (x.series && (b.series !== x.series || b.snum !== x.num || !!b.sextra !== !!x.extra)) { b.series = x.series; b.snum = x.extra ? undefined : x.num; b.sextra = !!x.extra; dirty = true; }
       if (x.v && b.fv !== x.v) { b.fv = x.v; dirty = true; }
       if (x.title && b.title !== x.title) { b.title = x.title; dirty = true; }
       if (x.titles && JSON.stringify(b.titles) !== JSON.stringify(x.titles)) { b.titles = x.titles; dirty = true; }

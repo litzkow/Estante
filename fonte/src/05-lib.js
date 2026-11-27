@@ -59,7 +59,7 @@ const Lib = {
       progress: (a, b) => (b.finished ? 1 : b.pct || 0) - (a.finished ? 1 : a.pct || 0),
     }[S.sort] || ((a, b) => 0);
     // a series opened as a folder: its volumes in order
-    if (this.series) return list.filter(b => b.series === this.series).sort((a, b) => (a.snum || 0) - (b.snum || 0) || natCmp(a.title, b.title));
+    if (this.series) return list.filter(b => b.series === this.series).sort((a, b) => sOrd(a) - sOrd(b) || natCmp(bTitle(a), bTitle(b)));
     list.sort(by);
     if (this.q) return list;
     // same universe → one folder on the shelf
@@ -70,7 +70,7 @@ const Lib = {
       if (!f) { f = { folder: true, series: b.series, books: [] }; seen.set(b.series, f); out.push(f); }
       f.books.push(b);
     }
-    for (const f of seen.values()) f.books.sort((a, b) => (a.snum || 0) - (b.snum || 0));
+    for (const f of seen.values()) f.books.sort((a, b) => sOrd(a) - sOrd(b));
     return out.map(x => x.folder && x.books.length === 1 ? x.books[0] : x);
   },
   collections() { const s = new Set(); for (const b of this.books) for (const c of b.collections || []) s.add(c); return [...s].sort(natCmp); },
@@ -102,11 +102,11 @@ const Lib = {
     // chips (or the header of an open folder)
     const chips = $('#l-chips'); chips.replaceChildren();
     if (this.series) {
-      const n = this.books.filter(b => b.series === this.series).length;
-      if (!n) this.series = null;
+      const inF = this.unique().filter(b => b.series === this.series);
+      if (!inF.length) this.series = null;
       else {
         chips.append(el('button', { class: 'chip on', onclick: () => this.closeFolder() }, icon('back'), t('shelfBack')),
-          el('div', { class: 'fhead' }, el('b', { text: serName(this.series) }), el('span', { text: t('nVolumes', { n }) })));
+          el('div', { class: 'fhead' }, el('b', { text: serName(this.series) }), el('span', { text: volCount(inF) })));
         hero.replaceChildren();
       }
     }
@@ -127,7 +127,11 @@ const Lib = {
     const anim = !!this.animNext && !reduceMotion(); this.animNext = false;
     grid.classList.toggle('anim', anim); home.classList.toggle('anim', anim);
     if (isHome) this.renderHome(home, cont);
-    else list.forEach((b, i) => { const c = b.folder ? this.folderCard(b) : this.card(b); c.style.setProperty('--i', Math.min(i, 18)); grid.append(c); });
+    else list.forEach((b, i) => {
+      // inside a series folder: the books of the same universe come after a small heading
+      if (this.series && b.sextra && !(i && list[i - 1].sextra)) grid.append(el('div', { class: 'gsec' }, el('h3', { text: t('sameUniverse') })));
+      const c = b.folder ? this.folderCard(b) : this.card(b); c.style.setProperty('--i', Math.min(i, 18)); grid.append(c);
+    });
     // empty
     const em = $('#l-empty');
     if (!this.books.length) {
@@ -164,7 +168,7 @@ const Lib = {
     // a series is always one folder (like Kindle's "group series"), never spread volume by volume
     const series = new Map();
     for (const b of all) if (b.series) { if (!series.has(b.series)) series.set(b.series, []); series.get(b.series).push(b); }
-    for (const bs of series.values()) bs.sort((a, b) => (a.snum || 0) - (b.snum || 0) || natCmp(a.title, b.title));
+    for (const bs of series.values()) bs.sort((a, b) => sOrd(a) - sOrd(b) || natCmp(bTitle(a), bTitle(b)));
     const last = bs => Math.max(...bs.map(x => x.opened || x.added || 0));
     const group = list => { const out = [], seen = new Set(); for (const b of list) { if (!b.series) { out.push(b); continue; } if (seen.has(b.series)) continue; seen.add(b.series); const bs = series.get(b.series); out.push(bs.length > 1 ? { folder: true, series: b.series, books: bs } : b); } return out; };
     const fresh = all.filter(b => this.isNew(b)).sort((a, b) => (b.added || 0) - (a.added || 0));
@@ -233,7 +237,7 @@ const Lib = {
       bs.some(b => this.isNew(b)) ? el('span', { class: 'newtag', text: t('nNew', { n: bs.filter(b => this.isNew(b)).length }) }) : null);
     return el('div', { class: 'card folder' }, stack,
       el('div', { class: 'crow' }, el('div', { class: 'ctext' }, el('div', { class: 'ctitle', text: serName(f.series) }),
-        el('div', { class: 'cmeta', text: t('nVolumes', { n: bs.length }) + (read ? ' · ' + t('nRead', { n: read }) : started ? ' · ' + t('reading').toLowerCase() : '') }))));
+        el('div', { class: 'cmeta', text: volCount(bs) + (read ? ' · ' + t('nRead', { n: read }) : started ? ' · ' + t('reading').toLowerCase() : '') }))));
   },
   card(b) {
     const cover = el('button', { class: 'cover', 'aria-label': bTitle(b), onclick: e => this.open(b.id, e.currentTarget) }, this.coverEl(b),
@@ -361,6 +365,8 @@ function bTitle(b) {
   }
   return x;
 }
+function sOrd(b) { return b.sextra ? 1e6 : (b.snum || 0); }
+function volCount(bs) { const ex = bs.filter(b => b.sextra).length, n = bs.length - ex; return [n ? t('nVolumes', { n }) : '', ex ? t(ex === 1 ? 'nExtra1' : 'nExtra', { n: ex }) : ''].filter(Boolean).join(' · '); }
 function recCover(b) { return (b && S.lang === 'en' && b.coverEn instanceof Blob) ? b.coverEn : b && b.cover; }
 function serName(s) {
   if (!s) return '';
