@@ -627,3 +627,6 @@ html.sheet-open,html.sheet-open body{background:var(--card) !important}
 .c-spread img{display:block}
 .c-spread::after{content:'';position:absolute;top:0;bottom:0;left:var(--gut,50%);width:40px;transform:translateX(-50%);background:linear-gradient(90deg,transparent,rgba(0,0,0,.18),transparent);pointer-events:none}
 #c-peek img{box-shadow:0 0 36px rgba(0,0,0,.55)}
+#fam-prog{position:fixed;left:50%;bottom:calc(var(--sb) + 84px);transform:translate(-50%,12px);z-index:40;background:rgba(30,30,34,.88);color:#fff;font-size:12.5px;font-weight:500;padding:7px 14px 9px;border-radius:999px;opacity:0;pointer-events:none;transition:opacity .3s,transform .3s;overflow:hidden;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+#fam-prog.on{opacity:1;transform:translate(-50%,0)}
+#fam-prog i{position:absolute;left:0;bottom:0;height:2px;background:var(--accent);transition:width .4s}

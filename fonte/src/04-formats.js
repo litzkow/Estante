@@ -380,19 +380,20 @@ async function importTxt(file) {
   const text = decodeText(await file.arrayBuffer());
   return addRecord({ id: uid(), kind: 'book', format: 'txt', title: cleanTitle(file.name), author: '', fname: file.name, cover: null, prefs: {} }, new Blob([text], { type: 'text/plain' }));
 }
-async function importFiles(list) {
+async function importFiles(list, opts = {}) {
   const files = [...list]; if (!files.length) return;
+  const quiet = !!opts.quiet;   // family sync: no spinner, no message per file, no redraw (it shows everything at once at the end)
   const kinds = await Promise.all(files.map(sniff));
   const images = files.filter((f, i) => kinds[i] === 'image');
   const others = files.map((f, i) => [f, kinds[i]]).filter(([, k]) => k !== 'image');
   let added = 0, last = null;
   const errs = [];
-  busy(t('adding'));
+  if (!quiet) busy(t('adding'));
   try {
     if (images.length) { try { last = await importImages(images); added++; } catch (e) { errs.push(e.message); } }
     let n = 0;
     for (const [f, k] of others) {
-      n++; busy(t('adding') + (others.length > 1 ? ` (${n}/${others.length})` : ''));
+      n++; if (!quiet) busy(t('adding') + (others.length > 1 ? ` (${n}/${others.length})` : ''));
       try {
         if (k === 'zip') {
           const zip = await JSZip.loadAsync(f);
@@ -406,7 +407,8 @@ async function importFiles(list) {
         added++;
       } catch (e) { console.warn(e); errs.push(e && e.message ? e.message : t('errUnknown', { f: f.name })); }
     }
-  } finally { busy(null); }
+  } finally { if (!quiet) busy(null); }
+  if (quiet) { if (errs.length) console.warn('família', errs); return { added, errs }; }
   await Lib.render();
   if (errs.length) Sheets.open({ title: t('someFailed'), center: true, body: b => { for (const m of errs) b.append(el('p', { style: { lineHeight: 1.5 }, text: m })); b.append(el('button', { class: 'btn primary block', text: 'OK', onclick: () => Sheets.close() })); } });
   else if (added === 1 && last) toast(t('addedOne', { t: last.title }));

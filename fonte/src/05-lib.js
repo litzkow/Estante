@@ -76,7 +76,7 @@ const Lib = {
   collections() { const s = new Set(); for (const b of this.books) for (const c of b.collections || []) s.add(c); return [...s].sort(natCmp); },
   async render() {
     for (const u of this.urls) URL.revokeObjectURL(u); this.urls = [];
-    this.books = (await DB.all('books')).filter(b => !b.hidden);
+    this.books = (await DB.all('books')).filter(b => !b.hidden && !(Family.incoming.size && (Family.incoming.has(Family.safe(b.fname || '')) || (b.fileOf && Family.incoming.has(Family.safe(b.fname || ''))))));
     // banner
     const ban = $('#l-banner'); ban.replaceChildren();
     if (!DB.ok || this.memOnly) ban.append(el('div', { class: 'banner' }, icon('info'), el('div', { text: t('memOnly') })));

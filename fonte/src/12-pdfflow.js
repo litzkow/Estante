@@ -217,7 +217,7 @@ class PdfFlow {
 
 /* a PDF that holds several books (a "complete collection") becomes one shelf folder with each book in order.
    The file is stored once; each book only points to its range of pages. */
-async function splitCollections() {
+async function splitCollections(quiet) {
   let changed = false;
   for (const b of await DB.all('books')) {
     if (b.format !== 'pdf' || b.splitChecked || b.fileOf || b.kind === 'comic') continue;
@@ -256,7 +256,8 @@ async function splitCollections() {
     } catch (e) { console.warn('split', e); await DB.put('books', b.id, b).catch(() => { }); }
     finally { closePdf(pdf); }
   }
-  if (changed) { await Lib.render(); toast(t('splitDone')); }
+  if (changed && !quiet) { await Lib.render(); toast(t('splitDone')); }
+  else if (changed && typeof Family !== 'undefined') Family.changed = true;
 }
 
 // cut the white page margin around a cover picture

@@ -645,6 +645,9 @@ html.sheet-open,html.sheet-open body{background:var(--card) !important}
 .c-spread img{display:block}
 .c-spread::after{content:'';position:absolute;top:0;bottom:0;left:var(--gut,50%);width:40px;transform:translateX(-50%);background:linear-gradient(90deg,transparent,rgba(0,0,0,.18),transparent);pointer-events:none}
 #c-peek img{box-shadow:0 0 36px rgba(0,0,0,.55)}
+#fam-prog{position:fixed;left:50%;bottom:calc(var(--sb) + 84px);transform:translate(-50%,12px);z-index:40;background:rgba(30,30,34,.88);color:#fff;font-size:12.5px;font-weight:500;padding:7px 14px 9px;border-radius:999px;opacity:0;pointer-events:none;transition:opacity .3s,transform .3s;overflow:hidden;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+#fam-prog.on{opacity:1;transform:translate(-50%,0)}
+#fam-prog i{position:absolute;left:0;bottom:0;height:2px;background:var(--accent);transition:width .4s}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
@@ -1088,7 +1091,7 @@ const STR = {
   fpSpeed: ['Velocidade', 'Speed'], fpOff: ['Desligado', 'Off'], fpVoice: ['Voz', 'Voice'], fpTimer: ['Timer', 'Sleep timer'], fpDark: ['Tela preta', 'Dark screen'],
   fpEoc: ['Fim do capítulo', 'End of chapter'], fpEocShort: ['fim do cap.', 'end of ch.'], fpEocSet: ['Para no fim do capítulo', 'Stops at the end of the chapter'],
   fpPrevCh: ['Capítulo anterior', 'Previous chapter'], fpNextCh: ['Próximo capítulo', 'Next chapter'], fpBack30: ['Voltar 30 segundos', 'Back 30 seconds'], fpFwd30: ['Avançar 30 segundos', 'Forward 30 seconds'],
-  ttsEnd: ['Fim do livro', 'End of the book'], ttsSlept: ['Leitura pausada pelo timer', 'Paused by the sleep timer'], ttsSleepSet: ['Para em {n} min', 'Stops in {n} min'], shelfBack: ['Estante', 'Shelf'], nVolumes: ['{n} volumes', '{n} volumes'], pagesXYofN: ['Páginas {a}–{b} de {n}', 'Pages {a}–{b} of {n}'], cSpreadT: ['Duas páginas com o aparelho deitado', 'Two pages side by side in landscape'], cSpreadSub: ['No modo página inteira, como um quadrinho aberto nas mãos', 'In whole-page mode, like an open comic in your hands'], nExtra1: ['1 extra', '1 extra'], nExtra: ['{n} extras', '{n} extras'], sameUniverse: ['Do mesmo universo', 'Same universe'], nRead: ['{n} lidos', '{n} read'], volumeN: ['Volume {n}', 'Volume {n}'], hideGoal: ['Esconder da tela inicial', 'Hide from home screen'], hideGoalToast: ['Dá para mostrar de novo em Ajustes', 'You can show it again in Settings'],
+  ttsEnd: ['Fim do livro', 'End of the book'], ttsSlept: ['Leitura pausada pelo timer', 'Paused by the sleep timer'], ttsSleepSet: ['Para em {n} min', 'Stops in {n} min'], shelfBack: ['Estante', 'Shelf'], nVolumes: ['{n} volumes', '{n} volumes'], famUpdating: ['Atualizando a estante · {k} de {n}', 'Updating your shelf · {k} of {n}'], famNewOne: ['1 novidade chegou na estante', '1 new title on your shelf'], famNewMany: ['{n} novidades chegaram na estante', '{n} new titles on your shelf'], pagesXYofN: ['Páginas {a}–{b} de {n}', 'Pages {a}–{b} of {n}'], cSpreadT: ['Duas páginas com o aparelho deitado', 'Two pages side by side in landscape'], cSpreadSub: ['No modo página inteira, como um quadrinho aberto nas mãos', 'In whole-page mode, like an open comic in your hands'], nExtra1: ['1 extra', '1 extra'], nExtra: ['{n} extras', '{n} extras'], sameUniverse: ['Do mesmo universo', 'Same universe'], nRead: ['{n} lidos', '{n} read'], volumeN: ['Volume {n}', 'Volume {n}'], hideGoal: ['Esconder da tela inicial', 'Hide from home screen'], hideGoalToast: ['Dá para mostrar de novo em Ajustes', 'You can show it again in Settings'],
   comfortAuto: ['Automático (recomendado)', 'Automatic (recommended)'], comfortAutoSub: ['Deixa a tela mais quente e um pouco mais escura à noite, como o Night Shift', 'Makes the screen warmer and slightly dimmer at night, like Night Shift'],
   homeScreen: ['Tela inicial e leitura', 'Home screen and reading'], showGoal: ['Mostrar meta de leitura', 'Show reading goal'], showGoalSub: ['Minutos lidos hoje e dias seguidos', 'Minutes read today and day streak'], showContinue: ['Mostrar "Continuar lendo"', 'Show "Continue reading"'],
   pagesLeft: ['{n} páginas até o fim do capítulo', '{n} pages left in chapter'], pageLeft1: ['1 página até o fim do capítulo', '1 page left in chapter'], lastPageCh: ['Última página do capítulo', 'Last page in chapter'],
@@ -1915,19 +1918,20 @@ async function importTxt(file) {
   const text = decodeText(await file.arrayBuffer());
   return addRecord({ id: uid(), kind: 'book', format: 'txt', title: cleanTitle(file.name), author: '', fname: file.name, cover: null, prefs: {} }, new Blob([text], { type: 'text/plain' }));
 }
-async function importFiles(list) {
+async function importFiles(list, opts = {}) {
   const files = [...list]; if (!files.length) return;
+  const quiet = !!opts.quiet;   // family sync: no spinner, no message per file, no redraw (it shows everything at once at the end)
   const kinds = await Promise.all(files.map(sniff));
   const images = files.filter((f, i) => kinds[i] === 'image');
   const others = files.map((f, i) => [f, kinds[i]]).filter(([, k]) => k !== 'image');
   let added = 0, last = null;
   const errs = [];
-  busy(t('adding'));
+  if (!quiet) busy(t('adding'));
   try {
     if (images.length) { try { last = await importImages(images); added++; } catch (e) { errs.push(e.message); } }
     let n = 0;
     for (const [f, k] of others) {
-      n++; busy(t('adding') + (others.length > 1 ? ` (${n}/${others.length})` : ''));
+      n++; if (!quiet) busy(t('adding') + (others.length > 1 ? ` (${n}/${others.length})` : ''));
       try {
         if (k === 'zip') {
           const zip = await JSZip.loadAsync(f);
@@ -1941,7 +1945,8 @@ async function importFiles(list) {
         added++;
       } catch (e) { console.warn(e); errs.push(e && e.message ? e.message : t('errUnknown', { f: f.name })); }
     }
-  } finally { busy(null); }
+  } finally { if (!quiet) busy(null); }
+  if (quiet) { if (errs.length) console.warn('família', errs); return { added, errs }; }
   await Lib.render();
   if (errs.length) Sheets.open({ title: t('someFailed'), center: true, body: b => { for (const m of errs) b.append(el('p', { style: { lineHeight: 1.5 }, text: m })); b.append(el('button', { class: 'btn primary block', text: 'OK', onclick: () => Sheets.close() })); } });
   else if (added === 1 && last) toast(t('addedOne', { t: last.title }));
@@ -2025,7 +2030,7 @@ const Lib = {
   collections() { const s = new Set(); for (const b of this.books) for (const c of b.collections || []) s.add(c); return [...s].sort(natCmp); },
   async render() {
     for (const u of this.urls) URL.revokeObjectURL(u); this.urls = [];
-    this.books = (await DB.all('books')).filter(b => !b.hidden);
+    this.books = (await DB.all('books')).filter(b => !b.hidden && !(Family.incoming.size && (Family.incoming.has(Family.safe(b.fname || '')) || (b.fileOf && Family.incoming.has(Family.safe(b.fname || ''))))));
     // banner
     const ban = $('#l-banner'); ban.replaceChildren();
     if (!DB.ok || this.memOnly) ban.append(el('div', { class: 'banner' }, icon('info'), el('div', { text: t('memOnly') })));
@@ -5167,7 +5172,7 @@ class PdfFlow {
 
 /* a PDF that holds several books (a "complete collection") becomes one shelf folder with each book in order.
    The file is stored once; each book only points to its range of pages. */
-async function splitCollections() {
+async function splitCollections(quiet) {
   let changed = false;
   for (const b of await DB.all('books')) {
     if (b.format !== 'pdf' || b.splitChecked || b.fileOf || b.kind === 'comic') continue;
@@ -5206,7 +5211,8 @@ async function splitCollections() {
     } catch (e) { console.warn('split', e); await DB.put('books', b.id, b).catch(() => { }); }
     finally { closePdf(pdf); }
   }
-  if (changed) { await Lib.render(); toast(t('splitDone')); }
+  if (changed && !quiet) { await Lib.render(); toast(t('splitDone')); }
+  else if (changed && typeof Family !== 'undefined') Family.changed = true;
 }
 
 // cut the white page margin around a cover picture
@@ -5801,7 +5807,17 @@ const Family = {
   async catalog() {
     try { const c = await this.api(this.repo() + '/contents/obras.json', { raw: true, ok404: true }); if (!c.ok) return null; const j = await c.json(); return Array.isArray(j) ? j : null; } catch (e) { console.warn('obras', e); return null; }
   },
-  async tag(cat) {
+  incoming: new Set(),
+  // one small, quiet line while new things download (no names flashing by)
+  progress(k, n) {
+    let p = $('#fam-prog');
+    if (!n) { if (p) p.classList.remove('on'); return; }
+    if (!p) { p = el('div', { id: 'fam-prog' }, el('i'), el('span')); document.body.append(p); }
+    p.lastChild.textContent = t('famUpdating', { k, n });
+    p.firstChild.style.width = Math.round((k - 1) / n * 100) + '%';
+    p.classList.add('on');
+  },
+  async tag(cat, defer) {
     let ch = false; const covers = new Map();
     for (const b of await DB.all('books')) {
       const x = cat.find(x => this.safe(x.file) === this.safe(b.fname || '')); if (!x) continue;
@@ -5831,10 +5847,10 @@ const Family = {
       }
       if (dirty) { await DB.put('books', b.id, b); ch = true; }
     }
-    if (ch) await Lib.render();
+    if (ch) { if (defer) this.changed = true; else await Lib.render(); }
   },
   // series.json in the family library: a cover of its own for each series folder, one per app language
-  async seriesCovers() {
+  async seriesCovers(defer) {
     try {
       const r = await this.api(this.repo() + '/contents/series.json', { raw: true, ok404: true }); if (!r.ok) return;
       const list = await r.json(); if (!Array.isArray(list)) return;
@@ -5852,7 +5868,7 @@ const Family = {
       }
       const old = (await DB.get('kv', 'scov:list').catch(() => null)) || [];
       if (JSON.stringify(old) !== JSON.stringify(names)) { await DB.put('kv', 'scov:list', names); ch = true; }
-      if (ch) { await Lib.loadSeriesCovers(); await Lib.render(); }
+      if (ch) { await Lib.loadSeriesCovers(); if (defer) this.changed = true; else await Lib.render(); }
     } catch (e) { console.warn('capas das séries', e); }
   },
   // new files from the family library → this phone
@@ -5873,17 +5889,24 @@ const Family = {
       const have = new Set((await DB.all('books')).map(b => this.safe(b.fname || '')));
       const got = new Set(S.famGot || []);
       const todo = remote.filter(f => !have.has(f.name) && !got.has(f.sha) && !gone.has(f.name));
-      for (const f of todo) {
-        if (!quiet) toast(t('famDownloading', { f: f.name }));
-        const r = await this.api(this.repo() + '/contents/' + f.path.split('/').map(encodeURIComponent).join('/'), { raw: true });
-        const blob = await r.blob();
-        this.importing = true;
-        try { await importFiles([new File([blob], f.name)]); } finally { this.importing = false; }
-        got.add(f.sha); setS('famGot', [...got]);
-      }
-      if (todo.length || gone.size) { await splitCollections(); await Lib.render(); }
-      if (cat) await this.tag(cat);
-      await this.seriesCovers();
+      // everything new comes down quietly and stays out of sight; then the shelf changes once, already named and with covers
+      for (const f of todo) this.incoming.add(f.name);
+      let k = 0;
+      try {
+        for (const f of todo) {
+          this.progress(++k, todo.length);
+          const r = await this.api(this.repo() + '/contents/' + f.path.split('/').map(encodeURIComponent).join('/'), { raw: true });
+          const blob = await r.blob();
+          this.importing = true;
+          try { await importFiles([new File([blob], f.name)], { quiet: true }); } finally { this.importing = false; }
+          got.add(f.sha); setS('famGot', [...got]);
+        }
+        if (todo.length || gone.size) await splitCollections(true);
+        if (cat) await this.tag(cat, true);
+        await this.seriesCovers(true);
+      } finally { this.incoming.clear(); this.progress(0, 0); }
+      if (todo.length || gone.size || this.changed) { this.changed = false; await Lib.render(); }
+      if (todo.length) toast(todo.length === 1 ? t('famNewOne') : t('famNewMany', { n: todo.length }), 3500);
       await this.takeKey();
       GemTTS.report(true); GemTTS.checkFamily();
     } catch (e) { if (!quiet) toast(e.message || String(e)); console.warn('family', e); }

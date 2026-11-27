@@ -73,7 +73,17 @@ const Family = {
   async catalog() {
     try { const c = await this.api(this.repo() + '/contents/obras.json', { raw: true, ok404: true }); if (!c.ok) return null; const j = await c.json(); return Array.isArray(j) ? j : null; } catch (e) { console.warn('obras', e); return null; }
   },
-  async tag(cat) {
+  incoming: new Set(),
+  // one small, quiet line while new things download (no names flashing by)
+  progress(k, n) {
+    let p = $('#fam-prog');
+    if (!n) { if (p) p.classList.remove('on'); return; }
+    if (!p) { p = el('div', { id: 'fam-prog' }, el('i'), el('span')); document.body.append(p); }
+    p.lastChild.textContent = t('famUpdating', { k, n });
+    p.firstChild.style.width = Math.round((k - 1) / n * 100) + '%';
+    p.classList.add('on');
+  },
+  async tag(cat, defer) {
     let ch = false; const covers = new Map();
     for (const b of await DB.all('books')) {
       const x = cat.find(x => this.safe(x.file) === this.safe(b.fname || '')); if (!x) continue;
@@ -103,10 +113,10 @@ const Family = {
       }
       if (dirty) { await DB.put('books', b.id, b); ch = true; }
     }
-    if (ch) await Lib.render();
+    if (ch) { if (defer) this.changed = true; else await Lib.render(); }
   },
   // series.json in the family library: a cover of its own for each series folder, one per app language
-  async seriesCovers() {
+  async seriesCovers(defer) {
     try {
       const r = await this.api(this.repo() + '/contents/series.json', { raw: true, ok404: true }); if (!r.ok) return;
       const list = await r.json(); if (!Array.isArray(list)) return;
@@ -124,7 +134,7 @@ const Family = {
       }
       const old = (await DB.get('kv', 'scov:list').catch(() => null)) || [];
       if (JSON.stringify(old) !== JSON.stringify(names)) { await DB.put('kv', 'scov:list', names); ch = true; }
-      if (ch) { await Lib.loadSeriesCovers(); await Lib.render(); }
+      if (ch) { await Lib.loadSeriesCovers(); if (defer) this.changed = true; else await Lib.render(); }
     } catch (e) { console.warn('capas das séries', e); }
   },
   // new files from the family library → this phone
@@ -145,17 +155,24 @@ const Family = {
       const have = new Set((await DB.all('books')).map(b => this.safe(b.fname || '')));
       const got = new Set(S.famGot || []);
       const todo = remote.filter(f => !have.has(f.name) && !got.has(f.sha) && !gone.has(f.name));
-      for (const f of todo) {
-        if (!quiet) toast(t('famDownloading', { f: f.name }));
-        const r = await this.api(this.repo() + '/contents/' + f.path.split('/').map(encodeURIComponent).join('/'), { raw: true });
-        const blob = await r.blob();
-        this.importing = true;
-        try { await importFiles([new File([blob], f.name)]); } finally { this.importing = false; }
-        got.add(f.sha); setS('famGot', [...got]);
-      }
-      if (todo.length || gone.size) { await splitCollections(); await Lib.render(); }
-      if (cat) await this.tag(cat);
-      await this.seriesCovers();
+      // everything new comes down quietly and stays out of sight; then the shelf changes once, already named and with covers
+      for (const f of todo) this.incoming.add(f.name);
+      let k = 0;
+      try {
+        for (const f of todo) {
+          this.progress(++k, todo.length);
+          const r = await this.api(this.repo() + '/contents/' + f.path.split('/').map(encodeURIComponent).join('/'), { raw: true });
+          const blob = await r.blob();
+          this.importing = true;
+          try { await importFiles([new File([blob], f.name)], { quiet: true }); } finally { this.importing = false; }
+          got.add(f.sha); setS('famGot', [...got]);
+        }
+        if (todo.length || gone.size) await splitCollections(true);
+        if (cat) await this.tag(cat, true);
+        await this.seriesCovers(true);
+      } finally { this.incoming.clear(); this.progress(0, 0); }
+      if (todo.length || gone.size || this.changed) { this.changed = false; await Lib.render(); }
+      if (todo.length) toast(todo.length === 1 ? t('famNewOne') : t('famNewMany', { n: todo.length }), 3500);
       await this.takeKey();
       GemTTS.report(true); GemTTS.checkFamily();
     } catch (e) { if (!quiet) toast(e.message || String(e)); console.warn('family', e); }
