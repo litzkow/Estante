@@ -1097,7 +1097,7 @@ const STR = {
   fpSpeed: ['Velocidade', 'Speed'], fpOff: ['Desligado', 'Off'], fpVoice: ['Voz', 'Voice'], fpTimer: ['Timer', 'Sleep timer'], fpDark: ['Tela preta', 'Dark screen'],
   fpEoc: ['Fim do capítulo', 'End of chapter'], fpEocShort: ['fim do cap.', 'end of ch.'], fpEocSet: ['Para no fim do capítulo', 'Stops at the end of the chapter'],
   fpPrevCh: ['Capítulo anterior', 'Previous chapter'], fpNextCh: ['Próximo capítulo', 'Next chapter'], fpBack30: ['Voltar 30 segundos', 'Back 30 seconds'], fpFwd30: ['Avançar 30 segundos', 'Forward 30 seconds'],
-  ttsEnd: ['Fim do livro', 'End of the book'], ttsSlept: ['Leitura pausada pelo timer', 'Paused by the sleep timer'], ttsSleepSet: ['Para em {n} min', 'Stops in {n} min'], shelfBack: ['Estante', 'Shelf'], nVolumes: ['{n} volumes', '{n} volumes'], cRotLand: ['↻ Deite o celular para ver este quadro maior', '↻ Turn your phone sideways to see this panel bigger'], cRotPort: ['↻ Vire o celular em pé para ver este quadro maior', '↻ Turn your phone upright to see this panel bigger'], cRotT: ['Avisar quando virar o celular ajuda', 'Tell me when turning the phone helps'], cRotSub: ['Quadro largo fica maior deitado, quadro alto fica maior em pé. Ao girar, você continua no mesmo quadro.', 'Wide panels are bigger sideways, tall ones upright. Turning keeps you on the same panel.'], cAiPanelsT: ['Ordem dos quadros pela IA', 'Panel order by AI'], cAiPanelsSub: ['Acha cada quadro e a ordem certa, mesmo em páginas difíceis. Em quadrinho traduzido já vem junto, sem custo extra; nos outros, cerca de US$0,20 por volume.', 'Finds every panel and the right order, even on tricky pages. Free with translated comics; about $0.20 per volume otherwise.'], famUpdating: ['Atualizando a estante · {k} de {n}', 'Updating your shelf · {k} of {n}'], famNewOne: ['1 novidade chegou na estante', '1 new title on your shelf'], famNewMany: ['{n} novidades chegaram na estante', '{n} new titles on your shelf'], pagesXYofN: ['Páginas {a}–{b} de {n}', 'Pages {a}–{b} of {n}'], cSpreadT: ['Duas páginas com o aparelho deitado', 'Two pages side by side in landscape'], cSpreadSub: ['No modo página inteira, como um quadrinho aberto nas mãos', 'In whole-page mode, like an open comic in your hands'], nExtra1: ['1 extra', '1 extra'], nExtra: ['{n} extras', '{n} extras'], sameUniverse: ['Do mesmo universo', 'Same universe'], nRead: ['{n} lidos', '{n} read'], volumeN: ['Volume {n}', 'Volume {n}'], hideGoal: ['Esconder da tela inicial', 'Hide from home screen'], hideGoalToast: ['Dá para mostrar de novo em Ajustes', 'You can show it again in Settings'],
+  ttsEnd: ['Fim do livro', 'End of the book'], ttsSlept: ['Leitura pausada pelo timer', 'Paused by the sleep timer'], ttsSleepSet: ['Para em {n} min', 'Stops in {n} min'], shelfBack: ['Estante', 'Shelf'], nVolumes: ['{n} volumes', '{n} volumes'], cTrFail: ['Não deu para traduzir esta página', 'Could not translate this page'], cRotLand: ['↻ Deite o celular para ver este quadro maior', '↻ Turn your phone sideways to see this panel bigger'], cRotPort: ['↻ Vire o celular em pé para ver este quadro maior', '↻ Turn your phone upright to see this panel bigger'], cRotT: ['Avisar quando virar o celular ajuda', 'Tell me when turning the phone helps'], cRotSub: ['Quadro largo fica maior deitado, quadro alto fica maior em pé. Ao girar, você continua no mesmo quadro.', 'Wide panels are bigger sideways, tall ones upright. Turning keeps you on the same panel.'], cAiPanelsT: ['Ordem dos quadros pela IA', 'Panel order by AI'], cAiPanelsSub: ['Acha cada quadro e a ordem certa, mesmo em páginas difíceis. Em quadrinho traduzido já vem junto, sem custo extra; nos outros, cerca de US$0,20 por volume.', 'Finds every panel and the right order, even on tricky pages. Free with translated comics; about $0.20 per volume otherwise.'], famUpdating: ['Atualizando a estante · {k} de {n}', 'Updating your shelf · {k} of {n}'], famNewOne: ['1 novidade chegou na estante', '1 new title on your shelf'], famNewMany: ['{n} novidades chegaram na estante', '{n} new titles on your shelf'], pagesXYofN: ['Páginas {a}–{b} de {n}', 'Pages {a}–{b} of {n}'], cSpreadT: ['Duas páginas com o aparelho deitado', 'Two pages side by side in landscape'], cSpreadSub: ['No modo página inteira, como um quadrinho aberto nas mãos', 'In whole-page mode, like an open comic in your hands'], nExtra1: ['1 extra', '1 extra'], nExtra: ['{n} extras', '{n} extras'], sameUniverse: ['Do mesmo universo', 'Same universe'], nRead: ['{n} lidos', '{n} read'], volumeN: ['Volume {n}', 'Volume {n}'], hideGoal: ['Esconder da tela inicial', 'Hide from home screen'], hideGoalToast: ['Dá para mostrar de novo em Ajustes', 'You can show it again in Settings'],
   comfortAuto: ['Automático (recomendado)', 'Automatic (recommended)'], comfortAutoSub: ['Deixa a tela mais quente e um pouco mais escura à noite, como o Night Shift', 'Makes the screen warmer and slightly dimmer at night, like Night Shift'],
   homeScreen: ['Tela inicial e leitura', 'Home screen and reading'], showGoal: ['Mostrar meta de leitura', 'Show reading goal'], showGoalSub: ['Minutos lidos hoje e dias seguidos', 'Minutes read today and day streak'], showContinue: ['Mostrar "Continuar lendo"', 'Show "Continue reading"'],
   pagesLeft: ['{n} páginas até o fim do capítulo', '{n} pages left in chapter'], pageLeft1: ['1 página até o fim do capítulo', '1 page left in chapter'], lastPageCh: ['Última página do capítulo', 'Last page in chapter'],
@@ -3146,6 +3146,8 @@ const Comic = {
     this.showUI(true);
     Resume.apply(rec);
     const pos = rec.pos || {};
+    // earlier versions could leave the translation switched off for good: once per comic, back to automatic
+    if (!rec.prefs.trFix1) { rec.prefs.trFix1 = true; delete rec.prefs.trPick; saveRec(rec).catch(() => { }); }
     this.autoTr(rec);
     $('#c-tr').classList.toggle('on', !!rec.prefs.tr);
     await this.goto(clamp(pos.page || 0, 0, this.src.count - 1), pos.step || 0, false);
@@ -3215,12 +3217,13 @@ const Comic = {
     i = this.viewStart(i);
     try { pg = await this.loadView(i); }
     catch (e) { clearTimeout(ld); $('#c-load').classList.add('hide'); toast(t('pageFail')); return; }
+    if (!this.rec.prefs.tr && !this.rec.prefs.trPick && AI.fn) { this.autoTr(this.rec); $('#c-tr').classList.toggle('on', !!this.rec.prefs.tr); }
     if (this.rec.prefs.tr && AI.fn) {
       const parts = pg.spread ? pg.parts.map(p => p.pg) : [pg];
       if (parts.some(p => !p.timg)) {
         clearTimeout(ld); const L = $('#c-load'); L.classList.remove('hide'); L.classList.add('tr');
         try { await Promise.all(parts.map(p => this.trImage(p))); }
-        catch (e) { if (!this.trWarned) { this.trWarned = true; toast(AI.errText ? AI.errText(e) : String(e.message || e), 4000); } }
+        catch (e) { if (!this.trWarned || Date.now() - this.trWarned > 20000) { this.trWarned = Date.now(); toast(t('cTrFail') + ' · ' + (AI.errText ? AI.errText(e) : String(e.message || e)), 5000); } }
         L.classList.remove('tr');
       }
     }
@@ -3413,7 +3416,7 @@ Return only JSON: {"lang":"source language code","panels":[[..],..],"items":[{"b
         if (!data || !(data.items || []).length) return null;
         blob = await Letter.render(pg, data);
         PageCache.add(key, blob);
-      } else pg.tr = await DB.get('kv', 'ctr3:' + this.rec.id + ':' + pg.i + ':' + this.trLang()).catch(() => null);
+      } else pg.tr = await DB.get('kv', 'ctr4:' + this.rec.id + ':' + pg.i + ':' + this.trLang()).catch(() => null);
       const url = URL.createObjectURL(blob), img = await loadImg(url); try { await img.decode(); } catch (e) { }
       pg.turl = url; pg.timg = img; return img;
     })();
@@ -3423,8 +3426,9 @@ Return only JSON: {"lang":"source language code","panels":[[..],..],"items":[{"b
   // a comic in another language opens with its balloons already in the app language (only pages you open are paid for)
   autoTr(rec) {
     if (rec.prefs.trPick || !AI.fn) return;
-    const app = S.lang === 'en' ? 'en' : 'pt', src = (rec.lang || '').slice(0, 2);
-    if (src && src !== app) { rec.prefs.tr = true; rec.prefs.trTo = app; rec.prefs.trAuto = true; }
+    const app = S.lang === 'en' ? 'en' : 'pt', src = (rec.lang || '').slice(0, 2).toLowerCase();
+    // language not known yet: translate anyway (a balloon already in the app language is left as it is, for free)
+    if (src !== app) { rec.prefs.tr = true; rec.prefs.trTo = app; rec.prefs.trAuto = true; }
     else if (rec.prefs.trAuto) { rec.prefs.tr = false; rec.prefs.trAuto = false; }
   },
   // ---------- translated balloons (AI reads the page, finds each balloon and translates it) ----------
@@ -3445,7 +3449,7 @@ Return only JSON: {"lang":"source language code","panels":[[..],..],"items":[{"b
     if (this.cur) { const p = this.page, st = this.step; this.cur = null; this.goto(p, st, false); }
   },
   async trData(pg, force) {
-    const key = 'ctr3:' + this.rec.id + ':' + pg.i + ':' + this.trLang();
+    const key = 'ctr4:' + this.rec.id + ':' + pg.i + ':' + this.trLang();
     if (!force) { const c = await DB.get('kv', key).catch(() => null); if (c) return c; }
     if (GemTTS.over()) throw new Error(t('gemBudgetHit', { b: GemTTS.money(GemTTS.budget()) }));
     // the same page asked twice at once (prefetch + opening it) is translated only once

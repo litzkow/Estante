@@ -790,6 +790,8 @@ const Comic = {
     this.showUI(true);
     Resume.apply(rec);
     const pos = rec.pos || {};
+    // earlier versions could leave the translation switched off for good: once per comic, back to automatic
+    if (!rec.prefs.trFix1) { rec.prefs.trFix1 = true; delete rec.prefs.trPick; saveRec(rec).catch(() => { }); }
     this.autoTr(rec);
     $('#c-tr').classList.toggle('on', !!rec.prefs.tr);
     await this.goto(clamp(pos.page || 0, 0, this.src.count - 1), pos.step || 0, false);
@@ -859,12 +861,13 @@ const Comic = {
     i = this.viewStart(i);
     try { pg = await this.loadView(i); }
     catch (e) { clearTimeout(ld); $('#c-load').classList.add('hide'); toast(t('pageFail')); return; }
+    if (!this.rec.prefs.tr && !this.rec.prefs.trPick && AI.fn) { this.autoTr(this.rec); $('#c-tr').classList.toggle('on', !!this.rec.prefs.tr); }
     if (this.rec.prefs.tr && AI.fn) {
       const parts = pg.spread ? pg.parts.map(p => p.pg) : [pg];
       if (parts.some(p => !p.timg)) {
         clearTimeout(ld); const L = $('#c-load'); L.classList.remove('hide'); L.classList.add('tr');
         try { await Promise.all(parts.map(p => this.trImage(p))); }
-        catch (e) { if (!this.trWarned) { this.trWarned = true; toast(AI.errText ? AI.errText(e) : String(e.message || e), 4000); } }
+        catch (e) { if (!this.trWarned || Date.now() - this.trWarned > 20000) { this.trWarned = Date.now(); toast(t('cTrFail') + ' · ' + (AI.errText ? AI.errText(e) : String(e.message || e)), 5000); } }
         L.classList.remove('tr');
       }
     }
@@ -1057,7 +1060,7 @@ Return only JSON: {"lang":"source language code","panels":[[..],..],"items":[{"b
         if (!data || !(data.items || []).length) return null;
         blob = await Letter.render(pg, data);
         PageCache.add(key, blob);
-      } else pg.tr = await DB.get('kv', 'ctr3:' + this.rec.id + ':' + pg.i + ':' + this.trLang()).catch(() => null);
+      } else pg.tr = await DB.get('kv', 'ctr4:' + this.rec.id + ':' + pg.i + ':' + this.trLang()).catch(() => null);
       const url = URL.createObjectURL(blob), img = await loadImg(url); try { await img.decode(); } catch (e) { }
       pg.turl = url; pg.timg = img; return img;
     })();
@@ -1067,8 +1070,9 @@ Return only JSON: {"lang":"source language code","panels":[[..],..],"items":[{"b
   // a comic in another language opens with its balloons already in the app language (only pages you open are paid for)
   autoTr(rec) {
     if (rec.prefs.trPick || !AI.fn) return;
-    const app = S.lang === 'en' ? 'en' : 'pt', src = (rec.lang || '').slice(0, 2);
-    if (src && src !== app) { rec.prefs.tr = true; rec.prefs.trTo = app; rec.prefs.trAuto = true; }
+    const app = S.lang === 'en' ? 'en' : 'pt', src = (rec.lang || '').slice(0, 2).toLowerCase();
+    // language not known yet: translate anyway (a balloon already in the app language is left as it is, for free)
+    if (src !== app) { rec.prefs.tr = true; rec.prefs.trTo = app; rec.prefs.trAuto = true; }
     else if (rec.prefs.trAuto) { rec.prefs.tr = false; rec.prefs.trAuto = false; }
   },
   // ---------- translated balloons (AI reads the page, finds each balloon and translates it) ----------
@@ -1089,7 +1093,7 @@ Return only JSON: {"lang":"source language code","panels":[[..],..],"items":[{"b
     if (this.cur) { const p = this.page, st = this.step; this.cur = null; this.goto(p, st, false); }
   },
   async trData(pg, force) {
-    const key = 'ctr3:' + this.rec.id + ':' + pg.i + ':' + this.trLang();
+    const key = 'ctr4:' + this.rec.id + ':' + pg.i + ':' + this.trLang();
     if (!force) { const c = await DB.get('kv', key).catch(() => null); if (c) return c; }
     if (GemTTS.over()) throw new Error(t('gemBudgetHit', { b: GemTTS.money(GemTTS.budget()) }));
     // the same page asked twice at once (prefetch + opening it) is translated only once
