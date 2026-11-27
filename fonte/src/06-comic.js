@@ -217,6 +217,34 @@ function uncover(list) {
   return out;
 }
 
+/* the panels from the picture analysis (exact borders, reading order from the page's rows and columns) and the
+   panels the AI saw (it catches panels the analysis missed or cut in two) are combined:
+   the analysis order wins, an AI box that holds several analysed pieces joins them, an AI-only panel is put
+   right after the panel the AI read before it, and an analysed panel the AI forgot is kept in its place */
+function mergePanels(hs, as, W, H) {
+  const inter = (a, b) => Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)) * Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
+  as = as.filter(r => r.w > W * 0.04 && r.h > H * 0.03);
+  const pad = r => { const m = W * 0.012; return { x: Math.max(0, r.x - m), y: Math.max(0, r.y - m), w: Math.min(W, r.w + 2 * m), h: Math.min(H, r.h + 2 * m) }; };
+  if (!hs.length) return uncover(as.map(pad));
+  const items = hs.map((h, k) => ({ pos: k, r: h, gone: false }));
+  let lastPos = -1;
+  for (const a of as) {
+    const cov = hs.map((h, k) => k).filter(k => inter(a, hs[k]) >= hs[k].w * hs[k].h * 0.6);
+    if (cov.length >= 2) {
+      // one panel the picture analysis cut in pieces: join them (only when the AI box is about that size)
+      const x0 = Math.min(...cov.map(k => hs[k].x)), y0 = Math.min(...cov.map(k => hs[k].y)), x1 = Math.max(...cov.map(k => hs[k].x + hs[k].w)), y1 = Math.max(...cov.map(k => hs[k].y + hs[k].h));
+      const U = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+      if (a.w * a.h <= U.w * U.h * 1.4 && cov.every(k => !items[k].gone)) { cov.forEach(k => items[k].gone = true); items.push({ pos: Math.min(...cov), r: U, gone: false }); }
+      lastPos = Math.max(...cov); continue;
+    }
+    if (cov.length === 1) { lastPos = cov[0]; continue; }
+    // a panel only the AI saw (the analysis missed it): only where no analysed panel already is
+    const over = hs.reduce((t, h) => t + inter(a, h), 0);
+    if (over < a.w * a.h * 0.25 && a.w * a.h > W * H * 0.03) { items.push({ pos: lastPos + 0.5, r: pad(a), gone: false }); lastPos += 0.01; }
+  }
+  return uncover(items.filter(i => !i.gone).sort((p, q) => p.pos - q.pos).map(i => i.r));
+}
+
 /* split very wide / very tall panels so text stays big on the screen */
 function splitPanel(p, sa, dir) {
   if (!S.cSplit) return [p];
@@ -515,18 +543,8 @@ const Comic = {
     }
     let ps = pg.panels.map(p => ({ x: p.x * W, y: p.y * H, w: p.w * W, h: p.h * H, cx: p.cx, cy: p.cy }));
     const ai = pg.tr && Array.isArray(pg.tr.panels) && pg.tr.panels.length ? pg.tr.panels : (Array.isArray(pg.ap) && pg.ap.length ? pg.ap : null);
-    if (ai) {
-      const iou = (a, b) => { const ix = Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)), iy = Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y)), i = ix * iy; return i / (a.w * a.h + b.w * b.h - i); };
-      const used = new Set();
-      ps = ai.map(([y0, x0, y1, x1]) => {
-        const r = { x: x0 / 1000 * W, y: y0 / 1000 * H, w: (x1 - x0) / 1000 * W, h: (y1 - y0) / 1000 * H };
-        let bi = -1, bv = 0.55; ps.forEach((q, k) => { if (used.has(k)) return; const v = iou(r, q); if (v > bv) { bv = v; bi = k; } });
-        if (bi >= 0) { used.add(bi); return ps[bi]; }
-        const m = W * 0.012; return { x: Math.max(0, r.x - m), y: Math.max(0, r.y - m), w: Math.min(W, r.w + 2 * m), h: Math.min(H, r.h + 2 * m) };
-      }).filter(r => r.w > W * 0.04 && r.h > H * 0.03);
-      ps = uncover(ps);
-      if (ps.length === 1 && ps[0].w * ps[0].h > W * H * 0.5) return [full];
-    }
+    if (ai) ps = mergePanels(ps, ai.map(([y0, x0, y1, x1]) => ({ x: x0 / 1000 * W, y: y0 / 1000 * H, w: (x1 - x0) / 1000 * W, h: (y1 - y0) / 1000 * H })), W, H);
+    if (ai && ps.length === 1 && ps[0].w * ps[0].h > W * H * 0.5) return [full];
     if (ps.length <= 1) return [full];
     const out = S.cFullFirst ? [full] : [];
     const sa = SW / SH;
@@ -607,11 +625,18 @@ const Comic = {
       }
     })();
   },
+  safe() {
+    if (!this.safeEl) { this.safeEl = el('div', { style: { position: 'fixed', left: 0, top: 0, width: '1px', height: '1px', visibility: 'hidden', pointerEvents: 'none', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' } }); document.body.append(this.safeEl); }
+    const cs = getComputedStyle(this.safeEl); return { t: parseFloat(cs.paddingTop) || 0, b: parseFloat(cs.paddingBottom) || 0 };
+  },
   rectFor(r) {
-    const { SW, SH } = this.size();
+    const { SW, SH } = this.size(), sa = this.safe();
+    // the clock, Wi-Fi and battery at the top and the home bar at the bottom never cover a panel
+    const top = sa.t + (r.full || r.strip ? 0 : 6), bot = sa.b + (r.full || r.strip ? 0 : 6), AH = SH - top - bot;
     const pad = r.full || r.strip ? 0 : Math.min(14, SW * 0.03);
-    const s = Math.min((SW - 2 * pad) / r.w, (SH - 2 * pad) / r.h);
-    return { s, tx: (SW - r.w * s) / 2 - r.x * s, ty: (SH - r.h * s) / 2 - r.y * s, sx: (SW - r.w * s) / 2, sy: (SH - r.h * s) / 2, sw: r.w * s, sh: r.h * s };
+    const s = Math.min((SW - 2 * pad) / r.w, (AH - 2 * pad) / r.h);
+    const sx = (SW - r.w * s) / 2, sy = top + (AH - r.h * s) / 2;
+    return { s, tx: sx - r.x * s, ty: sy - r.y * s, sx, sy, sw: r.w * s, sh: r.h * s };
   },
   apply(animate) {
     const r = this.steps[this.step]; if (!r) return;
