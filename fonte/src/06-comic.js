@@ -867,7 +867,7 @@ const Comic = {
       if (parts.some(p => !p.timg)) {
         clearTimeout(ld); const L = $('#c-load'); L.classList.remove('hide'); L.classList.add('tr');
         try { await Promise.all(parts.map(p => this.trImage(p))); }
-        catch (e) { if (!this.trWarned || Date.now() - this.trWarned > 20000) { this.trWarned = Date.now(); toast(t('cTrFail') + ' · ' + (AI.errText ? AI.errText(e) : String(e.message || e)), 5000); } }
+        catch (e) { if (!this.trWarned || Date.now() - this.trWarned > 20000) { this.trWarned = Date.now(); toast(t('cTrFail') + ' · ' + (e && e.code ? AI.errText(e) : String((e && e.message) || e).slice(0, 90)), 6000); } }
         L.classList.remove('tr');
       }
     }
@@ -1051,21 +1051,40 @@ Return only JSON: {"lang":"source language code","panels":[[..],..],"items":[{"b
     if (pg.tKey === key && pg.tPromise) return pg.tPromise;
     pg.tKey = key;
     pg.tPromise = (async () => {
-      let blob = null;
-      const have = await DB.getPic(key).catch(() => null); if (have && have.blob && have.blob.size > 1000) blob = have.blob;
-      if (!blob) {
-        let data = null;
-        for (let k = 0; k < 2 && !data; k++) { try { data = await this.trData(pg, k > 0); } catch (e) { if (k || /quota|budget|limite|key/i.test(String(e && e.message))) throw e; } }
-        pg.tr = data;
-        if (!data || !(data.items || []).length) return null;
-        blob = await Letter.render(pg, data);
-        PageCache.add(key, blob);
-      } else pg.tr = await DB.get('kv', 'ctr4:' + this.rec.id + ':' + pg.i + ':' + this.trLang()).catch(() => null);
-      const url = URL.createObjectURL(blob), img = await loadImg(url); try { await img.decode(); } catch (e) { }
-      pg.turl = url; pg.timg = img; return img;
+      let blob = null, stage = 'cache';
+      try {
+        const have = await DB.getPic(key).catch(() => null); if (have && have.blob && have.blob.size > 1000) blob = have.blob;
+        if (!blob) {
+          let data = null; stage = 'ai';
+          for (let k = 0; k < 2 && !data; k++) { try { data = await this.trData(pg, k > 0); } catch (e) { if (k || /quota|budget|limite|key/i.test(String(e && e.message))) throw e; } }
+          pg.tr = data;
+          if (!data || !(data.items || []).length) return null;
+          stage = 'letter';
+          try { blob = await Letter.render(pg, data); }
+          catch (e) {
+            // a phone short of memory: letter a smaller copy of the page
+            this.diag(e, 'letter-full', pg);
+            const sc = Math.min(1, 1100 / pg.w), cv = document.createElement('canvas'); cv.width = Math.round(pg.w * sc); cv.height = Math.round(pg.h * sc);
+            cv.getContext('2d').drawImage(pg.img, 0, 0, cv.width, cv.height);
+            blob = await Letter.render({ img: cv, w: cv.width, h: cv.height }, data); cv.width = cv.height = 0;
+          }
+          PageCache.add(key, blob);
+        } else pg.tr = await DB.get('kv', 'ctr4:' + this.rec.id + ':' + pg.i + ':' + this.trLang()).catch(() => null);
+        stage = 'show';
+        const url = URL.createObjectURL(blob), img = await loadImg(url); try { await img.decode(); } catch (e) { }
+        pg.turl = url; pg.timg = img; return img;
+      } catch (e) { this.diag(e, stage, pg); throw e; }
     })();
     pg.tPromise.catch(() => { pg.tPromise = null; pg.tKey = null; });
     return pg.tPromise;
+  },
+  // what went wrong with a page's translation is written to the family library (diag/<device>.json), so it can be looked into
+  diag(e, stage, pg) {
+    try {
+      const now = Date.now(); if (this.diagAt && now - this.diagAt < 30000) return; this.diagAt = now;
+      const x = { at: new Date().toISOString(), stage, msg: String((e && e.message) || e).slice(0, 300), code: e && e.code, stack: String((e && e.stack) || '').slice(0, 900), page: pg && pg.i, w: pg && pg.w, h: pg && pg.h, model: S.gemModel || '', ua: navigator.userAgent, title: this.rec && this.rec.title };
+      if (typeof Family !== 'undefined' && Family.putJSON) Family.putJSON('diag/' + GemTTS.devId() + '.json', x, 'Estante: diagnóstico da tradução').catch(() => { });
+    } catch (er) { }
   },
   // a comic in another language opens with its balloons already in the app language (only pages you open are paid for)
   autoTr(rec) {
