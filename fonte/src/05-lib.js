@@ -35,8 +35,25 @@ const Lib = {
     if (rec.series && rec.snum) { const k = seriesKey(rec.series); return this.books.find(b => b.id !== rec.id && b.snum === rec.snum && b.series && seriesKey(b.series) === k && b.lang && rec.lang && b.lang !== rec.lang) || null; }
     return null;
   },
-  // new = arrived in the last 3 weeks and never opened (like the NEW tag in Apple Books)
-  isNew(b) { return !b.opened && !b.pct && b.added && Date.now() - b.added < 21 * 864e5; },
+  // new = arrived in the last week and never opened or set aside (like the NEW tag in Apple Books)
+  isNew(b) { return !b.seen && !b.opened && !b.pct && b.added && Date.now() - b.added < 7 * 864e5; },
+  // back to the shelf as never opened: out of "Reading now" and "Continue reading" (translations already paid stay saved)
+  async unstart(b) {
+    b.pct = 0; b.pos = null; b.opened = 0; b.prevOpened = 0; b.seen = true; b.finished = false;
+    await saveRec(b); this.render(); toast(t('unstartDone'));
+  },
+  // one tidy-up on Thiago's phone (27/11/2026): everything opened only to test goes back to unread, only Harry Potter
+  // keeps its place; and what is already on the shelf stops showing as new
+  async tidyOnce() {
+    if (S.tidy1 || S.devId !== 'd7w6plvn') return;
+    for (const b of await DB.all('books')) {
+      let ch = false;
+      if (!b.seen) { b.seen = true; ch = true; }
+      if (b.series !== 'Harry Potter' && !b.finished && (b.pct || b.opened || b.pos)) { b.pct = 0; b.pos = null; b.opened = 0; b.prevOpened = 0; ch = true; }
+      if (ch) await DB.put('books', b.id, b);
+    }
+    setS('tidy1', true);
+  },
   unique() {
     const list = this.books.slice(), pick = new Map();
     for (const b of list) if (b.work) { const o = pick.get(b.work); const score = x => ((x.lang || '').startsWith(S.lang === 'en' ? 'en' : 'pt') ? 1e14 : 0) + (x.opened || 0); if (!o || score(b) > score(o)) pick.set(b.work, b); }
@@ -262,6 +279,7 @@ const Lib = {
         item('folder', t('collections'), () => this.collectionsFor(b), '', (b.collections || []).join(', ') || null);
         if (b.format === 'pdf' && b.kind !== 'comic') item('book', b.pdfView === 'page' ? t('pdfAsBook') : t('pdfAsPages'), async () => { b.pdfView = b.pdfView === 'page' ? 'book' : 'page'; b.pos = null; await saveRec(b); this.render(); });
         if (b.format === 'pdf') item('flip', b.kind === 'comic' ? t('openAsBook') : t('openAsComic'), async () => { b.kind = b.kind === 'comic' ? 'book' : 'comic'; b.pos = null; await saveRec(b); this.render(); toast(b.kind === 'comic' ? t('nowComic') : t('nowBook')); });
+        if ((b.pct > 0 || b.opened) && !b.finished) item('x', t('unstart'), () => this.unstart(b), '', t('unstartSub'));
         item('check', b.finished ? t('markUnread') : t('markRead'), async () => { b.finished = !b.finished; if (b.finished) b.pct = 1; else if (b.pct >= 1) b.pct = 0.99; await saveRec(b); this.render(); });
         item('trash', t('remove'), async () => {
           if (await Sheets.confirm(t('removeQ'), t('removeText', { t: b.title }), t('remove'), true)) {

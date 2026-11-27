@@ -117,6 +117,7 @@ const App = {
     applyTheme(); applyComfort(); applyI18n();
     Comic.init(); Book.init(); PdfBook.init(); TTS.init();
     await Lib.loadSeriesCovers().catch(() => { });
+    await Lib.tidyOnce().catch(() => { });
     // library controls
     $('#l-add').onclick = () => $('#l-file').click();
     $('#l-file').onchange = async e => { const f = [...e.target.files]; e.target.value = ''; await importFiles(f); await splitCollections(); Family.afterImport(f); };

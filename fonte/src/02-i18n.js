@@ -129,6 +129,7 @@ const STR = {
   details: ['Detalhes', 'Details'], editDetails: ['Editar título e autor', 'Edit title and author'], collections: ['Coleções', 'Collections'],
   newCollection: ['Nova coleção', 'New collection'], collectionPh: ['Ex.: Marvel, Clássicos, Para ler', 'e.g. Marvel, Classics, To read'], noCollections: ['Nenhuma coleção ainda. Crie uma para organizar sua estante.', 'No collections yet. Create one to organize your shelf.'],
   openAsBook: ['Abrir como livro', 'Open as book'], openAsComic: ['Abrir como HQ', 'Open as comic'], nowComic: ['Agora abre como HQ', 'Now opens as a comic'], nowBook: ['Agora abre como livro', 'Now opens as a book'],
+  unstart: ['Tirar de Lendo agora', 'Remove from Reading now'], unstartSub: ['Volta a ficar como não começado', 'Goes back to not started'], unstartDone: ['Tirado de Lendo agora', 'Removed from Reading now'],
   markRead: ['Marcar como lido', 'Mark as read'], markUnread: ['Marcar como não lido', 'Mark as unread'],
   remove: ['Remover', 'Remove'], removeQ: ['Remover da estante?', 'Remove from shelf?'], removeText: ['"{t}" sai deste aparelho. O arquivo original continua onde estava.', '"{t}" will be removed from this device. Your original file stays where it was.'], removed: ['Removido', 'Removed'],
   title: ['Título', 'Title'], author: ['Autor', 'Author'], type: ['Tipo', 'Type'], format: ['Formato', 'Format'], pagesLbl: ['Páginas', 'Pages'], chaptersLbl: ['Capítulos', 'Chapters'], size: ['Tamanho', 'Size'], file: ['Arquivo', 'File'],
