@@ -211,11 +211,23 @@ const Lib = {
   },
   openFolder(s) { this.series = s; this.animNext = true; this.render(); $('#v-lib').scrollTo({ top: 0, behavior: 'smooth' }); },
   closeFolder() { this.series = null; this.animNext = true; this.render(); },
+  scov: {},
+  async loadSeriesCovers() {
+    for (const u of Object.values(this.scov)) for (const x of Object.values(u)) URL.revokeObjectURL(x);
+    this.scov = {};
+    const names = (await DB.get('kv', 'scov:list').catch(() => null)) || [];
+    for (const n of names) for (const lg of ['pt', 'en']) {
+      const v = await DB.get('kv', 'scov:' + n + ':' + lg).catch(() => null);
+      if (v && v.blob) (this.scov[n] = this.scov[n] || {})[lg] = URL.createObjectURL(v.blob);
+    }
+  },
+  seriesCover(s) { const c = this.scov[s]; return c && (c[S.lang === 'en' ? 'en' : 'pt'] || c.pt || c.en); },
   folderCard(f) {
     const bs = f.books, top = bs.slice(0, 3).reverse();
     const read = bs.filter(b => b.finished).length, started = bs.some(b => b.pct > 0);
-    const stack = el('button', { class: 'cover fstack', 'aria-label': serName(f.series), onclick: () => this.openFolder(f.series) },
-      ...top.map((b, i) => el('div', { class: 'fs', style: { '--k': top.length - 1 - i } }, this.coverEl(b))),
+    const sc = this.seriesCover(f.series);
+    const stack = el('button', { class: 'cover fstack' + (sc ? ' scover' : ''), 'aria-label': serName(f.series), onclick: () => this.openFolder(f.series) },
+      ...(sc ? [el('img', { src: sc, alt: '', decoding: 'async' })] : top.map((b, i) => el('div', { class: 'fs', style: { '--k': top.length - 1 - i } }, this.coverEl(b)))),
       el('span', { class: 'fcount' }, icon('folder'), String(bs.length)),
       bs.some(b => this.isNew(b)) ? el('span', { class: 'newtag', text: t('nNew', { n: bs.filter(b => this.isNew(b)).length }) }) : null);
     return el('div', { class: 'card folder' }, stack,

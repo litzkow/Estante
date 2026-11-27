@@ -96,6 +96,28 @@ const Family = {
     }
     if (ch) await Lib.render();
   },
+  // series.json in the family library: a cover of its own for each series folder, one per app language
+  async seriesCovers() {
+    try {
+      const r = await this.api(this.repo() + '/contents/series.json', { raw: true, ok404: true }); if (!r.ok) return;
+      const list = await r.json(); if (!Array.isArray(list)) return;
+      let ch = false; const names = [];
+      for (const x of list) {
+        if (!x.series || !x.cover) continue; names.push(x.series);
+        for (const lg of ['pt', 'en']) {
+          const path = x.cover[lg]; if (!path) continue;
+          const k = 'scov:' + x.series + ':' + lg, tg = path + '#' + (x.v || 1);
+          const have = await DB.get('kv', k).catch(() => null); if (have && have.tag === tg) continue;
+          const res = await this.api(this.repo() + '/contents/' + path.split('/').map(encodeURIComponent).join('/'), { raw: true, ok404: true }); if (!res.ok) continue;
+          const bl = await res.blob(); if (bl.size < 2000) continue;
+          await DB.put('kv', k, { tag: tg, blob: new Blob([bl], { type: 'image/jpeg' }) }); ch = true;
+        }
+      }
+      const old = (await DB.get('kv', 'scov:list').catch(() => null)) || [];
+      if (JSON.stringify(old) !== JSON.stringify(names)) { await DB.put('kv', 'scov:list', names); ch = true; }
+      if (ch) { await Lib.loadSeriesCovers(); await Lib.render(); }
+    } catch (e) { console.warn('capas das séries', e); }
+  },
   // new files from the family library → this phone
   async sync(quiet) {
     if (!this.on || this.syncing) return;
@@ -124,6 +146,7 @@ const Family = {
       }
       if (todo.length || gone.size) { await splitCollections(); await Lib.render(); }
       if (cat) await this.tag(cat);
+      await this.seriesCovers();
       await this.takeKey();
       GemTTS.report(true); GemTTS.checkFamily();
     } catch (e) { if (!quiet) toast(e.message || String(e)); console.warn('family', e); }
