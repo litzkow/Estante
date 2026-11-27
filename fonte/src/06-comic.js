@@ -848,7 +848,8 @@ const Comic = {
   computeSteps(pg) {
     const W = pg.w, H = pg.h, { SW, SH } = this.size(), full = { x: 0, y: 0, w: W, h: H, full: true };
     const m = this.mode;
-    if (m === 'pagina') return [full];
+    // an issue cover put in front of each issue is shown whole
+    if (m === 'pagina' || this.isCover(pg)) return [full];
     if (m === 'largura') {
       const s = SW / W, vis = SH / s;
       if (vis >= H * 0.97) return [full];
@@ -1052,7 +1053,7 @@ const Comic = {
   },
   // panels in reading order from the AI (pages that are translated already get this in the same request)
   aiPanels(pg) {
-    if (pg.spread || this.rec.prefs.tr || !AI.fn || S.cAiPanels === false || GemTTS.over()) return Promise.resolve(null);
+    if (pg.spread || this.isCover(pg) || this.rec.prefs.tr || !AI.fn || S.cAiPanels === false || GemTTS.over()) return Promise.resolve(null);
     if (pg.apP) return pg.apP;
     const key = 'cpn:' + this.rec.id + ':' + pg.i + ':' + this.dir;
     pg.apP = (async () => {
@@ -1074,10 +1075,11 @@ Return only JSON: {"lang":"source language code","panels":[[..],..],"items":[{"b
     pg.apP.catch(() => { pg.apP = null; });
     return pg.apP;
   },
+  isCover(pg) { return !pg.spread && Array.isArray(this.rec.ins) && this.rec.ins.includes(pg.i); },
   shown(pg) { return (this.rec.prefs.tr && pg.timg) ? pg.timg : pg.img; },
   // the page with the translation lettered in; made once, kept on the device
   trImage(pg) {
-    if (!this.rec.prefs.tr || !AI.fn) return Promise.resolve(null);
+    if (!this.rec.prefs.tr || !AI.fn || this.isCover(pg)) return Promise.resolve(null);
     const key = 'ctimg:' + this.rec.id + ':' + pg.i + ':' + this.trLang() + ':v6';
     if (pg.tKey === key && pg.tPromise) return pg.tPromise;
     pg.tKey = key;

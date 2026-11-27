@@ -93,6 +93,7 @@ const Family = {
       // extra: same universe, outside the numbered series (shown at the bottom of the folder, "Do mesmo universo")
       if (x.series && (b.series !== x.series || b.snum !== x.num || !!b.sextra !== !!x.extra)) { b.series = x.series; b.snum = x.extra ? undefined : x.num; b.sextra = !!x.extra; dirty = true; }
       if (x.v && b.fv !== x.v) { b.fv = x.v; dirty = true; }
+      if (Array.isArray(x.ins) && JSON.stringify(b.ins || []) !== JSON.stringify(x.ins)) { b.ins = x.ins.slice(); dirty = true; }
       if (x.kind && b.kind !== x.kind) { b.kind = x.kind; b.pos = null; dirty = true; }
       if (x.title && b.title !== x.title) { b.title = x.title; dirty = true; }
       if (x.titles && JSON.stringify(b.titles) !== JSON.stringify(x.titles)) { b.titles = x.titles; dirty = true; }
@@ -137,6 +138,29 @@ const Family = {
       if (ch) { await Lib.loadSeriesCovers(); if (defer) this.changed = true; else await Lib.render(); }
     } catch (e) { console.warn('capas das séries', e); }
   },
+  // a comic that got pages put in (issue covers): the new file replaces the old one in place, and everything kept per page
+  // (translations already paid, panel order, where the reader stopped) moves along to the page's new number
+  async reflow(b, x, remote) {
+    const f = remote.find(f => f.name === this.safe(x.file)); if (!f) throw new Error('file not listed');
+    const r = await this.api(this.repo() + '/contents/' + f.path.split('/').map(encodeURIComponent).join('/'), { raw: true });
+    const blob = await r.blob(); if (!blob.size) throw new Error('empty');
+    const oldIns = (b.ins || []).slice().sort((a, b) => a - b), newIns = x.ins.slice().sort((a, b) => a - b);
+    const toOrig = o => oldIns.includes(o) ? -1 : o - oldIns.filter(p => p < o).length;
+    const toNew = q => { let n = q; for (const p of newIns) if (p <= n) n++; return n; };
+    const map = o => { const q = toOrig(o); return q < 0 ? -1 : toNew(q); };
+    const keys = async p => { try { return await DB._do('kv', 'readonly', s => s.getAllKeys(IDBKeyRange.bound(p, p + '\uffff'))); } catch (e) { return []; } };
+    for (const p of ['ctr5:', 'ctimg:', 'cpn:']) {
+      const pre = p + b.id + ':', moved = [];
+      for (const k of await keys(pre)) { const rest = String(k).slice(pre.length).split(':'), i = +rest[0]; moved.push([k, rest, await DB.get('kv', k)]); }
+      await DB.delPrefix('kv', pre);
+      for (const [, rest, v] of moved) { const n = map(+rest[0]); if (n >= 0 && v != null) await DB.put('kv', pre + [n, ...rest.slice(1)].join(':'), v); }
+    }
+    for (const p of ['cpg:', 'th:', 'pn:']) await DB.delPrefix('kv', p + b.id + ':');
+    await DB.put('files', b.id, blob);
+    if (b.pos && b.pos.page != null) { const n = map(b.pos.page); if (n >= 0) b.pos.page = n; b.pos.step = 0; }
+    b.pages = (b.pages || 0) - oldIns.length + newIns.length; b.ins = newIns; b.fv = x.v;
+    await DB.put('books', b.id, b);
+  },
   // new files from the family library → this phone
   async sync(quiet) {
     if (!this.on || this.syncing) return;
@@ -147,6 +171,7 @@ const Family = {
       // a file that was fixed in the family library (v changed): drop the old copy so the new one comes down
       if (cat) for (const x of cat.filter(x => x.v)) {
         const all = await DB.all('books'), b = all.find(b => this.safe(b.fname || '') === this.safe(x.file));
+        if (b && b.fv !== x.v && Array.isArray(x.ins) && b.kind === 'comic') { try { await this.reflow(b, x, remote); continue; } catch (e) { console.warn('reflow', e); } }
         if (b && b.fv !== x.v) for (const d of all.filter(d => d.id === b.id || d.fileOf === b.id)) { await DB.del('books', d.id); await DB.del('files', d.id); await DB.delPrefix('kv', 'pn:' + d.id + ':'); }
       }
       // removed from the family library (remove: true): take it off this phone too and never bring it back
