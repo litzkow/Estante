@@ -52,8 +52,31 @@ function detectPanels(img, W, H, dir) {
         const lo = fr(Math.max(a, p - 4)), hi = fr(Math.min(b - 1, q + 7));
         let ok = q - p + 1 <= maxT + 3 && lo < 0.6 && hi < 0.6;
         // a thin upright line can be a door or a post inside a picture: only a real border has a clean gutter beside it
+        // a real frame line runs the whole height without a break; a line drawn in the art (a wall, a post) fades or breaks
+                // a line drawn in the art (a wall corner, a post) is never as solid as a printed frame line
+        if (ok && !horiz && q - p + 1 < thick) { let mf = 0; for (let z = p; z <= q; z++) mf = Math.max(mf, fr(z)); if (mf < 0.88) ok = false; }
         if (ok && !horiz && q - p + 1 < thick) { ok = false; for (let d = 2; d <= Math.round(span * 0.05); d++) if ((p - d >= a && clear(p - d)) || (q + d < b && clear(q + d))) { ok = true; break; } }
         if (ok) out.push([p, q + 5]);
+        p = q + 1;
+      } else p++;
+    }
+    return out;
+  };
+  // black gutters: panels laid on a black page. A band where nearly every pixel is dark, at least a few pixels wide,
+  // with a picture (mostly not dark) on both sides
+  const darkGaps = (r, horiz) => {
+    const { x0, y0, x1, y1 } = r, len = horiz ? x1 - x0 : y1 - y0, a = horiz ? y0 : x0, b = horiz ? y1 : x1, span = b - a;
+    const fr = p => (horiz ? rowDark(p, x0, x1) : colDark(p, y0, y1)) / Math.max(1, len);
+    const side = (p0, p1) => { let t = 0, n = 0; for (let p = Math.max(a, p0); p < Math.min(b, p1); p++) { t += fr(p); n++; } return n ? 1 - t / n : 0; };
+    // only where the panels sit on a black page: the band's two ends run into black too
+    const ends = horiz ? [colDark(x0, y0, y1), colDark(x1 - 1, y0, y1)].map(v => v / Math.max(1, y1 - y0)) : [rowDark(y0, x0, x1), rowDark(y1 - 1, x0, x1)].map(v => v / Math.max(1, x1 - x0));
+    void ends;
+    const need = Math.max(4, Math.round((horiz ? h : w) * 0.02)), out = []; let p = a + Math.round(span * 0.06);
+    while (p < b - span * 0.06) {
+      if (fr(p) >= 0.97) {
+        let q = p; while (q + 1 < b && fr(q + 1) >= 0.97) q++;
+        const wd = q - p + 1, look = Math.round(span * 0.08);
+        if (wd >= need && wd <= span * 0.1 && side(p - look, p) > 0.15 && side(q + 1, q + 1 + look) > 0.15 && fr(Math.max(a, p - 3)) < 0.75 && fr(Math.min(b - 1, q + 3)) < 0.75) out.push([p, q + 1]);
         p = q + 1;
       } else p++;
     }
@@ -103,12 +126,12 @@ function detectPanels(img, W, H, dir) {
     if (depth < 12) // rows first (a balloon crossing a row gutter must not turn the page into columns), then columns
     // order of the tries = reading order rules: clean gutters across the whole row first, then frame lines /
     // black gutters (open art above inset panels, a tall panel beside a stack), and only then gutters a balloon crosses
-    for (const [horiz, kind] of [[true, 'gap'], [true, 'line'], [false, 'gap'], [false, 'line'], [true, 'relaxed'], [false, 'relaxed']]) {
+    for (const [horiz, kind] of [[true, 'gap'], [true, 'line'], [true, 'dark'], [false, 'gap'], [false, 'line'], [false, 'dark'], [true, 'relaxed'], [false, 'relaxed']]) {
       const relaxed = kind === 'relaxed';
       if (relaxed && !big) continue;
       // frame lines only shape the page (open art vs. the panels on it); inside a single panel a drawn line is never a cut
       if (kind === 'line' && rw * rh < w * h * 0.2) continue;
-      const cuts = kind === 'line' ? lineCuts(r, horiz) : gaps(r, horiz, relaxed); if (!cuts.length) continue;
+      const cuts = kind === 'line' ? lineCuts(r, horiz) : kind === 'dark' ? darkGaps(r, horiz) : gaps(r, horiz, relaxed); if (!cuts.length) continue;
       const segs = []; let s = horiz ? r.y0 : r.x0;
       for (const [g0, g1] of cuts) { segs.push([s, g0]); s = g1; }
       segs.push([s, horiz ? r.y1 : r.x1]);
@@ -139,7 +162,7 @@ function detectPanels(img, W, H, dir) {
         const ux = kids.length ? (Math.max(...kids.map(q => q.x1)) - Math.min(...kids.map(q => q.x0))) / (r.x1 - r.x0) : 0, uy = kids.length ? (Math.max(...kids.map(q => q.y1)) - Math.min(...kids.map(q => q.y0))) / (r.y1 - r.y0) : 0;
         const sideBySide = kids.length >= 2 && kids.every((q, i) => kids.every((z, j) => i === j || Math.min(q.y1, z.y1) - Math.max(q.y0, z.y0) > Math.min(q.y1 - q.y0, z.y1 - z.y0) * 0.4));
         const spread = kids.length < 2 || (sideBySide ? ux >= 0.7 : (ux >= 0.7 || uy >= 0.7));
-        if (!framed && spread && (kids.length >= 2 || (kids.length === 1 && cover < ra * 0.6))) {
+        if (!framed && spread && (kids.length >= 2 || (kids.length === 1 && cover < ra * 0.35))) {
           const back = uncover([r, ...kids].map(q => ({ x: q.x0, y: q.y0, w: q.x1 - q.x0, h: q.y1 - q.y0 })));
           // reading order: rows (pieces that share height), then across
           const rows = [];
@@ -596,7 +619,7 @@ const Comic = {
     $('#v-comic').append(h); setTimeout(() => h.remove(), 3200);
   },
   size() { return { SW: this.stage.clientWidth || innerWidth, SH: this.stage.clientHeight || innerHeight }; },
-  key(i) { return 'pn:' + this.rec.id + ':' + i + ':' + this.dir + ':v17'; },
+  key(i) { return 'pn:' + this.rec.id + ':' + i + ':' + this.dir + ':v26'; },
   load(i) {
     if (this.cache.has(i)) return this.cache.get(i);
     const p = (async () => {
