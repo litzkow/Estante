@@ -275,19 +275,28 @@ const Gemini = {
     const body = { contents, generationConfig: { temperature: opts.temperature ?? 0.4, maxOutputTokens: opts.maxTokens || 8192 } };
     if (opts.system) body.systemInstruction = { parts: [{ text: opts.system }] };
     if (opts.json) body.generationConfig.responseMimeType = 'application/json';
-    let last;
-    for (const m of this.models()) {
-      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${encodeURIComponent(key)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: opts.signal }).catch(e => { if (e.name === 'AbortError') throw Object.assign(e, { code: 'cancelled' }); throw e; });
-      if (r.status === 404) { last = r; continue; }
-      if (r.status === 400 || r.status === 401 || r.status === 403) { const j = await r.json().catch(() => ({})); throw Object.assign(new Error((j.error && j.error.message) || 'key'), { code: /key/i.test(JSON.stringify(j)) ? 'gem_key' : 'refused' }); }
-      if (r.status === 429) throw Object.assign(new Error('quota'), { code: 'gem_quota' });
-      if (!r.ok) throw new Error('Gemini ' + r.status);
-      const j = await r.json(); S.gemModel = m;
-      try { if (typeof GemTTS !== 'undefined') GemTTS.addText(j.usageMetadata); } catch (e) { }
-      const text = ((j.candidates || [])[0]?.content?.parts || []).map(x => x.text || '').join('');
-      if (opts.onText) opts.onText({ text });
-      return { text, truncated: (j.candidates || [])[0]?.finishReason === 'MAX_TOKENS' };
+    let last, busy = null;
+    // a model that is busy (too many requests, overloaded) hands over to the next one; when all are busy, wait and try again
+    const list = opts.models || this.models();
+    for (let round = 0; round < 3; round++) {
+      if (round) await new Promise(r => setTimeout(r, round * 2500));
+      busy = null;
+      for (const m of list) {
+        const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${encodeURIComponent(key)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: opts.signal }).catch(e => { if (e.name === 'AbortError') throw Object.assign(e, { code: 'cancelled' }); return null; });
+        if (!r) { busy = busy || new Error('Gemini offline'); continue; }
+        if (r.status === 404) { last = r; continue; }
+        if (r.status === 400 || r.status === 401 || r.status === 403) { const j = await r.json().catch(() => ({})); throw Object.assign(new Error((j.error && j.error.message) || 'key'), { code: /key/i.test(JSON.stringify(j)) ? 'gem_key' : 'refused' }); }
+        if (r.status === 429) { busy = Object.assign(new Error('quota'), { code: 'gem_quota' }); continue; }
+        if (!r.ok) { busy = busy || new Error('Gemini ' + r.status); continue; }
+        const j = await r.json(); if (!opts.models) S.gemModel = m;
+        try { if (typeof GemTTS !== 'undefined') GemTTS.addText(j.usageMetadata); } catch (e) { }
+        const text = ((j.candidates || [])[0]?.content?.parts || []).map(x => x.text || '').join('');
+        if (opts.onText) opts.onText({ text });
+        return { text, truncated: (j.candidates || [])[0]?.finishReason === 'MAX_TOKENS' };
+      }
+      if (!busy) break;
     }
+    if (busy) throw busy;
     throw new Error('Gemini ' + (last ? last.status : '?'));
   },
 };

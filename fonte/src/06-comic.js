@@ -449,84 +449,171 @@ async function comicSource(rec, blob) {
   };
 }
 
-/* ================= lettering: the translation is written into the balloon itself =================
-   For each balloon: find its real inside (flood fill from the box the AI gave, stopping at the
-   balloon's outline), paint the original words out, then set the translation in a comic lettering face,
-   line by line following the balloon's shape (wide in the middle, narrow at top and bottom),
-   never breaking a word, at one size for the whole page like a professional letterer. */
+/* Lettering: the translation is written into each balloon the way a letterer would.
+   The balloon's inside is found exactly (the paper inside its outline, with the old letters as holes in it),
+   so the outline and the art around it are never touched. The new text uses the size of the original letters,
+   one hand-lettering font for the whole book, words in bold italic where the original stressed them,
+   lines shaped by the balloon, never a word broken. Two balloons joined by a neck each keep their own half. */
 const Letter = {
-  font: '"Letreiro","Comic Neue","Comic Sans MS",system-ui,sans-serif',
-  async ready() { try { await document.fonts.load('700 30px "Letreiro"'); } catch (e) { } },
+  font: '"Letreiro","Patrick Hand SC","Comic Neue",system-ui,sans-serif',
+  async ready() { try { await document.fonts.load('400 30px "Letreiro"'); } catch (e) { } },
   same(a, b) { const n = x => String(x || '').toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g, ''); return n(a) === n(b); },
-  region(lum, W, H, box) {
-    let [y0, x0, y1, x1] = box.map(Number); x0 = x0 / 1000 * W; x1 = x1 / 1000 * W; y0 = y0 / 1000 * H; y1 = y1 / 1000 * H;
+  capRatio(cx) {
+    if (!this._cap) { cx.font = `400 100px ${this.font}`; const m = cx.measureText('HEMNO'); this._cap = (m.actualBoundingBoxAscent > 20 ? m.actualBoundingBoxAscent : 70) / 100; }
+    return this._cap;
+  },
+  region(lum, W, H, box, f = 1) {
+    let [y0, x0, y1, x1] = box.map(Number);
+    x0 = clamp(x0 / 1000 * W, 0, W); x1 = clamp(x1 / 1000 * W, 0, W); y0 = clamp(y0 / 1000 * H, 0, H); y1 = clamp(y1 / 1000 * H, 0, H);
     const bw = x1 - x0, bh = y1 - y0; if (bw < 6 || bh < 6) return null;
-    const R = { x0: Math.max(0, Math.floor(x0 - bw * 0.18)), y0: Math.max(0, Math.floor(y0 - bh * 0.18)), x1: Math.min(W, Math.ceil(x1 + bw * 0.18)), y1: Math.min(H, Math.ceil(y1 + bh * 0.18)) };
-    const rw = R.x1 - R.x0, rh = R.y1 - R.y0, m = new Uint8Array(rw * rh), st = [];
-    let mean = 0, cnt = 0;
-    for (let y = Math.floor(y0); y < y1; y++) for (let x = Math.floor(x0); x < x1; x++) { mean += lum[y * W + x]; cnt++; }
+    const ex = Math.max(W * 0.04, bw * 0.9) * f, ey = Math.max(H * 0.03, bh * 1.1) * f;
+    const R = { x0: Math.max(0, Math.floor(x0 - ex)), y0: Math.max(0, Math.floor(y0 - ey)), x1: Math.min(W, Math.ceil(x1 + ex)), y1: Math.min(H, Math.ceil(y1 + ey)) };
+    const rw = R.x1 - R.x0, rh = R.y1 - R.y0, n = rw * rh, L = new Uint8Array(n);
+    for (let y = 0; y < rh; y++) { const o = (y + R.y0) * W + R.x0; for (let x = 0; x < rw; x++) L[y * rw + x] = lum[o + x]; }
+    const bx0 = Math.floor(x0 - R.x0), bx1 = Math.ceil(x1 - R.x0), by0 = Math.floor(y0 - R.y0), by1 = Math.ceil(y1 - R.y0);
+    let mean = 0, cnt = 0; for (let y = by0; y < by1; y++) for (let x = bx0; x < bx1; x++) { mean += L[y * rw + x]; cnt++; }
     mean /= Math.max(1, cnt);
-    const dark = mean < 110;
-    const ok = v => dark ? v < 70 : v >= 178;
-    for (let y = Math.floor(y0 + bh * 0.2); y < y1 - bh * 0.2; y += 2) for (let x = Math.floor(x0 + bw * 0.15); x < x1 - bw * 0.15; x += 2) if (ok(lum[y * W + x])) { const k = (y - R.y0) * rw + (x - R.x0); if (!m[k]) { m[k] = 1; st.push(k); } }
-    while (st.length) {
-      const k = st.pop(), x = k % rw, y = (k / rw) | 0;
-      if (x + 1 < rw) { const j = k + 1; if (!m[j] && ok(lum[(y + R.y0) * W + x + 1 + R.x0])) { m[j] = 1; st.push(j); } }
-      if (x > 0) { const j = k - 1; if (!m[j] && ok(lum[(y + R.y0) * W + x - 1 + R.x0])) { m[j] = 1; st.push(j); } }
-      if (y + 1 < rh) { const j = k + rw; if (!m[j] && ok(lum[(y + 1 + R.y0) * W + x + R.x0])) { m[j] = 1; st.push(j); } }
-      if (y > 0) { const j = k - rw; if (!m[j] && ok(lum[(y - 1 + R.y0) * W + x + R.x0])) { m[j] = 1; st.push(j); } }
+    const dark = mean < 100, bg0 = dark ? (v => v < 80) : (v => v >= 185);
+    // a thin or faded outline can have gaps a pixel or two wide: paper counts only where its neighbours are paper too
+    const P = new Uint8Array(n);
+    for (let y = 1; y < rh - 1; y++) for (let x = 1; x < rw - 1; x++) { const k = y * rw + x; P[k] = bg0(L[k]) && bg0(L[k - 1]) && bg0(L[k + 1]) && bg0(L[k - rw]) && bg0(L[k + rw]) ? 1 : 0; }
+    // pieces of balloon-coloured paper, started from inside the box: the piece most of the box falls in is the balloon
+    const lab = new Int32Array(n), hits = [0], st = [];
+    let nl = 0;
+    for (let y = by0; y < by1; y += 2) for (let x = bx0; x < bx1; x += 2) {
+      const k = y * rw + x; if (!P[k]) continue;
+      if (!lab[k]) {
+        nl++; hits.push(0); lab[k] = nl; st.push(k);
+        while (st.length) {
+          const q = st.pop(), qx = q % rw;
+          if (qx + 1 < rw && !lab[q + 1] && P[q + 1]) { lab[q + 1] = nl; st.push(q + 1); }
+          if (qx > 0 && !lab[q - 1] && P[q - 1]) { lab[q - 1] = nl; st.push(q - 1); }
+          if (q + rw < n && !lab[q + rw] && P[q + rw]) { lab[q + rw] = nl; st.push(q + rw); }
+          if (q >= rw && !lab[q - rw] && P[q - rw]) { lab[q - rw] = nl; st.push(q - rw); }
+        }
+      }
+      hits[lab[k]]++;
     }
-    // panel borders and balloon outlines are long straight dark lines: they are never filled
-    const prot = new Uint8Array(rw * rh), dk = (x, y) => lum[(y + R.y0) * W + x + R.x0] < 110;
-    for (let y = 0; y < rh; y++) { let r0 = -1; for (let x = 0; x <= rw; x++) { const d = x < rw && dk(x, y); if (d && r0 < 0) r0 = x; if (!d && r0 >= 0) { if (x - r0 > bw * 0.45) for (let q = r0; q < x; q++) prot[y * rw + q] = 1; r0 = -1; } } }
-    for (let x = 0; x < rw; x++) { let r0 = -1; for (let y = 0; y <= rh; y++) { const d = y < rh && dk(x, y); if (d && r0 < 0) r0 = y; if (!d && r0 >= 0) { if (y - r0 > bh * 0.45) for (let q = r0; q < y; q++) prot[q * rw + x] = 1; r0 = -1; } } }
-    // the letters are holes in the white: close them, row by row and column by column
-    const L = Math.max(8, Math.round(Math.min(W, H) * 0.03));
-    for (let pass = 0; pass < 2; pass++) {
-      for (let y = 0; y < rh; y++) { let last = -1; for (let x = 0; x < rw; x++) { if (m[y * rw + x]) { if (last >= 0 && x - last > 1 && x - last <= L) { let free = true; for (let q = last + 1; q < x; q++) if (prot[y * rw + q]) { free = false; break; } if (free) for (let q = last + 1; q < x; q++) m[y * rw + q] = 2; } last = x; } } }
-      for (let x = 0; x < rw; x++) { let last = -1; for (let y = 0; y < rh; y++) { if (m[y * rw + x]) { if (last >= 0 && y - last > 1 && y - last <= L) { let free = true; for (let q = last + 1; q < y; q++) if (prot[q * rw + x]) { free = false; break; } if (free) for (let q = last + 1; q < y; q++) m[q * rw + x] = 2; } last = y; } } }
+    let best = 0; for (let i = 1; i <= nl; i++) if (hits[i] > (hits[best] || 0)) best = i;
+    if (!best) return null;
+    let touch = 0, paper = 0;
+    for (let k = 0; k < n; k++) if (lab[k] === best) { const x = k % rw, y = (k / rw) | 0; if (x <= 1 || y <= 1 || x >= rw - 2 || y >= rh - 2) touch++; }
+    // a big balloon (or two joined) can reach past the area first looked at: look again wider before calling it open
+    const open = touch > (rw + rh) * 2 * 0.03;
+    if (open && f === 1) return this.region(lum, W, H, box, 2.6);
+    if (open) { for (let y = by0; y < by1; y++) for (let x = bx0; x < bx1; x++) if (bg0(L[y * rw + x])) paper++; if (paper < cnt * 0.5) return null; }
+    const I = new Uint8Array(n);
+    if (!open) {
+      // everything the outside cannot reach without crossing the balloon's paper is inside the balloon (the old letters too)
+      const O = new Uint8Array(n);
+      const push = k => { if (!O[k] && lab[k] !== best) { O[k] = 1; st.push(k); } };
+      for (let x = 0; x < rw; x++) { push(x); push((rh - 1) * rw + x); }
+      for (let y = 0; y < rh; y++) { push(y * rw); push(y * rw + rw - 1); }
+      while (st.length) { const k = st.pop(), x = k % rw; if (x + 1 < rw) push(k + 1); if (x > 0) push(k - 1); if (k + rw < n) push(k + rw); if (k >= rw) push(k - rw); }
+      for (let k = 0; k < n; k++) if (!O[k]) I[k] = 1;
+      // letters touching the outline: ink with balloon paper close on both sides (across or up and down) is a letter too
+      const D = Math.max(6, Math.round(H * 0.013)), isC = k => lab[k] === best;
+      const near = (x, y, dx, dy) => { for (let i = 1; i <= D; i++) { const xx = x + dx * i, yy = y + dy * i; if (xx < 0 || yy < 0 || xx >= rw || yy >= rh) return false; const k = yy * rw + xx; if (isC(k)) return true; if (bg0(L[k]) && !I[k]) return false; } return false; };
+      const add = [];
+      for (let y = 0; y < rh; y++) for (let x = 0; x < rw; x++) { const k = y * rw + x; if (I[k] || bg0(L[k])) continue; let adj = false; for (const j of [k - 1, k + 1, k - rw, k + rw]) if (j >= 0 && j < n && I[j]) { adj = true; break; } if (!adj) continue; if ((near(x, y, -1, 0) && near(x, y, 1, 0)) || (near(x, y, 0, -1) && near(x, y, 0, 1))) add.push(k); }
+      for (const k of add) I[k] = 1;
     }
-    let area = 0, bx0 = rw, by0 = rh, bx1 = 0, by1 = 0;
-    for (let y = 0; y < rh; y++) for (let x = 0; x < rw; x++) if (m[y * rw + x]) { area++; if (x < bx0) bx0 = x; if (x > bx1) bx1 = x; if (y < by0) by0 = y; if (y > by1) by1 = y; }
-    const boxArea = bw * bh;
-    if (area < boxArea * 0.25 || area > boxArea * 2.6) {
-      m.fill(0);
-      bx0 = Math.floor(x0 - R.x0); bx1 = Math.ceil(x1 - R.x0) - 1; by0 = Math.floor(y0 - R.y0); by1 = Math.ceil(y1 - R.y0) - 1;
-      for (let y = by0; y <= by1; y++) for (let x = bx0; x <= bx1; x++) m[y * rw + x] = 1;
-    }
-    return { R, rw, rh, m, bx0, by0, bx1, by1, dark };
+    // a balloon left open (it runs into a gutter, the page margin or white art) is only worked on close around its words:
+    // its paper there, and the letters (small pieces of ink); outlines and lines of the art are long and are kept
+    const env = open ? Math.max(8, H * 0.016) : Math.max(12, H * 0.05);
+    const ea = Math.floor(bx0 - env), eb = Math.ceil(bx1 + env), ec = Math.floor(by0 - env), ed = Math.ceil(by1 + env);
+    const inEnv = (x, y) => x >= ea && x <= eb && y >= ec && y <= ed;
+    let E = null;
+    if (open) {
+      E = new Uint8Array(n);
+      for (let y = Math.max(0, ec); y <= Math.min(rh - 1, ed); y++) for (let x = Math.max(0, ea); x <= Math.min(rw - 1, eb); x++) if (bg0(L[y * rw + x])) I[y * rw + x] = 1;
+      const seen = new Uint8Array(n), maxH = H * 0.024, maxW = W * 0.3, mark = k => { const kx = k % rw, ky = (k / rw) | 0; for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const xx = kx + dx, yy = ky + dy; if (xx >= 0 && yy >= 0 && xx < rw && yy < rh && (bg0(L[yy * rw + xx]) || E[yy * rw + xx] === 2)) { if (!E[yy * rw + xx]) E[yy * rw + xx] = 1; } } E[k] = 2; };
+      for (let y = Math.max(0, ec); y <= Math.min(rh - 1, ed); y++) for (let x = Math.max(0, ea); x <= Math.min(rw - 1, eb); x++) {
+        const s0 = y * rw + x; if (seen[s0] || bg0(L[s0])) continue;
+        const comp = [s0]; seen[s0] = 1; let cx0 = x, cx1 = x, cy0 = y, cy1 = y, big = false;
+        for (let i = 0; i < comp.length; i++) {
+          const k = comp[i], kx = k % rw, ky = (k / rw) | 0;
+          for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+            const xx = kx + dx, yy = ky + dy; if (xx < 0 || yy < 0 || xx >= rw || yy >= rh) { big = true; continue; }
+            const j = yy * rw + xx; if (seen[j] || bg0(L[j])) continue; seen[j] = 1; comp.push(j);
+            if (xx < cx0) cx0 = xx; if (xx > cx1) cx1 = xx; if (yy < cy0) cy0 = yy; if (yy > cy1) cy1 = yy;
+          }
+          if (cy1 - cy0 > maxH || cx1 - cx0 > maxW) big = true;
+          if (big && comp.length > 20000) break;
+        }
+        if (!big && inEnv(cx0, cy0) && inEnv(cx1, cy1)) for (const k of comp) { I[k] = 1; mark(k); }
+        else {
+          // a letter touching an outline or a line of the art: only its part inside the words' own box goes
+          const inBox = comp.filter(k => { const kx = k % rw, ky = (k / rw) | 0; return kx >= bx0 - 7 && kx <= bx1 + 7 && ky >= by0 - 2 && ky <= by1 + 2; });
+          // (never a dark area of the art reaching into the box's corners: those pieces are large and solid)
+          if (inBox.length && comp.length < 20000 && inBox.length <= comp.length * 0.2 && inBox.length <= 600 * (H / 1400) ** 2) for (const k of inBox) { I[k] = 1; mark(k); }
+        }
+      }
+    } else for (let y = 0; y < rh; y++) for (let x = 0; x < rw; x++) if (I[y * rw + x] && !inEnv(x, y)) I[y * rw + x] = 0;
+    const K = new Uint8Array(n); for (let k = 0; k < n; k++) if (I[k] && lab[k] !== best && !bg0(L[k])) K[k] = 1;
+    const fillAt = []; for (let k = 0; k < n; k += 3) if (I[k] && lab[k] === best) fillAt.push(k);
+    return { R, rw, rh, I, E, K, L, dark, open, fillAt, box: { x0, y0, x1, y1 } };
   },
-  span(g, y) {
-    const r = Math.round(y); if (r < g.by0 || r > g.by1) return null;
-    let a = -1, b = -1; for (let x = g.bx0; x <= g.bx1; x++) if (g.m[r * g.rw + x]) { if (a < 0) a = x; b = x; }
-    if (a < 0) return null;
-    const pad = (b - a) * 0.07 + 2; return { a: a + pad, b: b - pad };
+  // one line of the balloon: the stretch of inside around the balloon's middle
+  span(g, y, pad) {
+    const r = Math.round(y); if (r < 0 || r >= g.rh) return null;
+    const cxm = (g.box.x0 + g.box.x1) / 2 - g.R.x0;
+    let bestA = -1, bestB = -1, a = -1, hit = false;
+    for (let x = 0; x <= g.rw; x++) {
+      const on = x < g.rw && g.M[r * g.rw + x];
+      if (on && a < 0) a = x;
+      if (!on && a >= 0) {
+        const b = x - 1, has = a <= cxm && b >= cxm;
+        if (!hit && (has || b - a > bestB - bestA)) { bestA = a; bestB = b; hit = has; }
+        a = -1;
+      }
+    }
+    if (bestA < 0) return null;
+    if (g.open && g.tR > g.tL) { bestA = Math.max(bestA, g.tL - g.capE * 1.3); bestB = Math.min(bestB, g.tR + g.capE * 1.3); if (bestB <= bestA) return null; }
+    const p = pad + (bestB - bestA) * 0.04; return { a: bestA + p, b: bestB - p };
   },
-  layout(cx, g, words, size) {
-    cx.font = `700 ${size}px ${this.font}`;
-    const lh = size * 1.08, cyc = (g.by0 + g.by1) / 2;
-    for (let n = 1; n <= 14; n++) {
-      const top = cyc - n * lh / 2; if (top < g.by0 - 1 || top + n * lh > g.by1 + 1) return null;
-      const lines = []; let i = 0, okAll = true;
+  // does a line's box touch any ink that stays on the page?
+  hits(g, x0, x1, y0, y1) {
+    if (!g.ob) return false;
+    let c = 0; const xa = Math.max(0, Math.floor(x0)), xb = Math.min(g.rw - 1, Math.ceil(x1)), ya = Math.max(0, Math.floor(y0)), yb = Math.min(g.rh - 1, Math.ceil(y1));
+    if (xa > xb || ya > yb || x0 < 0 || y0 < 0 || x1 > g.rw || y1 > g.rh) return true;
+    for (let y = ya; y <= yb; y++) for (let x = xa; x <= xb; x++) if (g.ob[y * g.rw + x] && ++c > 2) return true;
+    return false;
+  },
+  words(s, up) {
+    const out = []; let emph = false, cur = '', curE = false;
+    const flush = () => { if (cur) out.push({ t: cur, e: curE }); cur = ''; };
+    for (const ch of String(s).replace(/\s+/g, ' ').trim()) {
+      // a closing asterisk keeps the punctuation right after it on the same word ("*CAI BEM*.")
+      if (ch === '*') { if (!emph && cur) flush(); emph = !emph; continue; }
+      if (ch === ' ') { flush(); continue; }
+      if (!cur) curE = emph; cur += ch;
+    }
+    flush();
+    return out.map(w => ({ t: up ? w.t.toLocaleUpperCase('pt-BR') : w.t, e: w.e }));
+  },
+  fontFor(size) { return `400 ${size}px ${this.font}`; },
+  wordW(cx, w, size) { cx.font = this.fontFor(size); return (cx.measureText(w.t).width * (w.e ? 1.06 : 1) + size * 0.05) * (this.sx || 1); },
+  layout(cx, g, words, size, lh, pad) {
+    const sp = (cx.font = this.fontFor(size), cx.measureText(' ').width * (this.sx || 1));
+    const cs = [g.tc, (g.top + g.bot) / 2, g.tc - lh / 2, g.tc + lh / 2, g.tc - lh, g.tc + lh];
+    for (let n = 1; n <= 16; n++) for (const cyc of cs) {
+      const top = cyc - n * lh / 2; if (top < g.top - 1 || top + n * lh > g.bot + 1) continue;
+      const lines = []; let i = 0, ok = true;
       for (let k = 0; k < n && i < words.length; k++) {
         const yA = top + k * lh + lh * 0.12, yB = top + (k + 1) * lh - lh * 0.12;
-        const s1 = this.span(g, yA), s2 = this.span(g, yB), s3 = this.span(g, (yA + yB) / 2);
-        if (!s1 || !s2 || !s3) { okAll = false; break; }
-        const a = Math.max(s1.a, s2.a, s3.a), b = Math.min(s1.b, s2.b, s3.b), w = b - a; if (w <= 0) { okAll = false; break; }
-        let line = words[i]; if (cx.measureText(line).width > w) { okAll = false; break; }
+        const s1 = this.span(g, yA, pad), s2 = this.span(g, yB, pad), s3 = this.span(g, (yA + yB) / 2, pad);
+        if (!s1 || !s2 || !s3) { ok = false; break; }
+        const a = Math.max(s1.a, s2.a, s3.a), b = Math.min(s1.b, s2.b, s3.b), w = b - a; if (w <= 0) { ok = false; break; }
+        const line = [words[i]]; let lw = this.wordW(cx, words[i], size); if (lw > w) { ok = false; break; }
         i++;
-        while (i < words.length && cx.measureText(line + ' ' + words[i]).width <= w) { line += ' ' + words[i]; i++; }
-        lines.push({ text: line, x: (a + b) / 2, y: top + k * lh + lh / 2 });
+        while (i < words.length) { const ww = this.wordW(cx, words[i], size); if (lw + sp + ww > w) break; line.push(words[i]); lw += sp + ww; i++; }
+        if (this.hits(g, (a + b) / 2 - lw / 2 - 2, (a + b) / 2 + lw / 2 + 2, top + k * lh + lh / 2 - size * this._cap * 0.75, top + k * lh + lh / 2 + size * this._cap * 0.62)) { ok = false; break; }
+        lines.push({ words: line, w: lw, x: (a + b) / 2, y: top + k * lh + lh / 2 });
       }
-      if (okAll && i >= words.length && lines.length === n) return lines;
+      if (ok && i >= words.length && lines.length === n) return { lines, sp };
     }
     return null;
-  },
-  fit(cx, g, words, max) {
-    let lo = Math.max(7, max * 0.3), hi = max;
-    if (!this.layout(cx, g, words, lo)) { lo = 6; if (!this.layout(cx, g, words, lo)) return null; }
-    for (let k = 0; k < 10; k++) { const mid = (lo + hi) / 2; if (this.layout(cx, g, words, mid)) lo = mid; else hi = mid; }
-    return lo;
   },
   async render(pg, data) {
     await this.ready();
@@ -539,25 +626,86 @@ const Letter = {
       if (!it.tr || !Array.isArray(it.box) || it.box.length !== 4) continue;
       if (it.kind === 'sfx' || this.same(it.tr, it.text)) continue;
       const g = this.region(lum, W, H, it.box); if (!g) continue;
-      const cols = []; for (let y = g.by0; y <= g.by1; y += 3) for (let x = g.bx0; x <= g.bx1; x += 3) if (g.m[y * g.rw + x] === 1) cols.push(((y + g.R.y0) * W + x + g.R.x0) * 4);
-      const pick = c => { const v = cols.map(k => px[k + c]).sort((a, b) => a - b); return v.length ? v[v.length >> 1] : (g.dark ? 0 : 255); };
-      const fill = [pick(0), pick(1), pick(2)];
-      for (let y = 0; y < g.rh; y++) for (let x = 0; x < g.rw; x++) if (g.m[y * g.rw + x]) { const k = ((y + g.R.y0) * W + x + g.R.x0) * 4; px[k] = fill[0]; px[k + 1] = fill[1]; px[k + 2] = fill[2]; }
       const up = (String(it.text).match(/[A-Z]/g) || []).length >= (String(it.text).match(/[a-z]/g) || []).length;
-      const words = (up ? String(it.tr).toLocaleUpperCase('pt-BR') : String(it.tr)).replace(/\s+/g, ' ').trim().split(' ');
-      jobs.push({ g, words, fill });
+      jobs.push({ g, words: this.words(it.tr, up), orig: String(it.text).replace(/[*\n]/g, ' ').replace(/\s+/g, ' ').trim() });
+    }
+    // balloons joined by a neck share one inside: each pixel goes to the balloon whose words are nearest
+    const med = a => { if (!a.length) return 0; const v = a.slice().sort((p, q) => p - q); return v[v.length >> 1]; };
+    const own = new Int16Array(W * H).fill(-1);
+    const dist = (j, x, y) => { const b = jobs[j].g.box; return Math.max(0, b.x0 - x, x - b.x1) + Math.max(0, b.y0 - y, y - b.y1); };
+    jobs.forEach((j, ji) => { const g = j.g; for (let y = 0; y < g.rh; y++) for (let x = 0; x < g.rw; x++) if (g.I[y * g.rw + x]) { const p = (y + g.R.y0) * W + x + g.R.x0, o = own[p]; if (o < 0 || dist(ji, x + g.R.x0, y + g.R.y0) < dist(o, x + g.R.x0, y + g.R.y0)) own[p] = ji; } });
+    jobs.forEach((j, ji) => {
+      const g = j.g; g.M = new Uint8Array(g.rw * g.rh); let t = g.rh, b = -1;
+      for (let y = 0; y < g.rh; y++) for (let x = 0; x < g.rw; x++) if (g.I[y * g.rw + x] && own[(y + g.R.y0) * W + x + g.R.x0] === ji) { g.M[y * g.rw + x] = 1; if (y < t) t = y; if (y > b) b = y; }
+      g.t0 = t; g.b0 = b;
+      // ink that stays on the page (outlines, panel borders, the art, other balloons): new letters may never touch it
+      g.ob = new Uint8Array(g.rw * g.rh);
+      for (let k = 0; k < g.ob.length; k++) { const v = g.L[k]; if ((g.dark ? v > 150 : v < 120) && !(g.E ? g.E[k] : g.I[k])) g.ob[k] = 1; }
+      // the size and place of the original letters in this balloon: rows of ink, grouped into lines
+      const rc = [], x0 = Math.floor(g.box.x0 - g.R.x0), x1 = Math.ceil(g.box.x1 - g.R.x0);
+      for (let y = 0; y < g.rh; y++) { let c = 0; for (let x = Math.max(0, x0); x < Math.min(g.rw, x1); x++) { const k = y * g.rw + x; if (g.K[k] && g.M[k]) c++; } rc.push(c); }
+      const thr = Math.max(2, Math.max(0, ...rc) * 0.12), runs = []; let r0 = -1;
+      for (let y = 0; y <= g.rh; y++) { const on = y < g.rh && rc[y] >= thr; if (on && r0 < 0) r0 = y; if (!on && r0 >= 0) { if (y - r0 >= 3) runs.push([r0, y]); r0 = -1; } }
+      g.lineW = runs.reduce((a, r) => { let lo = g.rw, hi = -1; for (let y = r[0]; y < r[1]; y++) for (let x = 0; x < g.rw; x++) { const k = y * g.rw + x; if (g.K[k] && g.M[k]) { if (x < lo) lo = x; if (x > hi) hi = x; } } return hi > lo ? a + hi - lo + 1 : a; }, 0);
+      g.nLines = runs.length;
+      // where the original words were: a balloon left open (cut by the panel edge) is lettered only there, so the
+      // new words can never run out of the balloon into the gutter or the art
+      if (runs.length) {
+        g.tTop = runs[0][0]; g.tBot = runs[runs.length - 1][1];
+        let lo = g.rw, hi = -1; for (let y = g.tTop; y < g.tBot; y++) for (let x = 0; x < g.rw; x++) { const k = y * g.rw + x; if (g.K[k] && g.M[k]) { if (x < lo) lo = x; if (x > hi) hi = x; } }
+        g.tL = lo; g.tR = hi;
+      }
+      g.capH = med(runs.map(r => r[1] - r[0])); g.pitch = runs.length > 1 ? med(runs.slice(1).map((r, i) => r[0] - runs[i][0])) : 0;
+      g.tc = runs.length ? (runs[0][0] + runs[runs.length - 1][1]) / 2 : (t + b) / 2;
+    });
+    // one letter size for the page, taken from the original lettering
+    const cr = this.capRatio(cx);
+    const caps = jobs.map(j => j.g.capH).filter(h => h >= 4).sort((a, b) => a - b);
+    const pageCap = caps.length ? caps[caps.length >> 1] : W * 0.011;
+    const pitches = jobs.map(j => j.g.pitch && j.g.capH ? j.g.pitch / j.g.capH : 0).filter(r => r > 1.05 && r < 2.2).sort((a, b) => a - b);
+    // how wide the original letters are, so the new ones fill a line the same way
+    const sxs = jobs.map(j => { const g = j.g; if (!g.lineW || g.capH < 4 || !j.orig) return 0; const size = g.capH / cr; cx.font = this.fontFor(size); const w = cx.measureText(j.orig).width - (g.nLines - 1) * cx.measureText(' ').width; return w > 0 ? g.lineW / w : 0; }).filter(v => v > 0.5 && v < 2).sort((a, b) => a - b);
+    this.sx = clamp(sxs.length ? sxs[sxs.length >> 1] : 1, 0.9, 1.35);
+    const pr = clamp(pitches.length ? pitches[pitches.length >> 1] : 1.45, 1.25, 1.7);
+    for (const j of jobs) {
+      const g = j.g, cap0 = g.capH >= 4 && Math.abs(g.capH - pageCap) > pageCap * 0.3 ? clamp(g.capH, pageCap * 0.75, pageCap * 1.35) : pageCap;
+      for (const f of [1, 0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.65, 0.6]) {
+        const cap = cap0 * f, size = cap / cr, lh = cap * pr, pad = Math.max(2, cap * 0.45);
+        let t0 = g.t0, b0 = g.b0; g.capE = cap0;
+        if (g.open && g.tR > g.tL) { t0 = Math.max(t0, g.tTop - cap0 * 0.9); b0 = Math.min(b0, g.tBot + cap0 * 0.9); }
+        g.top = t0 + cap * 0.55; g.bot = b0 - cap * 0.55; if (g.bot - g.top < lh * 0.9) { g.top = t0 + 1; g.bot = b0 - 1; }
+        const lay = this.layout(cx, g, j.words, size, lh, pad);
+        if (lay) { j.lay = lay; j.size = size; break; }
+      }
+      if (!j.lay) continue;
+    }
+    for (const j of jobs) {
+      if (!j.lay) continue;
+      const g = j.g;
+      // paper colour of this balloon
+      const pick = c => { const v = g.fillAt.map(k => { const x = k % g.rw, y = (k / g.rw) | 0; return px[((y + g.R.y0) * W + x + g.R.x0) * 4 + c]; }).sort((a, b) => a - b); return v.length ? v[v.length >> 1] : (g.dark ? 0 : 255); };
+      j.fill = [pick(0), pick(1), pick(2)];
+      for (let y = 0; y < g.rh; y++) for (let x = 0; x < g.rw; x++) if ((g.M[y * g.rw + x] || (g.I[y * g.rw + x] && !jobs[own[(y + g.R.y0) * W + x + g.R.x0]].lay)) && (!g.E || g.E[y * g.rw + x])) { const k = ((y + g.R.y0) * W + x + g.R.x0) * 4; px[k] = j.fill[0]; px[k + 1] = j.fill[1]; px[k + 2] = j.fill[2]; }
     }
     cx.putImageData(id, 0, 0);
-    const cap = W * 0.024, mc = document.createElement('canvas').getContext('2d');
-    for (const j of jobs) j.max = this.fit(mc, j.g, j.words, cap) || 0;
-    const sizes = jobs.map(j => j.max).filter(Boolean).sort((a, b) => a - b);
-    const base = sizes.length ? Math.min(cap, sizes[sizes.length >> 1]) : cap;
     for (const j of jobs) {
-      const size = Math.min(base, j.max || 0); if (!size) continue;
-      const g = j.g, lines = this.layout(cx, g, j.words, size); if (!lines) continue;
-      cx.save(); cx.translate(g.R.x0, g.R.y0); cx.font = `700 ${size}px ${this.font}`; cx.textAlign = 'center'; cx.textBaseline = 'middle';
-      cx.fillStyle = (g.dark || (j.fill[0] + j.fill[1] + j.fill[2]) / 3 < 110) ? '#fff' : '#141414';
-      for (const l of lines) cx.fillText(l.text, l.x, l.y + size * 0.04);
+      if (!j.lay) continue;
+      const g = j.g, size = j.size, ink = (g.dark || (j.fill[0] + j.fill[1] + j.fill[2]) / 3 < 110) ? '#fff' : '#161616';
+      cx.save(); cx.translate(g.R.x0, g.R.y0); cx.font = this.fontFor(size); cx.textBaseline = 'alphabetic'; cx.textAlign = 'left';
+      cx.fillStyle = cx.strokeStyle = ink; cx.lineJoin = 'round';
+      const base = size * this.capRatio(cx) / 2;
+      for (const l of j.lay.lines) {
+        let x = l.x - l.w / 2;
+        for (const w of l.words) {
+          const ww = this.wordW(cx, w, size);
+          cx.save(); cx.translate(x + size * 0.025, l.y + base); cx.scale(this.sx || 1, 1);
+          if (w.e) { cx.transform(1, 0, -0.2, 1, 0, 0); cx.scale(1.06, 1); cx.lineWidth = size * 0.05; cx.strokeText(w.t, 0, 0); }
+          else { cx.lineWidth = size * 0.035; cx.strokeText(w.t, 0, 0); }
+          cx.fillText(w.t, 0, 0);
+          cx.restore();
+          x += ww + j.lay.sp;
+        }
+      }
       cx.restore();
     }
     const blob = await canvasBlob(cv, 'image/jpeg', 0.9); cv.width = cv.height = 0; return blob;
@@ -878,9 +1026,13 @@ const Comic = {
       const sc = Math.min(1, 1100 / Math.max(pg.w, pg.h)), cv = document.createElement('canvas');
       cv.width = Math.round(pg.w * sc); cv.height = Math.round(pg.h * sc); cv.getContext('2d').drawImage(pg.img, 0, 0, cv.width, cv.height);
       const blob = await canvasBlob(cv, 'image/jpeg', 0.8); cv.width = cv.height = 0;
-      const prompt = `This is one page of a comic${this.dir === 'rtl' ? ' (manga, read right to left)' : ''}. List every panel in reading order as tight boxes [ymin, xmin, ymax, xmax] normalized 0-1000 to this image. Follow the art's reading flow: a wide panel on top comes before the row below it; a tall panel at the ${this.dir === 'rtl' ? 'right' : 'left'} comes before the panels stacked beside it; art without a border (open art bleeding to the page edge) is a panel too; a full-page splash is one panel; leave out page margins and gutters. When smaller panels sit on top of a bigger background picture, list the background picture first, as its visible part only (where it is not covered by the panels on top), then the panels on top in their own reading order.
-Return only JSON: {"panels":[[ymin,xmin,ymax,xmax],...]}`;
-      const { text } = await AI.vision(blob, prompt, { json: true, temperature: 0.1 });
+      const prompt = `This is one page of a comic${this.dir === 'rtl' ? ' (manga, read right to left)' : ''}. Find every speech balloon, thought balloon and caption/narration box with text. Leave out sound effects and interjections that read the same in both languages (BLAM, AHH!, HUH?, OH!).
+For each one give its box as [ymin, xmin, ymax, xmax] normalized 0-1000 to this image: around all of its words, from the first letter to the last of every line (nothing left out), but never past the balloon's outline; the exact original text, and a natural ${lang} translation that keeps tone, humour and character voice and is about as short as the original, so it fits the same balloon (if the text is already in ${lang}, repeat it).
+Words the letterer drew in bold or bold italic for emphasis: wrap them in asterisks in both text and translation, like *THIS*, on the matching word of the translation.
+Rules: one item per balloon, never merge two balloons, never split one balloon; keep names of people and places as they are; keep the same wording for recurring expressions; list items in reading order (${this.dir === 'rtl' ? 'right to left' : 'left to right'}, top to bottom, panel by panel); conf is your confidence 0-1 that the text was read correctly.
+Also list every panel of the page in reading order as tight boxes [ymin, xmin, ymax, xmax] normalized 0-1000 (follow the art's reading flow: a wide panel on top comes before the row below it; a tall panel at the left comes before the panels stacked at its right; a full-page splash is one panel; leave out page margins and gutters. When smaller panels sit on top of a bigger background picture, list the background picture first, as its visible part only (where it is not covered by the panels on top), then the panels on top in their own reading order.)
+Return only JSON: {"lang":"source language code","panels":[[..],..],"items":[{"box":[..],"kind":"speech|thought|caption|sfx","text":"..","tr":"..","conf":0.9}]}`;
+      const { text } = await AI.vision(blob, prompt, { json: true, temperature: 0.1, models: ['gemini-flash-lite-latest', 'gemini-2.5-flash-lite', 'gemini-flash-latest'] });
       const j = JSON.parse(String(text).replace(/^```(json)?|```$/g, '').trim());
       const panels = (j.panels || []).filter(b => Array.isArray(b) && b.length === 4 && b.every(v => isFinite(+v)) && b[2] > b[0] && b[3] > b[1]).map(b => b.map(Number));
       DB.put('kv', key, panels).catch(() => { }); pg.ap = panels; return panels;
@@ -892,7 +1044,7 @@ Return only JSON: {"panels":[[ymin,xmin,ymax,xmax],...]}`;
   // the page with the translation lettered in; made once, kept on the device
   trImage(pg) {
     if (!this.rec.prefs.tr || !AI.fn) return Promise.resolve(null);
-    const key = 'ctimg:' + this.rec.id + ':' + pg.i + ':' + this.trLang() + ':v2';
+    const key = 'ctimg:' + this.rec.id + ':' + pg.i + ':' + this.trLang() + ':v3';
     if (pg.tKey === key && pg.tPromise) return pg.tPromise;
     pg.tKey = key;
     pg.tPromise = (async () => {
@@ -956,9 +1108,23 @@ For each one give its box as [ymin, xmin, ymax, xmax] normalized 0-1000 to this 
 Rules: one item per balloon, never merge two balloons, never split one balloon; keep names of people and places as they are; keep names of people and places as they are; keep the same wording for recurring expressions; list items in reading order (${this.dir === 'rtl' ? 'right to left' : 'left to right'}, top to bottom, panel by panel); conf is your confidence 0-1 that the text was read correctly.
 Also list every panel of the page in reading order as tight boxes [ymin, xmin, ymax, xmax] normalized 0-1000 (follow the art's reading flow: a wide panel on top comes before the row below it; a tall panel at the left comes before the panels stacked at its right; a full-page splash is one panel; leave out page margins and gutters. When smaller panels sit on top of a bigger background picture, list the background picture first, as its visible part only (where it is not covered by the panels on top), then the panels on top in their own reading order.)
 Return only JSON: {"lang":"source language code","panels":[[..],..],"items":[{"box":[..],"kind":"speech|thought|caption|sfx","text":"..","tr":"..","conf":0.9}]}`;
-    const { text } = await AI.vision(blob, prompt, { json: true, temperature: 0.2 });
+    const { text } = await AI.vision(blob, prompt, { json: true, temperature: 0.2, models: ['gemini-flash-lite-latest', 'gemini-2.5-flash-lite', 'gemini-flash-latest'] });
     const j = JSON.parse(String(text).replace(/^```(json)?|```$/g, '').trim());
-    const items = (j.items || []).filter(it => Array.isArray(it.box) && it.box.length === 4 && (it.tr || it.text));
+    // now and then the reply lists each balloon as a run of loose values ([box], kind, text, translation, conf): read those too
+    let raw = Array.isArray(j.items) ? j.items : [];
+    if (raw.some(x => !x || typeof x !== 'object' || Array.isArray(x))) {
+      const fixed = []; let cur = null;
+      for (const x of raw) {
+        if (Array.isArray(x) && x.length === 4 && x.every(v => isFinite(+v))) { cur = { box: x, kind: 'speech', s: [] }; fixed.push(cur); }
+        else if (x && typeof x === 'object' && !Array.isArray(x)) { cur = null; fixed.push(x); }
+        else if (cur && typeof x === 'string') { if (/^(speech|thought|caption|sfx)$/.test(x) && !cur.s.length) cur.kind = x; else cur.s.push(x); }
+        else if (cur && typeof x === 'number') cur.conf = x;
+      }
+      raw = fixed.map(x => x.s ? { box: x.box, kind: x.kind, text: x.s[0] || '', tr: x.s[1] || '', conf: x.conf } : x);
+    }
+    const items = raw.filter(it => Array.isArray(it.box) && it.box.length === 4 && (it.tr || it.text));
+    // a reply that had balloons but none could be read is not kept: the page is asked again
+    if (raw.length && !items.length) throw new Error('unreadable reply');
     const panels = (j.panels || []).filter(b => Array.isArray(b) && b.length === 4 && b.every(v => isFinite(+v)) && b[2] > b[0] && b[3] > b[1]).map(b => b.map(Number));
     const data = { lang: j.lang || '', items, panels };
     DB.put('kv', key, data).catch(() => { });
@@ -971,7 +1137,7 @@ Return only JSON: {"lang":"source language code","panels":[[..],..],"items":[{"b
       if (!d || !d.items.length) { b.append(el('p', { class: 'muted', text: this.rec.prefs.tr ? t('cLinesNone') : t('cLinesOff') })); return; }
       b.append(...d.items.map((it, i) => el('div', { class: 'cline' + ((it.conf ?? 1) < 0.6 ? ' low' : '') },
         el('small', { text: (i + 1) + ' · ' + t('cKind_' + (it.kind || 'speech')) + ((it.conf ?? 1) < 0.6 ? ' · ' + t('cLow') : '') }),
-        el('div', { class: 'co', text: it.text }), el('div', { class: 'ct', text: it.tr || '' }))),
+        el('div', { class: 'co', text: String(it.text || '').replace(/\*/g, '') }), el('div', { class: 'ct', text: String(it.tr || '').replace(/\*/g, '') }))),
         el('button', { class: 'btn block', style: { marginTop: '12px' }, text: t('cRedo'), onclick: async () => { Sheets.close(); try { await this.trData(pg, true); this.drawTr(pg); } catch (e) { toast(AI.errText(e)); } } }));
     } });
   },
