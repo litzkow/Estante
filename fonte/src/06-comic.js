@@ -121,6 +121,35 @@ function detectPanels(img, W, H, dir) {
   rec({ x0: 0, y0: 0, x1: w, y1: h }, 0);
   const area = w * h;
   let ps = leaves.filter(r => (r.x1 - r.x0) * (r.y1 - r.y0) >= area * 0.008);
+  // bordered panels drawn on top of open art (no page-coloured gutter around them): find the closed frames
+  // and show the open art (its visible part) first, then the frames in reading order
+  {
+    const rects = frameRects(dark, w, h, dir);
+    if (rects.length) {
+      const out = [];
+      for (const r of ps) {
+        const ra = (r.x1 - r.x0) * (r.y1 - r.y0), tol = Math.min(w, h) * 0.015;
+        const kids = rects.filter(q => q.x0 >= r.x0 - tol && q.y0 >= r.y0 - tol && q.x1 <= r.x1 + tol && q.y1 <= r.y1 + tol && (q.x1 - q.x0) * (q.y1 - q.y0) < ra * 0.85);
+        const cover = kids.reduce((t, q) => t + (q.x1 - q.x0) * (q.y1 - q.y0), 0);
+        // a leaf that is itself one framed panel: lines drawn inside it (doors, windows) are never panels
+        const T2 = Math.max(4, Math.round(Math.min(w, h) * 0.012));
+        const edge = (horiz, p0, a0, a1) => { let best = 0; for (let d = -T2; d <= T2; d++) { const p = p0 + d; if (p < 0 || p >= (horiz ? h : w)) continue; const f = (horiz ? rowDark(p, a0, a1) : colDark(p, a0, a1)) / Math.max(1, a1 - a0); if (f > best) best = f; } return best; };
+        const framed = edge(true, r.y0, r.x0, r.x1) > 0.75 && edge(true, r.y1 - 1, r.x0, r.x1) > 0.75 && edge(false, r.x0, r.y0, r.y1) > 0.75 && edge(false, r.x1 - 1, r.y0, r.y1) > 0.75;
+        // panels laid on open art fill the band across (or down); a couple of door or window lines inside a picture do not
+        const ux = kids.length ? (Math.max(...kids.map(q => q.x1)) - Math.min(...kids.map(q => q.x0))) / (r.x1 - r.x0) : 0, uy = kids.length ? (Math.max(...kids.map(q => q.y1)) - Math.min(...kids.map(q => q.y0))) / (r.y1 - r.y0) : 0;
+        const sideBySide = kids.length >= 2 && kids.every((q, i) => kids.every((z, j) => i === j || Math.min(q.y1, z.y1) - Math.max(q.y0, z.y0) > Math.min(q.y1 - q.y0, z.y1 - z.y0) * 0.4));
+        const spread = kids.length < 2 || (sideBySide ? ux >= 0.7 : (ux >= 0.7 || uy >= 0.7));
+        if (!framed && spread && (kids.length >= 2 || (kids.length === 1 && cover < ra * 0.6))) {
+          const back = uncover([r, ...kids].map(q => ({ x: q.x0, y: q.y0, w: q.x1 - q.x0, h: q.y1 - q.y0 })));
+          // reading order: rows (pieces that share height), then across
+          const rows = [];
+          for (const q of back.sort((u, v) => u.y - v.y)) { const R = rows.find(R => R.some(z => Math.min(z.y + z.h, q.y + q.h) - Math.max(z.y, q.y) > Math.min(z.h, q.h) * 0.5)); if (R) R.push(q); else rows.push([q]); }
+          for (const q of rows.flatMap(R => R.sort((u, v) => dir === 'rtl' ? v.x - u.x : u.x - v.x))) out.push({ x0: q.x, y0: q.y, x1: q.x + q.w, y1: q.y + q.h });
+        } else out.push(r);
+      }
+      ps = out;
+    }
+  }
   if (ps.length > 26 || !ps.length) return [];
   // slivers (a strip cut off a panel by a slanted line or a tilted scan) belong to the panel next to them
   for (let guard = 0; guard < 8 && ps.length > 1; guard++) {
@@ -134,8 +163,16 @@ function detectPanels(img, W, H, dir) {
   const uni = (a, b) => ({ x0: Math.min(a.x0, b.x0), y0: Math.min(a.y0, b.y0), x1: Math.max(a.x1, b.x1), y1: Math.max(a.y1, b.y1) });
   const dist = (a, b) => Math.hypot(Math.max(0, a.x0 - b.x1, b.x0 - a.x1), Math.max(0, a.y0 - b.y1, b.y0 - a.y1));
   // logo / title / caption strips (mostly page colour, short): they belong with the nearest panel, never on their own
+  // a panel with a drawn border on all four sides (even a mostly white one) is a real panel, never a caption strip
+  const boxed = r => {
+    const T2 = Math.max(4, Math.round(Math.min(w, h) * 0.012));
+    const edge = (horiz, p0, a0, a1) => { let best = 0; for (let d = -T2; d <= T2; d++) { const p = p0 + d; if (p < 0 || p >= (horiz ? h : w)) continue; const f = (horiz ? rowDark(p, a0, a1) : colDark(p, a0, a1)) / Math.max(1, a1 - a0); if (f > best) best = f; } return best; };
+    return edge(true, r.y0, r.x0, r.x1) > 0.7 && edge(true, r.y1 - 1, r.x0, r.x1) > 0.7 && edge(false, r.x0, r.y0, r.y1) > 0.7 && edge(false, r.x1 - 1, r.y0, r.y1) > 0.7;
+  };
   for (let guard = 0; guard < 6 && ps.length > 1; guard++) {
-    const k = ps.findIndex(r => (r.y1 - r.y0) < h * 0.22 && white(r) > 40);
+    const cw = Math.max(...ps.map(r => r.x1)) - Math.min(...ps.map(r => r.x0));
+    // a strip across the whole page between real gutters is a panel (a wide shot); pieces and short title strips are not
+    const k = ps.findIndex(r => (r.y1 - r.y0) < h * 0.22 && white(r) > 40 && !boxed(r) && !((r.x1 - r.x0) >= cw * 0.85 && (r.y1 - r.y0) >= h * 0.12));
     if (k < 0) break;
     const s = ps[k]; ps.splice(k, 1);
     let bi = 0, bd = Infinity; ps.forEach((r, i) => { const d = dist(r, s); if (d < bd) { bd = d; bi = i; } });
@@ -200,6 +237,49 @@ function detectPanels(img, W, H, dir) {
     const x0 = Math.max(0, r.x0 - px), y0 = Math.max(0, r.y0 - py), x1 = Math.min(w, r.x1 + px), y1 = Math.min(h, r.y1 + py);
     return { x: x0 / w, y: y0 / h, w: (x1 - x0) / w, h: (y1 - y0) / h, cx: prof(r, true), cy: prof(r, false) };
   });
+}
+
+/* closed rectangular frames (a panel's drawn border): two long upright lines facing each other, joined by a line
+   along the top and one along the bottom. Slightly tilted scans and small breaks in the ink are allowed. */
+function frameRects(dark, w, h, dir) {
+  const D = (x, y) => x >= 0 && y >= 0 && x < w && y < h && dark[y * w + x];
+  const segs = (vert) => {
+    const L = vert ? w : h, M = vert ? h : w, minLen = (vert ? h : w) * (vert ? 0.1 : 0.07), out = [];
+    for (let a = 0; a < L; a++) {
+      let s0 = -1, gap = 0;
+      for (let b = 0; b <= M; b++) {
+        const on = b < M && (vert ? (D(a - 1, b) || D(a, b) || D(a + 1, b)) : (D(b, a - 1) || D(b, a) || D(b, a + 1)));
+        if (on) { if (s0 < 0) s0 = b; gap = 0; }
+        else if (s0 >= 0 && ++gap > 3) { const e = b - gap; if (e - s0 >= minLen) out.push({ p: a, a: s0, b: e }); s0 = -1; gap = 0; }
+      }
+    }
+    // the same line found on neighbouring columns: keep one
+    out.sort((u, v) => u.p - v.p); const m = [];
+    for (const g of out) { const k = m.find(q => Math.abs(q.p - g.p) <= 3 && Math.min(q.b, g.b) - Math.max(q.a, g.a) > (g.b - g.a) * 0.6); if (k) { if (g.b - g.a > k.b - k.a) Object.assign(k, g); } else m.push({ ...g }); }
+    return m;
+  };
+  const V = segs(true), Hs = segs(false), T = Math.max(5, Math.round(Math.min(w, h) * 0.012)), rects = [];
+  const hasH = (y, x0, x1) => Hs.some(g => Math.abs(g.p - y) <= T && g.a <= x0 + T && g.b >= x1 - T);
+  for (const A of V) {
+    let best = null;
+    for (const B of V) {
+      if (B.p - A.p < w * 0.08) continue;
+      const ov = Math.min(A.b, B.b) - Math.max(A.a, B.a), sh = Math.min(A.b - A.a, B.b - B.a);
+      if (ov < sh * 0.85 || sh < Math.max(A.b - A.a, B.b - B.a) * 0.75) continue;
+      const y0 = Math.max(A.a, B.a), y1 = Math.min(A.b, B.b);
+      if (!hasH(y0, A.p, B.p) || !hasH(y1, A.p, B.p)) continue;
+      if (!best || B.p < best.x1) best = { x0: A.p, x1: B.p, y0, y1 };
+    }
+    if (best && (best.x1 - best.x0) * (best.y1 - best.y0) >= w * h * 0.02 && (best.x1 - best.x0) * (best.y1 - best.y0) <= w * h * 0.85) rects.push(best);
+  }
+  // drop duplicates and frames that hold other frames (a page border is not a panel)
+  const uniq = rects.filter((r, i) => !rects.some((q, j) => j < i && Math.abs(q.x0 - r.x0) <= T && Math.abs(q.x1 - r.x1) <= T && Math.abs(q.y0 - r.y0) <= T && Math.abs(q.y1 - r.y1) <= T));
+  const fin = uniq.filter(r => !uniq.some(q => q !== r && q.x0 >= r.x0 - T && q.x1 <= r.x1 + T && q.y0 >= r.y0 - T && q.y1 <= r.y1 + T && (q.x1 - q.x0) * (q.y1 - q.y0) < (r.x1 - r.x0) * (r.y1 - r.y0) * 0.9));
+  // reading order: rows (frames that share height), then across
+  fin.sort((a, b) => a.y0 - b.y0);
+  const rows = [];
+  for (const r of fin) { const row = rows.find(R => R.some(q => Math.min(q.y1, r.y1) - Math.max(q.y0, r.y0) > Math.min(q.y1 - q.y0, r.y1 - r.y0) * 0.5)); if (row) row.push(r); else rows.push([r]); }
+  return rows.flatMap(R => R.sort((a, b) => dir === 'rtl' ? b.x0 - a.x0 : a.x0 - b.x0));
 }
 
 /* a background picture with panels on top of it: keep only the part of it you can see (the biggest uncovered strip),
@@ -516,7 +596,7 @@ const Comic = {
     $('#v-comic').append(h); setTimeout(() => h.remove(), 3200);
   },
   size() { return { SW: this.stage.clientWidth || innerWidth, SH: this.stage.clientHeight || innerHeight }; },
-  key(i) { return 'pn:' + this.rec.id + ':' + i + ':' + this.dir + ':v10'; },
+  key(i) { return 'pn:' + this.rec.id + ':' + i + ':' + this.dir + ':v17'; },
   load(i) {
     if (this.cache.has(i)) return this.cache.get(i);
     const p = (async () => {
@@ -904,6 +984,7 @@ Return only JSON: {"lang":"source language code","panels":[[..],..],"items":[{"b
       lbl += cur.full ? ' · ' + t('fullPage') : ' · ' + t('panelXofY', { a: k, b: panelSteps });
     }
     $('#c-label').textContent = lbl;
+    this.rotHint(cur);
     const dots = $('#c-steps'); dots.replaceChildren();
     if (this.steps.length > 1 && this.steps.length <= 24) for (let k = 0; k < this.steps.length; k++) dots.append(el('i', { class: k === this.step ? 'on' : '' }));
     const ic = { quadros: 'panels', pagina: 'page', largura: 'width' }[this.mode];
@@ -917,6 +998,18 @@ Return only JSON: {"lang":"source language code","panels":[[..],..],"items":[{"b
     this.rec.pct = clamp(i >= n - 1 ? 1 : pct, 0, 1); this.rec.posAt = Date.now();
     Resume.save(this.rec);
     saveRecSoon(this.rec);
+  },
+  // a wide panel on a phone held upright (or a tall one lying down) reads much bigger the other way:
+  // a small hint, now and then; turning the phone keeps you on the same panel
+  rotHint(r) {
+    if (!r || r.full || this.mode !== 'quadros' || S.cRotHint === false) return;
+    const { SW, SH } = this.size(), pa = r.w / r.h, sa = SW / SH;
+    const gain = Math.min(pa, 1 / sa) / Math.max(1e-3, Math.min(pa, sa)) > 1 && (pa > 1.25 && sa < 0.8 ? (pa / sa) : (pa < 0.8 && sa > 1.25 ? (sa / pa) : 0));
+    if (!gain || gain < 2.2 || Date.now() - (this.rotAt || 0) < 30000) return;
+    this.rotAt = Date.now();
+    let h = $('#c-rot'); if (!h) { h = el('div', { id: 'c-rot' }); $('#v-comic').append(h); }
+    h.textContent = sa < 1 ? t('cRotLand') : t('cRotPort'); h.classList.add('on');
+    clearTimeout(this.rotT); this.rotT = setTimeout(() => h.classList.remove('on'), 2200);
   },
   toggleUI() { $('#v-comic').classList.contains('ui-off') ? this.showUI() : this.hideUI(); },
   showUI(auto) { $('#v-comic').classList.remove('ui-off'); clearTimeout(this.uiT); if (auto) this.uiT = setTimeout(() => this.hideUI(), 2800); },
@@ -953,6 +1046,7 @@ Return only JSON: {"lang":"source language code","panels":[[..],..],"items":[{"b
             wToggle(t('fullFirst'), t('fullFirstSub'), S.cFullFirst, v => { setS('cFullFirst', v); this.relayout(); }),
             wToggle(t('splitWide'), t('splitWideSub2'), S.cSplit, v => { setS('cSplit', v); this.relayout(); }),
             wToggle(t('cAiPanelsT'), t('cAiPanelsSub'), S.cAiPanels !== false, v => { setS('cAiPanels', v); this.relayout(); }),
+            wToggle(t('cRotT'), t('cRotSub'), S.cRotHint !== false, v => setS('cRotHint', v)),
             wToggle(t('cSpreadT'), t('cSpreadSub'), S.cSpread !== false, v => { setS('cSpread', v); this.cur = null; this.goto(this.page, 0, false); }),
             el('button', { class: 'btn block', style: { margin: '10px 0' }, onclick: () => { Sheets.closeAll(); this.linesSheet(); } }, icon('translate'), t('cLines')),
             el('div', { style: { margin: '12px 0 6px', fontSize: '14px', fontWeight: 600 }, text: t('cDblT') }),

@@ -633,3 +633,5 @@ html.sheet-open,html.sheet-open body{background:var(--card) !important}
 #fam-prog i{position:absolute;left:0;bottom:0;height:2px;background:var(--accent);transition:width .4s}
 #c-load.tr::after{content:'Traduzindo…';position:absolute;top:calc(50% + 34px);left:50%;transform:translateX(-50%);color:#fff;font-size:13px;font-weight:600;background:rgba(0,0,0,.55);padding:5px 12px;border-radius:999px}
 #c-load.tr{background:rgba(0,0,0,.55)}
+#c-rot{position:absolute;left:50%;top:calc(env(safe-area-inset-top) + 14px);transform:translate(-50%,-8px);z-index:8;background:rgba(20,20,22,.82);color:#fff;font-size:13px;font-weight:600;padding:8px 14px;border-radius:999px;opacity:0;pointer-events:none;transition:opacity .3s,transform .3s;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);white-space:nowrap}
+#c-rot.on{opacity:1;transform:translate(-50%,0)}
