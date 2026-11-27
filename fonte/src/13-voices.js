@@ -268,7 +268,7 @@ const NeuralPlayer = {
     try {
       const rec = Book.rec || {}; const art = [];
       if (rec.cover instanceof Blob) { if (!this.coverUrl || this.coverFor !== rec.id) { this.coverUrl = URL.createObjectURL(rec.cover); this.coverFor = rec.id; } art.push({ src: this.coverUrl, sizes: '512x512', type: rec.cover.type || 'image/jpeg' }); }
-      navigator.mediaSession.metadata = new MediaMetadata({ title: niceLabel(Book.tocLabel ? Book.tocLabel(Book.ch) : '') || rec.title, artist: rec.author || '', album: rec.title || '', artwork: art });
+      navigator.mediaSession.metadata = new MediaMetadata({ title: niceLabel(Book.tocLabel ? Book.tocLabel(Book.ch) : '') || bTitle(rec), artist: rec.author || '', album: bTitle(rec) || '', artwork: art });
     } catch (e) { }
   },
 };

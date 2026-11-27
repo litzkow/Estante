@@ -28,7 +28,7 @@ const PdfBook = {
       const p1 = await this.pdf.getPage(1); const v = p1.getViewport({ scale: 1 });
       for (let i = 0; i < this.n; i++) this.sizes.push({ w: v.width, h: v.height });
       // fetch real sizes lazily for the first pages (most PDFs are uniform)
-      $('#p-title').textContent = rec.title;
+      $('#p-title').textContent = bTitle(rec);
       $('#p-range').max = this.n;
       App.show('v-pdf');
       this.build();

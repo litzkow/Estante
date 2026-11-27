@@ -254,7 +254,7 @@ const Comic = {
     busy(t('opening'));
     try { this.src = await comicSource(rec, blob); } finally { busy(null); }
     this.cache.clear(); this.cur = null; this.cam.replaceChildren();
-    $('#c-title').textContent = rec.title;
+    $('#c-title').textContent = bTitle(rec);
     const rg = $('#c-range'); rg.max = this.src.count; rg.min = 1;
     App.show('v-comic');
     this.showUI(true);

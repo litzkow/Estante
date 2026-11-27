@@ -83,6 +83,8 @@ const Family = {
       if (x.series && (b.series !== x.series || b.snum !== x.num)) { b.series = x.series; b.snum = x.num; dirty = true; }
       if (x.v && b.fv !== x.v) { b.fv = x.v; dirty = true; }
       if (x.title && b.title !== x.title) { b.title = x.title; dirty = true; }
+      if (x.titles && JSON.stringify(b.titles) !== JSON.stringify(x.titles)) { b.titles = x.titles; dirty = true; }
+      if (JSON.stringify(b.seriesT || null) !== JSON.stringify(x.seriesT || null)) { b.seriesT = x.seriesT || null; dirty = true; }
       if (x.cover && b.cv !== x.cover + '#' + (x.cv || 1)) {
         try {
           let bl = covers.get(x.cover);

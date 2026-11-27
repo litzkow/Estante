@@ -8,7 +8,7 @@ const Lib = {
       // iPhone sometimes loses a saved picture: show a drawn cover and fetch the real one again
       return el('img', { src: u, alt: '', decoding: 'async', onerror: e => { const g = this.coverEl({ title: b.title, author: b.author, kind: b.kind }); e.target.replaceWith(g); if (b.id) this.repairCover(b); } });
     }
-    return el('div', { class: 'gen', style: { background: genCoverColor(b.title || '') } }, el('div', { class: 'gt', text: b.title || '' }), el('div', { class: 'ga', text: b.author || (b.kind === 'comic' ? t('comic') : t('book')) }));
+    return el('div', { class: 'gen', style: { background: genCoverColor(b.title || '') } }, el('div', { class: 'gt', text: bTitle(b) }), el('div', { class: 'ga', text: b.author || (b.kind === 'comic' ? t('comic') : t('book')) }));
   },
   repaired: new Set(),
   async repairCover(b) {
@@ -49,11 +49,11 @@ const Lib = {
     else if (f === 'reading') list = list.filter(b => b.pct > 0 && !b.finished);
     else if (f === 'done') list = list.filter(b => b.finished);
     else if (f.startsWith('c:')) list = list.filter(b => (b.collections || []).includes(f.slice(2)));
-    if (this.q) { const q = fold(this.q); list = list.filter(b => fold((b.title || '') + ' ' + (b.author || '') + ' ' + (b.collections || []).join(' ')).includes(q)); }
+    if (this.q) { const q = fold(this.q); list = list.filter(b => fold((b.title || '') + ' ' + bTitle(b) + ' ' + (b.author || '') + ' ' + (b.collections || []).join(' ')).includes(q)); }
     const by = {
       recent: (a, b) => (b.opened || b.added) - (a.opened || a.added),
       added: (a, b) => b.added - a.added,
-      title: (a, b) => natCmp(a.title || '', b.title || ''),
+      title: (a, b) => natCmp(bTitle(a), bTitle(b)),
       author: (a, b) => natCmp(a.author || '~', b.author || '~') || natCmp(a.title, b.title),
       progress: (a, b) => (b.finished ? 1 : b.pct || 0) - (a.finished ? 1 : a.pct || 0),
     }[S.sort] || ((a, b) => 0);
@@ -93,7 +93,7 @@ const Lib = {
         el('div', { class: 'hcover' }, this.coverEl(cont)),
         el('div', { class: 'hinfo' },
           el('div', { class: 'hlabel', text: t('continue') }),
-          el('div', { class: 'htitle', text: cont.title }),
+          el('div', { class: 'htitle', text: bTitle(cont) }),
           el('div', { class: 'hsub', text: [cont.author, this.kindLabel(cont)].filter(Boolean).join(' · ') }),
           el('div', { class: 'hbar' }, el('i', { style: { width: pc + '%' } })), el('div', { class: 'hpct', text: pc + '%' })),
         el('div', { class: 'hgo' }, icon('play'))));
@@ -105,7 +105,7 @@ const Lib = {
       if (!n) this.series = null;
       else {
         chips.append(el('button', { class: 'chip on', onclick: () => this.closeFolder() }, icon('back'), t('shelfBack')),
-          el('div', { class: 'fhead' }, el('b', { text: this.series }), el('span', { text: t('nVolumes', { n }) })));
+          el('div', { class: 'fhead' }, el('b', { text: serName(this.series) }), el('span', { text: t('nVolumes', { n }) })));
         hero.replaceChildren();
       }
     }
@@ -214,23 +214,23 @@ const Lib = {
   folderCard(f) {
     const bs = f.books, top = bs.slice(0, 3).reverse();
     const read = bs.filter(b => b.finished).length, started = bs.some(b => b.pct > 0);
-    const stack = el('button', { class: 'cover fstack', 'aria-label': f.series, onclick: () => this.openFolder(f.series) },
+    const stack = el('button', { class: 'cover fstack', 'aria-label': serName(f.series), onclick: () => this.openFolder(f.series) },
       ...top.map((b, i) => el('div', { class: 'fs', style: { '--k': top.length - 1 - i } }, this.coverEl(b))),
       el('span', { class: 'fcount' }, icon('folder'), String(bs.length)),
       bs.some(b => this.isNew(b)) ? el('span', { class: 'newtag', text: t('nNew', { n: bs.filter(b => this.isNew(b)).length }) }) : null);
     return el('div', { class: 'card folder' }, stack,
-      el('div', { class: 'crow' }, el('div', { class: 'ctext' }, el('div', { class: 'ctitle', text: f.series }),
+      el('div', { class: 'crow' }, el('div', { class: 'ctext' }, el('div', { class: 'ctitle', text: serName(f.series) }),
         el('div', { class: 'cmeta', text: t('nVolumes', { n: bs.length }) + (read ? ' · ' + t('nRead', { n: read }) : started ? ' · ' + t('reading').toLowerCase() : '') }))));
   },
   card(b) {
-    const cover = el('button', { class: 'cover', 'aria-label': b.title, onclick: e => this.open(b.id, e.currentTarget) }, this.coverEl(b),
+    const cover = el('button', { class: 'cover', 'aria-label': bTitle(b), onclick: e => this.open(b.id, e.currentTarget) }, this.coverEl(b),
       this.sibling(b) ? el('span', { class: 'badge', text: 'PT · EN' }) : null,
       this.isNew(b) ? el('span', { class: 'newtag', text: t('newTag') }) : null,
       b.finished ? el('span', { class: 'done' }, icon('check')) : null,
       (b.pct > 0 && !b.finished) ? el('div', { class: 'cbar' }, el('i', { style: { width: Math.round(b.pct * 100) + '%' } })) : null);
     return el('div', { class: 'card' }, cover,
       el('div', { class: 'crow' },
-        el('div', { class: 'ctext' }, el('div', { class: 'ctitle', text: this.series && b.series && b.snum ? volTitle(b) : b.title }),
+        el('div', { class: 'ctext' }, el('div', { class: 'ctitle', text: this.series && b.series && b.snum ? volTitle(b) : bTitle(b) }),
           el('div', { class: 'cmeta', text: this.series && b.series && b.snum ? [t('volumeN', { n: b.snum }), this.pctLabel(b)].filter(Boolean).join(' · ') : [b.author, this.pctLabel(b)].filter(Boolean).join(' · ') })),
         el('button', { class: 'icon more', 'aria-label': t('options'), onclick: () => this.menu(b) }, icon('more'))));
   },
@@ -335,10 +335,31 @@ const Lib = {
   },
 };
 
+// Book and series names follow the app language: obras.json "titles"/"seriesT" ({pt, en}), plus the Harry Potter names
+const HP_T = [['Pedra Filosofal', "Sorcerer's Stone"], ['Câmara Secreta', 'Chamber of Secrets'], ['Prisioneiro de Azkaban', 'Prisoner of Azkaban'], ['Cálice de Fogo', 'Goblet of Fire'], ['Ordem da Fênix', 'Order of the Phoenix'], ['Enigma do Príncipe', 'Half-Blood Prince'], ['Relíquias da Morte', 'Deathly Hallows']];
+function bTitle(b) {
+  if (!b) return '';
+  const en = S.lang === 'en', T = b.titles;
+  if (T && (en ? T.en : T.pt)) return en ? T.en : T.pt;
+  const x = b.title || '';
+  if (/harry potter/i.test(x)) for (const [pt, e] of HP_T) {
+    const f = s => fold(s).replace(/[^a-z0-9 ]/g, '');
+    if (f(x).includes(f(pt)) || f(x).includes(f(e)) || (e === "Sorcerer's Stone" && f(x).includes('philosophers stone'))) return en ? 'Harry Potter and the ' + e : 'Harry Potter e ' + (/^(Pedra|Câmara|Ordem)/.test(pt) ? 'a ' : 'o ') + pt;
+  }
+  return x;
+}
+function serName(s) {
+  if (!s) return '';
+  const b = (Lib.books || []).find(x => x.series === s && x.seriesT);
+  const T = b && b.seriesT;
+  return (T && (S.lang === 'en' ? T.en : T.pt)) || s;
+}
+
 // "Harry Potter and the Chamber of Secrets" inside the "Harry Potter" folder → "Chamber of Secrets"
 function volTitle(b) {
-  let x = b.title.replace(/^.*?—\s*/, '');
-  if (b.series && x.toLowerCase().startsWith(b.series.toLowerCase())) x = x.slice(b.series.length).replace(/^[\s:,–—-]*(and the|and|e o|e a|e|the|o|a)\s+/i, '').trim();
+  let x = bTitle(b).replace(/^.*?—\s*/, '');
+  const sn = [serName(b.series), b.series].find(n => n && x.toLowerCase().startsWith(n.toLowerCase()));
+  if (sn) x = x.slice(sn.length).replace(/^[\s:,–—-]*(and the|and|e o|e a|e|the|o|a)\s+/i, '').trim();
   x = x.replace(/^[\s:,–—-]+/, '');
   return x ? x.charAt(0).toUpperCase() + x.slice(1) : t('volumeN', { n: b.snum });
 }
