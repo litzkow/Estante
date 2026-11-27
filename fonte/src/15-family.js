@@ -83,6 +83,7 @@ const Family = {
       // extra: same universe, outside the numbered series (shown at the bottom of the folder, "Do mesmo universo")
       if (x.series && (b.series !== x.series || b.snum !== x.num || !!b.sextra !== !!x.extra)) { b.series = x.series; b.snum = x.extra ? undefined : x.num; b.sextra = !!x.extra; dirty = true; }
       if (x.v && b.fv !== x.v) { b.fv = x.v; dirty = true; }
+      if (x.kind && b.kind !== x.kind) { b.kind = x.kind; b.pos = null; dirty = true; }
       if (x.title && b.title !== x.title) { b.title = x.title; dirty = true; }
       if (x.titles && JSON.stringify(b.titles) !== JSON.stringify(x.titles)) { b.titles = x.titles; dirty = true; }
       if (JSON.stringify(b.seriesT || null) !== JSON.stringify(x.seriesT || null)) { b.seriesT = x.seriesT || null; dirty = true; }

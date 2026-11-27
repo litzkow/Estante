@@ -180,10 +180,20 @@ function splitPanel(p, sa, dir) {
 async function comicSource(rec, blob) {
   if (rec.format === 'pdf') {
     const pdf = await openPdf(blob);
-    const tw = () => Math.round(Math.min(2400, Math.max(1500, Math.max(innerWidth, innerHeight) * (devicePixelRatio || 1) * 1.1)));
+    // sharp enough to zoom into a panel, without wasting time beyond what a scan holds
+    const tw = () => Math.round(Math.min(2000, Math.max(1500, Math.min(innerWidth, innerHeight) * (devicePixelRatio || 1) * 1.35)));
+    let q = Promise.resolve();
+    const render = i => (q = q.then(async () => {
+      const k = 'cpg:' + rec.id + ':' + i;
+      const have = await DB.getPic(k).catch(() => null);
+      if (have && have.blob && have.blob.size > 1000) return have.blob;
+      const cv = await renderPdfPage(pdf, i + 1, tw(), 4000);
+      const b = await canvasBlob(cv, 'image/jpeg', 0.86); cv.width = cv.height = 0;
+      PageCache.add(k, b); return b;
+    }));
     return {
       count: pdf.numPages,
-      async page(i) { const cv = await renderPdfPage(pdf, i + 1, tw(), 4600); const b = await canvasBlob(cv, 'image/jpeg', 0.9); const url = URL.createObjectURL(b); const img = await loadImg(url); return { url, img, w: img.naturalWidth, h: img.naturalHeight }; },
+      async page(i) { const b = await render(i); const url = URL.createObjectURL(b); const img = await loadImg(url); try { await img.decode(); } catch (e) { } return { url, img, w: img.naturalWidth, h: img.naturalHeight }; },
       async thumb(i) { const cv = await renderPdfPage(pdf, i + 1, 200); return canvasBlob(cv, 'image/jpeg', 0.75); },
       close() { try { closePdf(pdf); } catch (e) { } },
     };
@@ -194,11 +204,24 @@ async function comicSource(rec, blob) {
   const pageBlob = async i => new Blob([await zip.file(names[i]).async('blob')], { type: mimeOf(names[i]) });
   return {
     count: names.length,
-    async page(i) { const url = URL.createObjectURL(await pageBlob(i)); const img = await loadImg(url); return { url, img, w: img.naturalWidth, h: img.naturalHeight }; },
+    async page(i) { const url = URL.createObjectURL(await pageBlob(i)); const img = await loadImg(url); try { await img.decode(); } catch (e) { } return { url, img, w: img.naturalWidth, h: img.naturalHeight }; },
     async thumb(i) { const url = URL.createObjectURL(await pageBlob(i)); try { const im = await loadImg(url); return await thumbFrom(im, im.naturalWidth, im.naturalHeight, 200); } finally { URL.revokeObjectURL(url); } },
     close() { },
   };
 }
+
+/* rendered comic pages kept on the device (PDF comics open instantly the second time); oldest go first */
+const PageCache = {
+  MAX: 220,
+  async add(k, blob) {
+    try {
+      await DB.putPic(k, 1, blob);
+      const list = ((await DB.get('kv', 'cpg:list').catch(() => null)) || []).filter(x => x !== k); list.push(k);
+      while (list.length > this.MAX) await DB.del('kv', list.shift()).catch(() => { });
+      await DB.put('kv', 'cpg:list', list);
+    } catch (e) { }
+  },
+};
 
 /* ================= comic reader ================= */
 const Comic = {
@@ -228,9 +251,14 @@ const Comic = {
         if ((S.cDbl || 'zoom') === 'zoom' || (r && r.full && this.mode === 'quadros' && this.steps.length > 1)) { clearTimeout(this.tapT); this.tapT = setTimeout(act, 260); } else act();
       },
       swipe: d => { if (this.z.s > 1.05) return; const fwd = d === 'left'; (this.dir === 'rtl' ? !fwd : fwd) ? this.next() : this.prev(); },
-      down: () => { this.zb = Object.assign({}, this.z); },
-      pan: (dx, dy) => { if (this.z.s <= 1.02) return; this.z.x = this.zb.x + dx; this.z.y = this.zb.y + dy; this.applyZoom(false); },
-      panEnd: () => this.z.s > 1.02,
+      down: () => { this.zb = Object.assign({}, this.z); this.dragAxis = null; },
+      pan: (dx, dy) => {
+        if (this.z.s > 1.02) { this.z.x = this.zb.x + dx; this.z.y = this.zb.y + dy; this.applyZoom(false); return; }
+        // whole page on screen: the page follows the finger and the next one comes in from the side, like paper
+        if (!this.dragAxis) this.dragAxis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+        if (this.dragAxis === 'x' && this.canDrag()) this.dragMove(dx);
+      },
+      panEnd: (dx, dy) => { if (this.z.s > 1.02) return true; if (this.dragging) { this.dragEnd(dx); return true; } return false; },
       pinchStart: () => { this.zb = Object.assign({}, this.z); },
       pinchMove: (k, c, c0) => {
         const s = clamp(this.zb.s * k, 1, 6), f = s / this.zb.s;
@@ -260,6 +288,8 @@ const Comic = {
     this.showUI(true);
     Resume.apply(rec);
     const pos = rec.pos || {};
+    this.autoTr(rec);
+    $('#c-tr').classList.toggle('on', !!rec.prefs.tr);
     await this.goto(clamp(pos.page || 0, 0, this.src.count - 1), pos.step || 0, false);
     if (!(await DB.get('kv', 'hint:comic'))) { DB.put('kv', 'hint:comic', 1); this.hint(); }
   },
@@ -282,7 +312,7 @@ const Comic = {
     this.cache.set(i, p); return p;
   },
   evict(center) {
-    for (const [k, p] of this.cache) if (Math.abs(k - center) > 3) { this.cache.delete(k); p.then(pg => { if (this.cur !== pg) URL.revokeObjectURL(pg.url); }).catch(() => { }); }
+    for (const [k, p] of this.cache) if (Math.abs(k - center) > 4) { this.cache.delete(k); p.then(pg => { if (this.cur !== pg) URL.revokeObjectURL(pg.url); }).catch(() => { }); }
   },
   computeSteps(pg) {
     const W = pg.w, H = pg.h, { SW, SH } = this.size(), full = { x: 0, y: 0, w: W, h: H, full: true };
@@ -301,29 +331,64 @@ const Comic = {
     for (const p of ps) out.push(...splitPanel(p, sa, this.dir));
     return out;
   },
-  async goto(i, step, animate = true) {
+  // ---------- two pages side by side (tablet or phone lying down, whole-page mode), cover alone, like an open book ----------
+  spreadOn() { const { SW, SH } = this.size(); return this.mode === 'pagina' && S.cSpread !== false && SW > SH * 1.15; },
+  viewStart(i) { return this.spreadOn() && i > 0 ? i - ((i - 1) % 2) : i; },
+  viewLen(i) { const s = this.viewStart(i); return this.spreadOn() && s > 0 && s + 1 < this.src.count ? 2 : 1; },
+  nbr(side) { const s = this.viewStart(this.page); return side > 0 ? s + this.viewLen(s) : this.viewStart(s - 1); },
+  async loadView(i) {
+    const s = this.viewStart(i), n = this.viewLen(s), a = await this.load(s);
+    if (n < 2) return a;
+    const b = await this.load(s + 1);
+    // a page that is already a double spread (wider than tall) is shown alone
+    if (a.w > a.h || b.w > b.h) return a;
+    const k = this.vkey = 'v' + s;
+    if (this.vcache && this.vcache.key === k) return this.vcache.v;
+    const sb = a.h / b.h, v = { spread: true, i: s, w: a.w + b.w * sb, h: a.h, url: a.url, panels: [], parts: [{ pg: a, x: 0, s: 1 }, { pg: b, x: a.w, s: sb }] };
+    this.vcache = { key: k, v }; return v;
+  },
+  async goto(i, step, animate = true, instant = false) {
     const tok = ++this.token;
     const ld = setTimeout(() => $('#c-load').classList.remove('hide'), 250);
     let pg;
-    try { pg = await this.load(i); }
+    i = this.viewStart(i);
+    try { pg = await this.loadView(i); }
     catch (e) { clearTimeout(ld); $('#c-load').classList.add('hide'); toast(t('pageFail')); return; }
     clearTimeout(ld); $('#c-load').classList.add('hide');
     if (tok !== this.token) return;
     const changed = this.cur !== pg;
     this.cur = pg; this.page = i;
     if (changed) {
-      pg.img.style.width = pg.w + 'px'; pg.img.style.height = pg.h + 'px';
-      pg.img.style.opacity = '0'; pg.img.style.transition = 'opacity .18s';
-      this.cam.replaceChildren(pg.img);
+      let node;
+      if (pg.spread) {
+        node = el('div', { class: 'c-spread', style: { width: pg.w + 'px', height: pg.h + 'px' } }); node.style.setProperty('--gut', pg.parts[1].x + 'px');
+        for (const p of pg.parts) { Object.assign(p.pg.img.style, { position: 'absolute', left: p.x + 'px', top: '0px', width: p.pg.w * p.s + 'px', height: p.pg.h * p.s + 'px' }); node.append(p.pg.img); }
+      } else { pg.img.style.position = ''; pg.img.style.left = pg.img.style.top = ''; pg.img.style.width = pg.w + 'px'; pg.img.style.height = pg.h + 'px'; node = pg.img; }
+      if (instant || pg.spread) { node.style.opacity = '1'; node.style.transition = 'none'; this.cam.replaceChildren(node); }
+      else { node.style.opacity = '0'; node.style.transition = 'opacity .18s'; this.cam.replaceChildren(node); requestAnimationFrame(() => { node.style.opacity = '1'; }); }
       this.drawTr(pg);
-      requestAnimationFrame(() => { pg.img.style.opacity = '1'; });
     }
     this.steps = this.computeSteps(pg);
     this.step = step === 'last' ? this.steps.length - 1 : clamp(step | 0, 0, this.steps.length - 1);
-    this.apply(changed ? false : animate);
+    if (instant && changed && this.steps[this.step] && !this.steps[this.step].full && S.anim) {
+      // arrived by sliding: the whole page is showing, so glide from it into the panel
+      const k = this.step; this.steps.splice(k, 0, { x: 0, y: 0, w: pg.w, h: pg.h, full: true, tmp: true });
+      this.step = k; this.apply(false); this.steps.splice(k, 1);
+      requestAnimationFrame(() => requestAnimationFrame(() => { if (this.cur === pg) this.apply(true); }));
+    } else this.apply(changed ? false : animate);
     this.afterMove();
     this.evict(i);
-    for (const n of [i + 1, i + 2, i - 1]) if (n >= 0 && n < this.src.count) this.load(n).catch(() => { });
+    this.prefetch(i + this.viewLen(i) - 1);
+  },
+  // the next pages are prepared one after the other in the background (and their balloons translated)
+  prefetch(i) {
+    const tok = this.token, order = [i + 1, i + 2, i - 1, i + 3].filter(n => n >= 0 && n < this.src.count);
+    (async () => {
+      for (const n of order) {
+        if (tok !== this.token) return;
+        try { const pg = await this.load(n); if (this.rec.prefs.tr && AI.fn && !GemTTS.over() && n === i + 1) this.trData(pg).catch(() => { }); } catch (e) { }
+      }
+    })();
   },
   rectFor(r) {
     const { SW, SH } = this.size();
@@ -342,6 +407,74 @@ const Comic = {
     this.resetZoom(false);
     this.minimap(r);
   },
+  // ---------- page turn that follows the finger ----------
+  canDrag() { const r = this.steps[this.step]; return !!(r && (r.full || this.mode === 'pagina' || (r.strip && this.step === 0))) && !this.turning; },
+  peekEl() { let p = $('#c-peek'); if (!p) { p = el('div', { id: 'c-peek' }); this.stage.prepend(p); } return p; },
+  async showPeek(side) {
+    // side +1 = the page after (comes from the right in western comics), -1 = the page before
+    const n = this.nbr(side), p = this.peekEl(); p.dataset.side = side;
+    if (n < 0 || n >= this.src.count) { p.replaceChildren(); return null; }
+    let v; try { v = await this.loadView(n); } catch (e) { return null; }
+    if (p.dataset.side != side) return v;
+    const { SW, SH } = this.size(), s = Math.min(SW / v.w, SH / v.h), ox = (SW - v.w * s) / 2, oy = (SH - v.h * s) / 2;
+    const parts = v.spread ? v.parts : [{ pg: v, x: 0, s: 1 }];
+    p.replaceChildren(...parts.map(q => { const im = el('img', { src: q.pg.url, alt: '' }); Object.assign(im.style, { width: q.pg.w * q.s * s + 'px', height: q.pg.h * q.s * s + 'px', left: ox + q.x * s + 'px', top: oy + 'px' }); return im; }));
+    return v;
+  },
+  dragMove(dx) {
+    const W = this.stage.clientWidth, rtl = this.dir === 'rtl';
+    const side = (dx < 0) !== rtl ? 1 : -1;
+    const atEdge = (side > 0 && this.nbr(1) >= this.src.count) || (side < 0 && this.page <= 0);
+    const x = atEdge ? dx * 0.25 : dx;                // rubber band at the first / last page
+    this.dragging = true;
+    if (this.peekSide !== side) { this.peekSide = side; this.showPeek(side); }
+    const p = this.peekEl(); p.style.display = 'block'; p.style.transition = 'none'; this.zoomer.style.transition = 'none';
+    this.zoomer.style.transform = `translate3d(${x}px,0,0)`;
+    p.style.transform = `translate3d(${x + (dx < 0 ? W : -W)}px,0,0)`;
+    this.lastDx = dx;
+  },
+  dragEnd(dx) {
+    const W = this.stage.clientWidth, rtl = this.dir === 'rtl', side = this.peekSide;
+    this.dragging = false; this.peekSide = 0;
+    const atEdge = (side > 0 && this.nbr(1) >= this.src.count) || (side < 0 && this.page <= 0);
+    if (!atEdge && Math.abs(dx) > W * 0.18) return this.slide(side, dx);
+    // not far enough: the page springs back
+    const p = this.peekEl(), tr = 'transform .32s cubic-bezier(.2,.9,.3,1)';
+    this.zoomer.style.transition = tr; p.style.transition = tr;
+    this.zoomer.style.transform = 'translate3d(0,0,0)'; p.style.transform = `translate3d(${dx < 0 ? W : -W}px,0,0)`;
+    setTimeout(() => { if (!this.dragging) p.style.display = 'none'; }, 340);
+    if (atEdge && side > 0 && Math.abs(dx) > W * 0.25) this.finish();
+  },
+  // slide to the page next to this one; from is where the finger left it (0 when it is a tap)
+  async slide(side, from = 0) {
+    if (this.turning) return; this.turning = true;
+    const W = this.stage.clientWidth, rtl = this.dir === 'rtl', n = this.nbr(side);
+    const out = (side > 0) !== rtl ? -1 : 1;           // the current page leaves to this side
+    const p = this.peekEl();
+    try {
+      if (S.anim && !reduceMotion()) {
+        await this.showPeek(side);
+        p.style.display = 'block'; p.style.transition = 'none'; this.zoomer.style.transition = 'none';
+        const start = from || 0;
+        this.zoomer.style.transform = `translate3d(${start}px,0,0)`; p.style.transform = `translate3d(${start - out * W}px,0,0)`;
+        void p.offsetWidth;
+        const left = Math.abs(out * W - start) / W, ms = Math.round(180 + 200 * Math.min(1, left));
+        const tr = `transform ${ms}ms cubic-bezier(.25,.8,.25,1)`;
+        this.zoomer.style.transition = tr; p.style.transition = tr;
+        this.zoomer.style.transform = `translate3d(${out * W}px,0,0)`; p.style.transform = 'translate3d(0,0,0)';
+        await new Promise(r => setTimeout(r, ms + 20));
+      }
+      // land on the whole page first; a guided reader then glides into the first panel
+      const pg = await this.loadView(n);
+      const steps = this.computeSteps(pg), fullIdx = steps.findIndex(s => s.full);
+      const target = side > 0 ? (fullIdx >= 0 ? fullIdx : 0) : (this.mode === 'quadros' ? steps.length - 1 : 0);
+      await this.goto(n, target, false, true);
+    } finally {
+      this.zoomer.style.transition = 'none'; this.zoomer.style.transform = 'none';
+      p.style.display = 'none'; p.style.transition = 'none'; p.replaceChildren();
+      this.turning = false;
+    }
+  },
   enterPanelAt(x, y) {
     const r = this.steps[this.step]; if (!r) return;
     const st = this.stage.getBoundingClientRect(), q = this.rectFor(r);
@@ -349,6 +482,13 @@ const Comic = {
     const k = this.steps.findIndex(s => !s.full && px >= s.x && px <= s.x + s.w && py >= s.y && py <= s.y + s.h);
     if (k >= 0) { this.step = k; this.apply(true); this.afterMove(); }
     else if (!r.full) { const f = this.steps.findIndex(s => s.full); if (f >= 0) { this.step = f; this.apply(true); this.afterMove(); } }
+  },
+  // a comic in another language opens with its balloons already in the app language (only pages you open are paid for)
+  autoTr(rec) {
+    if (rec.prefs.trPick || !AI.fn) return;
+    const app = S.lang === 'en' ? 'en' : 'pt', src = (rec.lang || '').slice(0, 2);
+    if (src && src !== app) { rec.prefs.tr = true; rec.prefs.trTo = app; rec.prefs.trAuto = true; }
+    else if (rec.prefs.trAuto) { rec.prefs.tr = false; rec.prefs.trAuto = false; }
   },
   // ---------- translated balloons (AI reads the page, finds each balloon and translates it) ----------
   trLang() { return (this.rec.prefs.trTo) || (S.lang === 'en' ? 'en' : 'pt'); },
@@ -363,20 +503,28 @@ const Comic = {
       if (!pick) return;
       this.rec.prefs.trTo = pick;
     }
-    this.rec.prefs.tr = on; await saveRec(this.rec);
+    this.rec.prefs.tr = on; this.rec.prefs.trPick = true; await saveRec(this.rec);
     $('#c-tr').classList.toggle('on', on);
     if (this.cur) this.drawTr(this.cur);
   },
   async trData(pg, force) {
     const key = 'ctr:' + this.rec.id + ':' + pg.i + ':' + this.trLang();
     if (!force) { const c = await DB.get('kv', key).catch(() => null); if (c) return c; }
+    if (GemTTS.over()) throw new Error(t('gemBudgetHit', { b: GemTTS.money(GemTTS.budget()) }));
+    // the same page asked twice at once (prefetch + opening it) is translated only once
+    this.trBusy = this.trBusy || new Map();
+    if (this.trBusy.has(key)) return this.trBusy.get(key);
+    const job = this.trJob(pg, key); this.trBusy.set(key, job);
+    try { return await job; } finally { this.trBusy.delete(key); }
+  },
+  async trJob(pg, key) {
     const sc = Math.min(1, 1400 / Math.max(pg.w, pg.h)), cv = document.createElement('canvas');
     cv.width = Math.round(pg.w * sc); cv.height = Math.round(pg.h * sc); cv.getContext('2d').drawImage(pg.img, 0, 0, cv.width, cv.height);
     const blob = await canvasBlob(cv, 'image/jpeg', 0.85);
     const lang = this.trLang() === 'en' ? 'English' : 'Brazilian Portuguese';
     const prompt = `This is one page of a comic${this.dir === 'rtl' ? ' (manga, read right to left)' : ''}. Find every speech balloon, thought balloon, caption/narration box and meaningful sound effect with text.
 For each one give its box as [ymin, xmin, ymax, xmax] normalized 0-1000 to this image (the inside of the balloon), the exact original text, and a natural ${lang} translation that keeps tone, humour and character voice (if the text is already in ${lang}, repeat it).
-Rules: one item per balloon, never merge two balloons, never split one balloon; list items in reading order (${this.dir === 'rtl' ? 'right to left' : 'left to right'}, top to bottom, panel by panel); conf is your confidence 0-1 that the text was read correctly.
+Rules: one item per balloon, never merge two balloons, never split one balloon; keep names of people and places as they are; keep the same wording for recurring expressions; list items in reading order (${this.dir === 'rtl' ? 'right to left' : 'left to right'}, top to bottom, panel by panel); conf is your confidence 0-1 that the text was read correctly.
 Return only JSON: {"lang":"source language code","items":[{"box":[..],"kind":"speech|thought|caption|sfx","text":"..","tr":"..","conf":0.9}]}`;
     const { text } = await AI.vision(blob, prompt, { json: true, temperature: 0.2 });
     const j = JSON.parse(String(text).replace(/^```(json)?|```$/g, '').trim());
@@ -388,13 +536,17 @@ Return only JSON: {"lang":"source language code","items":[{"box":[..],"kind":"sp
   async drawTr(pg) {
     this.cam.querySelectorAll('.ctr-layer').forEach(x => x.remove());
     if (!this.rec.prefs.tr || !AI.fn) return;
-    const layer = el('div', { class: 'ctr-layer', style: { width: pg.w + 'px', height: pg.h + 'px' } });
+    const cur = this.cur;
+    for (const part of (pg.spread ? pg.parts : [{ pg, x: 0, s: 1 }])) this.drawTrOne(part.pg, part.x, part.s, cur);
+  },
+  async drawTrOne(pg, ox, sc, cur) {
+    const layer = el('div', { class: 'ctr-layer', style: { width: pg.w + 'px', height: pg.h + 'px', left: ox + 'px', transform: sc !== 1 ? `scale(${sc})` : '', transformOrigin: '0 0' } });
     this.cam.append(layer);
     let data;
     try { $('#c-load').classList.remove('hide'); data = await this.trData(pg); }
     catch (e) { toast(AI.errText(e)); return; }
     finally { $('#c-load').classList.add('hide'); }
-    if (this.cur !== pg) return;
+    if (this.cur !== cur) return;
     pg.tr = data;
     for (const it of data.items) {
       if (it.kind === 'sfx' && !S.cTrSfx) continue;
@@ -444,13 +596,24 @@ Return only JSON: {"lang":"source language code","items":[{"box":[..],"kind":"sp
   next() {
     if (this.z.s > 1.05) this.resetZoom(true);
     if (this.step < this.steps.length - 1) { this.step++; this.apply(true); this.afterMove(); }
-    else if (this.page < this.src.count - 1) this.goto(this.page + 1, 0);
+    else if (this.nbr(1) < this.src.count) this.turnTo(1);
     else this.finish();
+  },
+  // between pages: slide when the whole page is on screen; from a zoomed panel, pull back to the page first
+  async turnTo(side) {
+    if (this.turning) return;
+    const r = this.steps[this.step];
+    if (r && !r.full && this.mode === 'quadros' && S.anim && !reduceMotion()) {
+      const f = this.steps.findIndex(s => s.full);
+      if (f >= 0) { this.step = f; this.apply(true); await new Promise(res => setTimeout(res, 380)); }
+      else { this.cam.style.transition = 'opacity .2s'; }
+    }
+    await this.slide(side);
   },
   prev() {
     if (this.z.s > 1.05) this.resetZoom(true);
     if (this.step > 0) { this.step--; this.apply(true); this.afterMove(); }
-    else if (this.page > 0) this.goto(this.page - 1, 'last');
+    else if (this.page > 0) this.turnTo(-1);
     else toast(t('atStart'));
   },
   finish() {
@@ -465,7 +628,7 @@ Return only JSON: {"lang":"source language code","items":[{"box":[..],"kind":"sp
   afterMove() {
     const n = this.src.count, i = this.page;
     $('#c-range').value = i + 1;
-    let lbl = t('pageXofY', { a: i + 1, b: n });
+    let lbl = this.cur && this.cur.spread ? t('pagesXYofN', { a: i + 1, b: i + 2, n }) : t('pageXofY', { a: i + 1, b: n });
     const cur = this.steps[this.step];
     if (this.mode === 'quadros' && this.steps.length > 1) {
       const panelSteps = this.steps.filter(s => !s.full).length;
@@ -500,7 +663,10 @@ Return only JSON: {"lang":"source language code","items":[{"box":[..],"kind":"sp
     this.rec.prefs.dir = d; saveRec(this.rec, { sync: false });
     this.cache.clear(); const p = this.page; this.cur = null; this.goto(p, 0, false);
   },
-  relayout() { if (!this.cur) return; const k = this.step; this.steps = this.computeSteps(this.cur); this.step = clamp(k, 0, this.steps.length - 1); this.apply(false); this.afterMove(); },
+  relayout() {
+    if (!this.cur) return;
+    if (this.viewStart(this.page) !== this.page || !!this.cur.spread !== (this.viewLen(this.page) > 1)) { this.cur = null; return this.goto(this.page, 0, false); }
+    const k = this.step; this.steps = this.computeSteps(this.cur); this.step = clamp(k, 0, this.steps.length - 1); this.apply(false); this.afterMove(); },
   toggleBookmark() {
     const bms = this.rec.bookmarks = this.rec.bookmarks || [];
     const i = bms.findIndex(b => b.page === this.page);
@@ -518,6 +684,7 @@ Return only JSON: {"lang":"source language code","items":[{"box":[..],"kind":"sp
           wGroup(t('panelView'),
             wToggle(t('fullFirst'), t('fullFirstSub'), S.cFullFirst, v => { setS('cFullFirst', v); this.relayout(); }),
             wToggle(t('splitWide'), t('splitWideSub2'), S.cSplit, v => { setS('cSplit', v); this.relayout(); }),
+            wToggle(t('cSpreadT'), t('cSpreadSub'), S.cSpread !== false, v => { setS('cSpread', v); this.cur = null; this.goto(this.page, 0, false); }),
             el('button', { class: 'btn block', style: { margin: '10px 0' }, onclick: () => { Sheets.closeAll(); this.linesSheet(); } }, icon('translate'), t('cLines')),
             el('div', { style: { margin: '12px 0 6px', fontSize: '14px', fontWeight: 600 }, text: t('cDblT') }),
             wSeg([['zoom', t('cDblZoom')], ['panel', t('cDblPanel')]], S.cDbl || 'zoom', v => setS('cDbl', v)),

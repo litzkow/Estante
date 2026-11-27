@@ -619,3 +619,11 @@ html.sheet-open,html.sheet-open body{background:var(--card) !important}
 
 .gsec{grid-column:1/-1;padding:18px 2px 2px}
 .gsec h3{margin:0;font-size:1.05rem;font-weight:700;letter-spacing:-.01em}
+
+#c-peek{position:absolute;inset:0;display:none;pointer-events:none;will-change:transform;background:#000}
+#c-peek img{position:absolute;display:block;max-width:none}
+#c-zoom{will-change:transform}
+.c-spread{position:relative}
+.c-spread img{display:block}
+.c-spread::after{content:'';position:absolute;top:0;bottom:0;left:var(--gut,50%);width:40px;transform:translateX(-50%);background:linear-gradient(90deg,transparent,rgba(0,0,0,.18),transparent);pointer-events:none}
+#c-peek img{box-shadow:0 0 36px rgba(0,0,0,.55)}
