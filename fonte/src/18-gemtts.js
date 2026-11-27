@@ -107,6 +107,16 @@ const GemTTS = {
     if (S.gemNotify && Date.now() - (this.lastCheck || 0) > 5 * 60000) { this.lastCheck = Date.now(); setTimeout(() => this.checkFamily(), 2000); }
     return blob;
   },
+  // translation and other text AI also go into the same monthly count (estimated from the tokens Google reports)
+  addText(u) {
+    if (!u) return;
+    const tin = u.promptTokenCount || 0, tout = (u.candidatesTokenCount || 0) + (u.thoughtsTokenCount || 0);
+    const usd = (tin * 0.75 + tout * 4.5) / 1e6; if (!usd) return;
+    const s2 = this.spend(), b = this.budget(); s2.usd += usd; s2.req++; s2.dreq = (s2.dreq || 0) + 1;
+    if (!s2.warned && s2.usd >= b * 0.8) { s2.warned = true; setTimeout(() => toast(t('gemBudget80', { u: this.money(s2.usd), b: this.money(b) }), 7000), 50); }
+    this.save(s2); this.report();
+  },
+  over() { return this.spend().usd >= this.budget(); },
   // ---------- family spending: each device writes its month to gastos/<device>.json; only the payer's device adds it up and alerts ----------
   devId() { if (!S.devId) setS('devId', Math.random().toString(36).slice(2, 10)); return S.devId; },
   devName() { return /iPad|Tablet/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent)) ? t('gemTablet') : t('gemPhone'); },

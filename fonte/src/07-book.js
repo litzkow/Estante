@@ -105,6 +105,7 @@ const Book = {
       // volumes of a series learn their language and their place, so the other edition pairs with them
       if (rec.series && rec.snum && (!rec.work || !rec.lang)) { rec.lang = rec.lang || (this.data.lang || '').slice(0, 2); rec.work = rec.work || 'serie:' + seriesKey(rec.series) + '#' + rec.snum; await DB.put('books', rec.id, rec); Lib.books = Lib.books.map(b => b.id === rec.id ? rec : b); }
       this.sib = Lib.sibling(rec);
+      try { await Trans.auto(rec, this.data, this.sib); } catch (e) { console.warn('tradução automática', e); }
       $('#b-lang').classList.toggle('hide', !this.sib);
       // a two-part switch: the language you're reading is lit, tap to change
       if (this.sib) { const cur = (rec.lang || '').slice(0, 2), oth = (this.sib.lang || '').slice(0, 2), ls = [cur, oth].sort((a, b) => (a === 'pt' ? -1 : b === 'pt' ? 1 : 0));

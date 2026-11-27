@@ -283,6 +283,7 @@ const Gemini = {
       if (r.status === 429) throw Object.assign(new Error('quota'), { code: 'gem_quota' });
       if (!r.ok) throw new Error('Gemini ' + r.status);
       const j = await r.json(); S.gemModel = m;
+      try { if (typeof GemTTS !== 'undefined') GemTTS.addText(j.usageMetadata); } catch (e) { }
       const text = ((j.candidates || [])[0]?.content?.parts || []).map(x => x.text || '').join('');
       if (opts.onText) opts.onText({ text });
       return { text, truncated: (j.candidates || [])[0]?.finishReason === 'MAX_TOKENS' };

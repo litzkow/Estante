@@ -1517,6 +1517,7 @@ const Gemini = {
       if (r.status === 429) throw Object.assign(new Error('quota'), { code: 'gem_quota' });
       if (!r.ok) throw new Error('Gemini ' + r.status);
       const j = await r.json(); S.gemModel = m;
+      try { if (typeof GemTTS !== 'undefined') GemTTS.addText(j.usageMetadata); } catch (e) { }
       const text = ((j.candidates || [])[0]?.content?.parts || []).map(x => x.text || '').join('');
       if (opts.onText) opts.onText({ text });
       return { text, truncated: (j.candidates || [])[0]?.finishReason === 'MAX_TOKENS' };
@@ -3010,6 +3011,7 @@ const Book = {
       // volumes of a series learn their language and their place, so the other edition pairs with them
       if (rec.series && rec.snum && (!rec.work || !rec.lang)) { rec.lang = rec.lang || (this.data.lang || '').slice(0, 2); rec.work = rec.work || 'serie:' + seriesKey(rec.series) + '#' + rec.snum; await DB.put('books', rec.id, rec); Lib.books = Lib.books.map(b => b.id === rec.id ? rec : b); }
       this.sib = Lib.sibling(rec);
+      try { await Trans.auto(rec, this.data, this.sib); } catch (e) { console.warn('tradução automática', e); }
       $('#b-lang').classList.toggle('hide', !this.sib);
       // a two-part switch: the language you're reading is lit, tap to change
       if (this.sib) { const cur = (rec.lang || '').slice(0, 2), oth = (this.sib.lang || '').slice(0, 2), ls = [cur, oth].sort((a, b) => (a === 'pt' ? -1 : b === 'pt' ? 1 : 0));
@@ -5439,7 +5441,7 @@ Return JSON: {"t": [translated strings, one per input item], "g": {new important
   // the next chapter is translated quietly while you read this one, so turning the page never waits
   pending: new Map(),
   ahead(rec, ch) {
-    if (!rec || this.mode(rec) === 'orig' || !AI.fn || !Book.data || ch < 0 || ch >= Book.data.count) return;
+    if (!rec || this.mode(rec) === 'orig' || !AI.fn || !Book.data || ch < 0 || ch >= Book.data.count || GemTTS.over()) return;
     const key = this.key(rec, ch); if (this.pending.has(key)) return;
     const run = (async () => {
       const have = await DB.get('kv', key).catch(() => null);
@@ -5455,6 +5457,17 @@ Return JSON: {"t": [translated strings, one per input item], "g": {new important
     })().catch(e => console.warn('tradução adiantada', e)).finally(() => this.pending.delete(key));
     this.pending.set(key, run);
   },
+  // the book follows the app language: a book only in the other language opens already translated.
+  // Nothing is spent until the book is opened; each chapter is translated once and kept on this device.
+  // If the reader picks a mode by hand (Original / Bilingual), that choice is kept for this book.
+  async auto(rec, data, sib) {
+    if (!rec || rec.trPick || rec.kind === 'comic') return;
+    const app = S.lang === 'en' ? 'en' : 'pt', src = (rec.lang || (data && data.lang) || '').slice(0, 2);
+    const hasOwn = sib && (sib.lang || '').slice(0, 2) === app;    // the same book exists in the app language: no need
+    if (src && src !== app && !hasOwn && AI.fn) {
+      if (rec.trMode !== 'tr' || rec.trTo !== app) { rec.trMode = 'tr'; rec.trTo = app; rec.trAuto = true; await saveRec(rec); }
+    } else if (rec.trAuto && rec.trMode !== 'orig' && (src === app || hasOwn)) { rec.trMode = 'orig'; rec.trAuto = false; await saveRec(rec); }
+  },
   // called by the reader for every chapter before it is laid out
   async apply(wrap, ch, rec) {
     const mode = this.mode(rec); if (mode === 'orig') return wrap;
@@ -5466,6 +5479,7 @@ Return JSON: {"t": [translated strings, one per input item], "g": {new important
     let tr = await DB.get('kv', this.key(rec, ch)).catch(() => null);
     if (!Array.isArray(tr) || tr.length !== texts.length || tr.some(x => x === null)) {
       if (!AI.fn) { toast(t('aiNeedKey')); return wrap; }
+      if (GemTTS.over()) { toast(t('gemBudgetHit', { b: GemTTS.money(GemTTS.budget()) }), 5000); if (!Array.isArray(tr)) return wrap; }
       const prev = Array.isArray(tr) && tr.length === texts.length ? tr : null;
       const need = texts.map((x, i) => prev && prev[i] ? null : i).filter(i => i !== null);
       busy(t('trChapter', { n: 0 }));
@@ -5494,7 +5508,7 @@ Return JSON: {"t": [translated strings, one per input item], "g": {new important
     return wGroup(t('readingLang'),
       wSeg([['orig', t('trOrig') + ' (' + (src === 'en' ? 'EN' : 'PT') + ')'], ['tr', t('trTrans') + ' (' + (tgt === 'en' ? 'EN' : 'PT') + ')'], ['bi', t('trBi')]], this.mode(rec), async x => {
         if (x !== 'orig' && !AI.fn) { Sheets.closeAll(); return aiKeySheet(); }
-        rec.trMode = x; await saveRec(rec); after && after();
+        rec.trMode = x; rec.trPick = true; if (x !== 'orig') rec.trTo = rec.trTo || this.target(rec); await saveRec(rec); after && after();
       }, 'wrap'),
       el('p', { class: 'muted', style: { fontSize: '12.5px', lineHeight: 1.45, margin: '8px 2px 0' }, text: t('trNote') }));
   },
@@ -6183,6 +6197,16 @@ const GemTTS = {
     if (S.gemNotify && Date.now() - (this.lastCheck || 0) > 5 * 60000) { this.lastCheck = Date.now(); setTimeout(() => this.checkFamily(), 2000); }
     return blob;
   },
+  // translation and other text AI also go into the same monthly count (estimated from the tokens Google reports)
+  addText(u) {
+    if (!u) return;
+    const tin = u.promptTokenCount || 0, tout = (u.candidatesTokenCount || 0) + (u.thoughtsTokenCount || 0);
+    const usd = (tin * 0.75 + tout * 4.5) / 1e6; if (!usd) return;
+    const s2 = this.spend(), b = this.budget(); s2.usd += usd; s2.req++; s2.dreq = (s2.dreq || 0) + 1;
+    if (!s2.warned && s2.usd >= b * 0.8) { s2.warned = true; setTimeout(() => toast(t('gemBudget80', { u: this.money(s2.usd), b: this.money(b) }), 7000), 50); }
+    this.save(s2); this.report();
+  },
+  over() { return this.spend().usd >= this.budget(); },
   // ---------- family spending: each device writes its month to gastos/<device>.json; only the payer's device adds it up and alerts ----------
   devId() { if (!S.devId) setS('devId', Math.random().toString(36).slice(2, 10)); return S.devId; },
   devName() { return /iPad|Tablet/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent)) ? t('gemTablet') : t('gemPhone'); },

@@ -54,7 +54,7 @@ Return JSON: {"t": [translated strings, one per input item], "g": {new important
   // the next chapter is translated quietly while you read this one, so turning the page never waits
   pending: new Map(),
   ahead(rec, ch) {
-    if (!rec || this.mode(rec) === 'orig' || !AI.fn || !Book.data || ch < 0 || ch >= Book.data.count) return;
+    if (!rec || this.mode(rec) === 'orig' || !AI.fn || !Book.data || ch < 0 || ch >= Book.data.count || GemTTS.over()) return;
     const key = this.key(rec, ch); if (this.pending.has(key)) return;
     const run = (async () => {
       const have = await DB.get('kv', key).catch(() => null);
@@ -70,6 +70,17 @@ Return JSON: {"t": [translated strings, one per input item], "g": {new important
     })().catch(e => console.warn('tradução adiantada', e)).finally(() => this.pending.delete(key));
     this.pending.set(key, run);
   },
+  // the book follows the app language: a book only in the other language opens already translated.
+  // Nothing is spent until the book is opened; each chapter is translated once and kept on this device.
+  // If the reader picks a mode by hand (Original / Bilingual), that choice is kept for this book.
+  async auto(rec, data, sib) {
+    if (!rec || rec.trPick || rec.kind === 'comic') return;
+    const app = S.lang === 'en' ? 'en' : 'pt', src = (rec.lang || (data && data.lang) || '').slice(0, 2);
+    const hasOwn = sib && (sib.lang || '').slice(0, 2) === app;    // the same book exists in the app language: no need
+    if (src && src !== app && !hasOwn && AI.fn) {
+      if (rec.trMode !== 'tr' || rec.trTo !== app) { rec.trMode = 'tr'; rec.trTo = app; rec.trAuto = true; await saveRec(rec); }
+    } else if (rec.trAuto && rec.trMode !== 'orig' && (src === app || hasOwn)) { rec.trMode = 'orig'; rec.trAuto = false; await saveRec(rec); }
+  },
   // called by the reader for every chapter before it is laid out
   async apply(wrap, ch, rec) {
     const mode = this.mode(rec); if (mode === 'orig') return wrap;
@@ -81,6 +92,7 @@ Return JSON: {"t": [translated strings, one per input item], "g": {new important
     let tr = await DB.get('kv', this.key(rec, ch)).catch(() => null);
     if (!Array.isArray(tr) || tr.length !== texts.length || tr.some(x => x === null)) {
       if (!AI.fn) { toast(t('aiNeedKey')); return wrap; }
+      if (GemTTS.over()) { toast(t('gemBudgetHit', { b: GemTTS.money(GemTTS.budget()) }), 5000); if (!Array.isArray(tr)) return wrap; }
       const prev = Array.isArray(tr) && tr.length === texts.length ? tr : null;
       const need = texts.map((x, i) => prev && prev[i] ? null : i).filter(i => i !== null);
       busy(t('trChapter', { n: 0 }));
@@ -109,7 +121,7 @@ Return JSON: {"t": [translated strings, one per input item], "g": {new important
     return wGroup(t('readingLang'),
       wSeg([['orig', t('trOrig') + ' (' + (src === 'en' ? 'EN' : 'PT') + ')'], ['tr', t('trTrans') + ' (' + (tgt === 'en' ? 'EN' : 'PT') + ')'], ['bi', t('trBi')]], this.mode(rec), async x => {
         if (x !== 'orig' && !AI.fn) { Sheets.closeAll(); return aiKeySheet(); }
-        rec.trMode = x; await saveRec(rec); after && after();
+        rec.trMode = x; rec.trPick = true; if (x !== 'orig') rec.trTo = rec.trTo || this.target(rec); await saveRec(rec); after && after();
       }, 'wrap'),
       el('p', { class: 'muted', style: { fontSize: '12.5px', lineHeight: 1.45, margin: '8px 2px 0' }, text: t('trNote') }));
   },
