@@ -182,7 +182,7 @@ const Starter = {
     try { cat = await (await fetch(this.base + 'catalogo.json', { cache: 'no-cache' })).json(); } catch (e) { return; }
     await this.tag(cat);
     const got = new Set(S.starterGot || []);
-    const todo = cat.filter(x => !got.has(x.file));
+    const todo = cat.filter(x => !x.remove && !got.has(x.file));
     if (!todo.length) return;
     const ban = el('div', { class: 'banner dl' }, icon('download'), el('div', { class: 'dlt' }, el('div', { class: 'dlm' }), el('div', { class: 'hbar' }, el('i'))));
     $('#l-banner').append(ban);
@@ -207,9 +207,12 @@ const Starter = {
   },
   async tag(cat) {
     let ch = false;
-    for (const b of await DB.all('books')) {
+    const all = await DB.all('books');
+    for (const b of all) {
       const x = cat.find(x => x.file === b.fname);
       if (!x) continue;
+      // tirado da estante (remove: true): sai do aparelho e não volta mais
+      if (x.remove) { for (const d of all.filter(d => d.id === b.id || d.fileOf === b.id)) { await DB.del('books', d.id); await DB.del('files', d.id); await DB.delPrefix('kv', 'pn:' + d.id + ':'); } ch = true; continue; }
       if (x.work && (b.work !== x.work || b.lang !== x.lang)) { b.work = x.work; b.lang = x.lang; await DB.put('books', b.id, b); ch = true; }
       else if (!x.work && x.lang && b.lang !== x.lang) { b.lang = x.lang; await DB.put('books', b.id, b); ch = true; }
       if (x.series && (b.series !== x.series || b.snum !== x.num)) { b.series = x.series; b.snum = x.num; await DB.put('books', b.id, b); ch = true; }

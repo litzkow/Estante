@@ -36,7 +36,8 @@ const Lib = {
     return null;
   },
   // new = arrived in the last week and never opened or set aside (like the NEW tag in Apple Books)
-  isNew(b) { return !b.seen && !b.opened && !b.pct && b.added && Date.now() - b.added < 7 * 864e5; },
+  // o Thiago não quer a parte "Chegaram agora" nem a etiqueta NOVO (27/11/2026)
+  isNew(b) { return false; },
   // back to the shelf as never opened: out of "Reading now" and "Continue reading" (translations already paid stay saved)
   async unstart(b) {
     b.pct = 0; b.pos = null; b.opened = 0; b.prevOpened = 0; b.seen = true; b.finished = false;
@@ -192,7 +193,8 @@ const Lib = {
     shelf(t('shNew'), group(fresh), { cls: 'fresh', sub: t('nNew', { n: fresh.length }), more: fresh.length > 3 ? go('new') : null });
     shelf(t('shReading'), all.filter(b => b.pct > 0 && !b.finished && (!cont || b.id !== cont.id)).sort(byRecent));
     const folders = [...series.entries()].filter(([, bs]) => bs.length > 1).sort((a, b) => last(b[1]) - last(a[1])).map(([name, bs]) => ({ folder: true, series: name, books: bs }));
-    const isComic = f => f.books.every(b => b.kind === 'comic');
+    // vale o que são os volumes numerados (The Walking Dead é quadrinho mesmo tendo romances em "Do mesmo universo")
+    const isComic = f => { const main = f.books.filter(b => !b.sextra); return (main.length ? main : f.books).every(b => b.kind === 'comic'); };
     shelf(t('shSeriesBooks'), folders.filter(f => !isComic(f)), { cls: 'series' });
     shelf(t('shSeriesComics'), folders.filter(isComic), { cls: 'series' });
     const loose = all.filter(b => (!b.series || series.get(b.series).length < 2) && !b.finished);

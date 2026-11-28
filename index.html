@@ -2007,7 +2007,8 @@ const Lib = {
     return null;
   },
   // new = arrived in the last week and never opened or set aside (like the NEW tag in Apple Books)
-  isNew(b) { return !b.seen && !b.opened && !b.pct && b.added && Date.now() - b.added < 7 * 864e5; },
+  // o Thiago não quer a parte "Chegaram agora" nem a etiqueta NOVO (27/11/2026)
+  isNew(b) { return false; },
   // back to the shelf as never opened: out of "Reading now" and "Continue reading" (translations already paid stay saved)
   async unstart(b) {
     b.pct = 0; b.pos = null; b.opened = 0; b.prevOpened = 0; b.seen = true; b.finished = false;
@@ -2163,7 +2164,8 @@ const Lib = {
     shelf(t('shNew'), group(fresh), { cls: 'fresh', sub: t('nNew', { n: fresh.length }), more: fresh.length > 3 ? go('new') : null });
     shelf(t('shReading'), all.filter(b => b.pct > 0 && !b.finished && (!cont || b.id !== cont.id)).sort(byRecent));
     const folders = [...series.entries()].filter(([, bs]) => bs.length > 1).sort((a, b) => last(b[1]) - last(a[1])).map(([name, bs]) => ({ folder: true, series: name, books: bs }));
-    const isComic = f => f.books.every(b => b.kind === 'comic');
+    // vale o que são os volumes numerados (The Walking Dead é quadrinho mesmo tendo romances em "Do mesmo universo")
+    const isComic = f => { const main = f.books.filter(b => !b.sextra); return (main.length ? main : f.books).every(b => b.kind === 'comic'); };
     shelf(t('shSeriesBooks'), folders.filter(f => !isComic(f)), { cls: 'series' });
     shelf(t('shSeriesComics'), folders.filter(isComic), { cls: 'series' });
     const loose = all.filter(b => (!b.series || series.get(b.series).length < 2) && !b.finished);
@@ -5091,7 +5093,7 @@ const Starter = {
     try { cat = await (await fetch(this.base + 'catalogo.json', { cache: 'no-cache' })).json(); } catch (e) { return; }
     await this.tag(cat);
     const got = new Set(S.starterGot || []);
-    const todo = cat.filter(x => !got.has(x.file));
+    const todo = cat.filter(x => !x.remove && !got.has(x.file));
     if (!todo.length) return;
     const ban = el('div', { class: 'banner dl' }, icon('download'), el('div', { class: 'dlt' }, el('div', { class: 'dlm' }), el('div', { class: 'hbar' }, el('i'))));
     $('#l-banner').append(ban);
@@ -5116,9 +5118,12 @@ const Starter = {
   },
   async tag(cat) {
     let ch = false;
-    for (const b of await DB.all('books')) {
+    const all = await DB.all('books');
+    for (const b of all) {
       const x = cat.find(x => x.file === b.fname);
       if (!x) continue;
+      // tirado da estante (remove: true): sai do aparelho e não volta mais
+      if (x.remove) { for (const d of all.filter(d => d.id === b.id || d.fileOf === b.id)) { await DB.del('books', d.id); await DB.del('files', d.id); await DB.delPrefix('kv', 'pn:' + d.id + ':'); } ch = true; continue; }
       if (x.work && (b.work !== x.work || b.lang !== x.lang)) { b.work = x.work; b.lang = x.lang; await DB.put('books', b.id, b); ch = true; }
       else if (!x.work && x.lang && b.lang !== x.lang) { b.lang = x.lang; await DB.put('books', b.id, b); ch = true; }
       if (x.series && (b.series !== x.series || b.snum !== x.num)) { b.series = x.series; b.snum = x.num; await DB.put('books', b.id, b); ch = true; }
