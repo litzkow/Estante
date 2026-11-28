@@ -89,7 +89,7 @@ const Lib = {
       f.books.push(b);
     }
     for (const f of seen.values()) f.books.sort((a, b) => sOrd(a) - sOrd(b));
-    return out.map(x => x.folder && x.books.length === 1 ? x.books[0] : x);
+    return out.map(x => x.folder && x.books.length === 1 && x.books[0].kind !== 'comic' ? x.books[0] : x);
   },
   collections() { const s = new Set(); for (const b of this.books) for (const c of b.collections || []) s.add(c); return [...s].sort(natCmp); },
   async render() {
@@ -188,16 +188,18 @@ const Lib = {
     for (const b of all) if (b.series) { if (!series.has(b.series)) series.set(b.series, []); series.get(b.series).push(b); }
     for (const bs of series.values()) bs.sort((a, b) => sOrd(a) - sOrd(b) || natCmp(bTitle(a), bTitle(b)));
     const last = bs => Math.max(...bs.map(x => x.opened || x.added || 0));
-    const group = list => { const out = [], seen = new Set(); for (const b of list) { if (!b.series) { out.push(b); continue; } if (seen.has(b.series)) continue; seen.add(b.series); const bs = series.get(b.series); out.push(bs.length > 1 ? { folder: true, series: b.series, books: bs } : b); } return out; };
+    // vira pasta quando tem mais de um livro; quadrinho de série vira pasta mesmo com um volume só (a série ainda vai crescer)
+    const isFolder = bs => bs.length > 1 || bs.every(b => b.kind === 'comic');
+    const group = list => { const out = [], seen = new Set(); for (const b of list) { if (!b.series) { out.push(b); continue; } if (seen.has(b.series)) continue; seen.add(b.series); const bs = series.get(b.series); out.push(isFolder(bs) ? { folder: true, series: b.series, books: bs } : b); } return out; };
     const fresh = all.filter(b => this.isNew(b)).sort((a, b) => (b.added || 0) - (a.added || 0));
     shelf(t('shNew'), group(fresh), { cls: 'fresh', sub: t('nNew', { n: fresh.length }), more: fresh.length > 3 ? go('new') : null });
     shelf(t('shReading'), all.filter(b => b.pct > 0 && !b.finished && (!cont || b.id !== cont.id)).sort(byRecent));
-    const folders = [...series.entries()].filter(([, bs]) => bs.length > 1).sort((a, b) => last(b[1]) - last(a[1])).map(([name, bs]) => ({ folder: true, series: name, books: bs }));
+    const folders = [...series.entries()].filter(([, bs]) => isFolder(bs)).sort((a, b) => last(b[1]) - last(a[1])).map(([name, bs]) => ({ folder: true, series: name, books: bs }));
     // vale o que são os volumes numerados (The Walking Dead é quadrinho mesmo tendo romances em "Do mesmo universo")
     const isComic = f => { const main = f.books.filter(b => !b.sextra); return (main.length ? main : f.books).every(b => b.kind === 'comic'); };
     shelf(t('shSeriesBooks'), folders.filter(f => !isComic(f)), { cls: 'series' });
     shelf(t('shSeriesComics'), folders.filter(isComic), { cls: 'series' });
-    const loose = all.filter(b => (!b.series || series.get(b.series).length < 2) && !b.finished);
+    const loose = all.filter(b => (!b.series || !isFolder(series.get(b.series))) && !b.finished);
     // books that only exist in the other language go to their own shelf, so the app reads all in Portuguese
     const other = b => b.kind !== 'comic' && b.lang && !b.lang.startsWith(S.lang === 'en' ? 'en' : 'pt') && !this.sibling(b);
     shelf(t('books'), loose.filter(b => b.kind !== 'comic' && !other(b)).sort(byRecent), { more: go('book') });
