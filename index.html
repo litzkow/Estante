@@ -6519,6 +6519,8 @@ const Family = {
       if (x.v && b.fv !== x.v) { b.fv = x.v; dirty = true; }
       if (Array.isArray(x.ins) && JSON.stringify(b.ins || []) !== JSON.stringify(x.ins)) { b.ins = x.ins.slice(); dirty = true; }
       if (x.kind && b.kind !== x.kind) { b.kind = x.kind; b.pos = null; dirty = true; }
+      // mangá: lê da direita para a esquerda (só se a pessoa ainda não escolheu a direção desse livro)
+      if (x.dir && (!b.prefs || b.prefs.dir === undefined)) { b.prefs = b.prefs || {}; b.prefs.dir = x.dir; dirty = true; }
       if (x.title && b.title !== x.title) { b.title = x.title; dirty = true; }
       if (x.titles && JSON.stringify(b.titles) !== JSON.stringify(x.titles)) { b.titles = x.titles; dirty = true; }
       if (JSON.stringify(b.seriesT || null) !== JSON.stringify(x.seriesT || null)) { b.seriesT = x.seriesT || null; dirty = true; }
