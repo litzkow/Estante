@@ -262,7 +262,6 @@ const Lib = {
   },
   card(b) {
     const cover = el('button', { class: 'cover', 'aria-label': bTitle(b), onclick: e => this.open(b.id, e.currentTarget) }, this.coverEl(b),
-      this.sibling(b) ? el('span', { class: 'badge', text: 'PT · EN' }) : null,
       this.isNew(b) ? el('span', { class: 'newtag', text: t('newTag') }) : null,
       b.finished ? el('span', { class: 'done' }, icon('check')) : null,
       (b.pct > 0 && !b.finished) ? el('div', { class: 'cbar' }, el('i', { style: { width: Math.round(b.pct * 100) + '%' } })) : null);
