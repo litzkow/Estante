@@ -92,6 +92,7 @@ const Family = {
       else if (!x.work && x.lang && b.lang !== x.lang) { b.lang = x.lang; dirty = true; }
       // extra: same universe, outside the numbered series (shown at the bottom of the folder, "Do mesmo universo")
       if (x.series && (b.series !== x.series || b.snum !== x.num || !!b.sextra !== !!x.extra)) { b.series = x.series; b.snum = x.extra ? undefined : x.num; b.sextra = !!x.extra; dirty = true; }
+      if (x.extra && (b.xnum || null) !== (x.num || null)) { b.xnum = x.num || null; dirty = true; }
       if (x.v && b.fv !== x.v) { b.fv = x.v; dirty = true; }
       if (Array.isArray(x.ins) && JSON.stringify(b.ins || []) !== JSON.stringify(x.ins)) { b.ins = x.ins.slice(); dirty = true; }
       if (x.kind && b.kind !== x.kind) { b.kind = x.kind; b.pos = null; dirty = true; }

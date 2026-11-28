@@ -2354,7 +2354,8 @@ function bTitle(b) {
   }
   return x;
 }
-function sOrd(b) { return b.sextra ? 1e6 : (b.snum || 0); }
+// books of the same universe come after the volumes, in their own reading order when the library gives one
+function sOrd(b) { return b.sextra ? 1e6 + (b.xnum || 999) : (b.snum || 0); }
 function volCount(bs) { const ex = bs.filter(b => b.sextra).length, n = bs.length - ex; return [n ? t('nVolumes', { n }) : '', ex ? t(ex === 1 ? 'nExtra1' : 'nExtra', { n: ex }) : ''].filter(Boolean).join(' · '); }
 function recCover(b) { return (b && S.lang === 'en' && b.coverEn instanceof Blob) ? b.coverEn : b && b.cover; }
 function serName(s) {
@@ -6514,6 +6515,7 @@ const Family = {
       else if (!x.work && x.lang && b.lang !== x.lang) { b.lang = x.lang; dirty = true; }
       // extra: same universe, outside the numbered series (shown at the bottom of the folder, "Do mesmo universo")
       if (x.series && (b.series !== x.series || b.snum !== x.num || !!b.sextra !== !!x.extra)) { b.series = x.series; b.snum = x.extra ? undefined : x.num; b.sextra = !!x.extra; dirty = true; }
+      if (x.extra && (b.xnum || null) !== (x.num || null)) { b.xnum = x.num || null; dirty = true; }
       if (x.v && b.fv !== x.v) { b.fv = x.v; dirty = true; }
       if (Array.isArray(x.ins) && JSON.stringify(b.ins || []) !== JSON.stringify(x.ins)) { b.ins = x.ins.slice(); dirty = true; }
       if (x.kind && b.kind !== x.kind) { b.kind = x.kind; b.pos = null; dirty = true; }

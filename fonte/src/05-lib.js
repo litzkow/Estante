@@ -383,7 +383,8 @@ function bTitle(b) {
   }
   return x;
 }
-function sOrd(b) { return b.sextra ? 1e6 : (b.snum || 0); }
+// books of the same universe come after the volumes, in their own reading order when the library gives one
+function sOrd(b) { return b.sextra ? 1e6 + (b.xnum || 999) : (b.snum || 0); }
 function volCount(bs) { const ex = bs.filter(b => b.sextra).length, n = bs.length - ex; return [n ? t('nVolumes', { n }) : '', ex ? t(ex === 1 ? 'nExtra1' : 'nExtra', { n: ex }) : ''].filter(Boolean).join(' · '); }
 function recCover(b) { return (b && S.lang === 'en' && b.coverEn instanceof Blob) ? b.coverEn : b && b.cover; }
 function serName(s) {
