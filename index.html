@@ -2165,7 +2165,7 @@ const Lib = {
     const fresh = all.filter(b => this.isNew(b)).sort((a, b) => (b.added || 0) - (a.added || 0));
     shelf(t('shNew'), group(fresh), { cls: 'fresh', sub: t('nNew', { n: fresh.length }), more: fresh.length > 3 ? go('new') : null });
     shelf(t('shReading'), all.filter(b => b.pct > 0 && !b.finished && (!cont || b.id !== cont.id)).sort(byRecent));
-    const folders = [...series.entries()].filter(([, bs]) => isFolder(bs)).sort((a, b) => last(b[1]) - last(a[1])).map(([name, bs]) => ({ folder: true, series: name, books: bs }));
+    const folders = [...series.entries()].filter(([, bs]) => isFolder(bs)).sort((a, b) => serName(a[0]).localeCompare(serName(b[0]), S.lang === 'en' ? 'en' : 'pt', { sensitivity: 'base', numeric: true })).map(([name, bs]) => ({ folder: true, series: name, books: bs }));  // séries sempre em ordem alfabética (pelo nome na língua do app)
     // vale o que são os volumes numerados (The Walking Dead é quadrinho mesmo tendo romances em "Do mesmo universo")
     const isComic = f => { const main = f.books.filter(b => !b.sextra); return (main.length ? main : f.books).every(b => b.kind === 'comic'); };
     shelf(t('shSeriesBooks'), folders.filter(f => !isComic(f)), { cls: 'series' });
